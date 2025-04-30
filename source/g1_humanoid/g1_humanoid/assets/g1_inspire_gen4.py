@@ -107,8 +107,8 @@ G1_INSPIRE_GEN4_CFG = ArticulationCfg(
                 ".*_shoulder_yaw_joint",
                 ".*_elbow_joint",
             ],
-            effort_limit=120,
-            velocity_limit=2.175,
+            effort_limit_sim=120,
+            velocity_limit_sim=2.175,
             stiffness=400.0,
             damping=80.0,
             armature={
@@ -122,8 +122,8 @@ G1_INSPIRE_GEN4_CFG = ArticulationCfg(
                 ".*_wrist_pitch_joint",
                 ".*_wrist_yaw_joint",
             ],
-            effort_limit=60,
-            velocity_limit=2.61,
+            effort_limit_sim=60,
+            velocity_limit_sim=2.61,
             stiffness=400.0,
             damping=80.0,
             armature={

@@ -33,6 +33,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from g1_humanoid.assets.g1_inspire_gen4 import G1_INSPIRE_GEN4_CFG
 from isaaclab_assets.robots.unitree import G1_CFG
 
+
 """
 Describe robot
 """
@@ -77,6 +78,9 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     sim_dt = sim.get_physics_dt()
     sim_time = 0.0
     count = 0
+    robot = scene["g1bot"]
+    print(robot.num_joints)
+    print(robot.joint_names)
 
     while simulation_app.is_running():
         scene.reset()
@@ -96,6 +100,7 @@ def main():
     # design scene
     scene_cfg = NewRobotsSceneCfg(args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
+
     # Play the simulator
     sim.reset()
     # Now we are ready!
