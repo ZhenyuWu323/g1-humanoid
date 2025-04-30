@@ -72,6 +72,7 @@ class NewRobotsSceneCfg(InteractiveSceneCfg):
 
     # robot
     g1bot = G1_INSPIRE_GEN4_CFG.replace(prim_path="{ENV_REGEX_NS}/G1bot")
+    #g2bot = G1_CFG.replace(prim_path="{ENV_REGEX_NS}/G2bot")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
