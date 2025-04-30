@@ -10,14 +10,14 @@ G1_INSPIRE_GEN4_CFG = ArticulationCfg(
         usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_gen4_update.usd", # fix mimic joint issue of left_middle_2_joint
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            disable_gravity=True,
+            disable_gravity=False,
             max_depenetration_velocity=5.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
-            solver_position_iteration_count=32,
-            solver_velocity_iteration_count=8,
-            fix_root_link=True,
+            solver_position_iteration_count=8,
+            solver_velocity_iteration_count=4,
+            #fix_root_link=True,
         ),
         # collision_props=sim_utils.CollisionPropertiesCfg(
         #     contact_offset=0.01, rest_offset=0.0
@@ -25,9 +25,9 @@ G1_INSPIRE_GEN4_CFG = ArticulationCfg(
         # joint_drive_props=sim_utils.JointDrivePropertiesCfg(drive_type="force"),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        # pos=(0.0, 0.0, 0.5),
+        pos=(0.0, 0.0, 0.74),
         joint_pos={".*": 0.0},
-        # joint_vel={".*": 0.0},
+        joint_vel={".*": 0.0},
     ),
     soft_joint_pos_limit_factor=0.9,
     actuators={
