@@ -1,0 +1,42 @@
+<sdf version="1.6">
+<world name="world_demo">
+<model name="onshape">
+<link name="part2">
+<frame name="part2_frame"><pose>0 0 0 0 -0 0</pose></frame>
+<visual name="part2_0_part1_visual">
+<pose>0 0 0 0 -0 0</pose>
+<geometry>
+<mesh><uri>file://part1.stl</uri></mesh>
+</geometry>
+<material><ambient>0.97254901960784312376 0.52941176470588235947 0.0039215686274509803377 1</ambient><diffuse>0.97254901960784312376 0.52941176470588235947 0.0039215686274509803377 1</diffuse><specular>0.1 0.1 0.1 1</specular><emissive>0 0 0 0</emissive></material>
+</visual>
+<collision name="part2_0_part1_visual">
+<pose>0 0 0 0 -0 0</pose>
+<geometry>
+<mesh><uri>file://scissor/part1.stl</uri></mesh>
+</geometry>
+</collision>
+<visual name="part2_1_part2_visual">
+<pose>0 0 0 0 -0 0</pose>
+<geometry>
+<mesh><uri>file://part2.stl</uri></mesh>
+</geometry>
+<material><ambient>0.76862745098039220171 0.88627450980392152857 0.95294117647058818044 1</ambient><diffuse>0.76862745098039220171 0.88627450980392152857 0.95294117647058818044 1</diffuse><specular>0.1 0.1 0.1 1</specular><emissive>0 0 0 0</emissive></material>
+</visual>
+<collision name="part2_1_part2_visual">
+<pose>0 0 0 0 -0 0</pose>
+<geometry>
+<mesh><uri>file://scissor/part2.stl</uri></mesh>
+</geometry>
+</collision>
+<inertial>
+<pose frame="part2_frame">0.00020544808610273440088 -0.0020292631430944125213 -0.029873148891268033744 0 0 0</pose>
+<mass>0.027181887166858424709</mass>
+<inertia><ixx>4.2134952109288532039e-05</ixx><ixy>-1.2675191389418623689e-09</ixy><ixz>4.4535942265730220591e-08</ixz><iyy>4.3939606915191531963e-05</iyy><iyz>5.3258910101831417696e-08</iyz><izz>1.8357248122909006162e-06</izz></inertia>
+</inertial>
+</link>
+
+
+</model>
+</world>
+</sdf>

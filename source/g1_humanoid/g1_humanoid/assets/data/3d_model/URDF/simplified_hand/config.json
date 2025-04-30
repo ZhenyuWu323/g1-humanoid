@@ -1,0 +1,6 @@
+{
+    "documentId": "38b97b6a897813a7f59ca988",
+    "outputFormat": "urdf",
+    "assemblyName": "hand",
+    "simplifySTLs": "no"
+}

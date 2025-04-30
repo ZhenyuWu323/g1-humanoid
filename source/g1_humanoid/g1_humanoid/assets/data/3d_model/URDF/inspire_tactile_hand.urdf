@@ -1,0 +1,1072 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="inspire_tactile_hand">
+  <joint name="World_inspire_gen4_hand_right_tactile_base_base_joint" type="fixed">
+    <origin xyz="0. 0. 0." rpy="1.57 -0. -1.57"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_base"/>
+    <child link="World_inspire_gen4_hand_right_tactile_hand_base_link"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_hand_base_link_right_index_1_joint" type="revolute">
+    <origin xyz="-0.040005 0.064623 -0.00345 " rpy="-1.5369525 -1.5707927 -3.1405327"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_index_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_hand_base_link_right_little_1_joint" type="revolute">
+    <origin xyz="0.02459 0.061875 -0.00345 " rpy="-1.6722852 -1.5707927 3.1383853"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_little_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_hand_base_link_right_middle_1_joint" type="revolute">
+    <origin xyz="-0.018426 0.065223 -0.00345 " rpy="-1.5544026 -1.5707927 3.1252024"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_middle_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_hand_base_link_right_ring_1_joint" type="revolute">
+    <origin xyz="0.0032044 0.065057 -0.00345 " rpy="-1.6217828 -1.5707927 3.1401827"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_ring_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_hand_base_link_right_thumb_1_joint" type="revolute">
+    <origin xyz="-0.028226 -0.0227776 -0.0239 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_thumb_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="-1.7" upper="0." effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_index_1_right_index_2_joint" type="revolute">
+    <origin xyz="-0.0016312 -0.00055 -0.032734 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_index_1"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_index_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_index_2_index_tip_joint" type="fixed">
+    <origin xyz="0. -0.006 -0.053575" rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_index_2"/>
+    <child link="World_inspire_gen4_hand_right_tactile_index_tip"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_little_1_right_little_2_joint" type="revolute">
+    <origin xyz="-0.005182 -0.00055 -0.032363" rpy="3.1415927 1.5707927 3.1415927"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_little_1"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_little_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_little_2_little_tip_joint" type="fixed">
+    <origin xyz="0.04365 -0.006 0.0045 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_little_2"/>
+    <child link="World_inspire_gen4_hand_right_tactile_little_tip"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_middle_1_right_middle_2_joint" type="revolute">
+    <origin xyz="-0.0028436 -0.00055 -0.032651 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_middle_1"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_middle_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_middle_2_middle_tip_joint" type="fixed">
+    <origin xyz="0. -0.006 -0.0572" rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_middle_2"/>
+    <child link="World_inspire_gen4_hand_right_tactile_middle_tip"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_ring_1_right_ring_2_joint" type="revolute">
+    <origin xyz="-0.0031431 -0.00055 -0.032624 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_ring_1"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_ring_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_ring_2_ring_tip_joint" type="fixed">
+    <origin xyz="0. -0.006 -0.05365" rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_ring_2"/>
+    <child link="World_inspire_gen4_hand_right_tactile_ring_tip"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_thumb_1_right_thumb_2_joint" type="revolute">
+    <origin xyz="-0.0063016 0.003 -0.011924 " rpy="-1.5707928 0.3490927 3.1065927"/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_thumb_1"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_thumb_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="0.865" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_thumb_2_right_thumb_3_joint" type="revolute">
+    <origin xyz="0.038292 -0.0015 -0.014535" rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_thumb_2"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_thumb_3"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="3.1399998" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_thumb_3_right_thumb_4_joint" type="revolute">
+    <origin xyz="0.018189 -0.0002 -0.012576" rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_thumb_3"/>
+    <child link="World_inspire_gen4_hand_right_tactile_right_thumb_4"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="3.1399998" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_right_thumb_4_thumb_tip_joint" type="fixed">
+    <origin xyz="0.0268 -0.007 -0.023 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_gen4_hand_right_tactile_right_thumb_4"/>
+    <child link="World_inspire_gen4_hand_right_tactile_thumb_tip"/>
+  </joint>
+  <joint name="World_inspire_gen4_hand_right_tactile_root_joint" type="fixed">
+    <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+    <parent link="World"/>
+    <child link="World_inspire_gen4_hand_right_tactile_base"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_base_base_joint" type="fixed">
+    <origin xyz="0. 0. 0." rpy="1.57 -0. -1.57"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_base"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_right_index_1_joint" type="revolute">
+    <origin xyz="-0.040005 0.064623 -0.00345 " rpy="-1.5369525 -1.5707927 -3.1405327"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_right_little_1_joint" type="revolute">
+    <origin xyz="0.02459 0.061875 -0.00345 " rpy="-1.6722852 -1.5707927 3.1383853"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_right_middle_1_joint" type="revolute">
+    <origin xyz="-0.018426 0.065223 -0.00345 " rpy="-1.5544026 -1.5707927 3.1252024"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_right_ring_1_joint" type="revolute">
+    <origin xyz="0.0032044 0.065057 -0.00345 " rpy="-1.6217828 -1.5707927 3.1401827"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_right_thumb_1_joint" type="revolute">
+    <origin xyz="-0.028226 -0.0227776 -0.0239 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_1"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="-1.7" upper="0." effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_1_right_index_2_joint" type="revolute">
+    <origin xyz="-0.0016312 -0.00055 -0.032734 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_1"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2_index_tip_joint" type="fixed">
+    <origin xyz="0. -0.006 -0.053575" rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_index_tip"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_1_right_little_2_joint" type="revolute">
+    <origin xyz="-0.005182 -0.00055 -0.032363" rpy="3.1415927 1.5707927 3.1415927"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_1"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2_little_tip_joint" type="fixed">
+    <origin xyz="0.04365 -0.006 0.0045 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_little_tip"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_1_right_middle_2_joint" type="revolute">
+    <origin xyz="-0.0028436 -0.00055 -0.032651 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_1"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2_middle_tip_joint" type="fixed">
+    <origin xyz="0. -0.006 -0.0572" rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_middle_tip"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_1_right_ring_2_joint" type="revolute">
+    <origin xyz="-0.0031431 -0.00055 -0.032624 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_1"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="1.5999999" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2_ring_tip_joint" type="fixed">
+    <origin xyz="0. -0.006 -0.05365" rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_ring_tip"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_1_right_thumb_2_joint" type="revolute">
+    <origin xyz="-0.0063016 0.003 -0.011924 " rpy="-1.5707928 0.3490927 3.1065927"/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_1"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_2"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="0.865" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_2_right_thumb_3_joint" type="revolute">
+    <origin xyz="0.038292 -0.0015 -0.014535" rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_2"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_3"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="3.1399998" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_3_right_thumb_4_joint" type="revolute">
+    <origin xyz="0.018189 -0.0002 -0.012576" rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_3"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4"/>
+    <axis xyz="0. 1. 0."/>
+    <limit lower="0." upper="3.1399998" effort="6." velocity="8.0000001"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4_thumb_tip_joint" type="fixed">
+    <origin xyz="0.0268 -0.007 -0.023 " rpy="0. 0. 0."/>
+    <parent link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_thumb_tip"/>
+  </joint>
+  <joint name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_root_joint" type="fixed">
+    <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+    <parent link="World"/>
+    <child link="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_base"/>
+  </joint>
+  <link name="World"/>
+  <link name="World_inspire_gen4_hand_right_tactile_base"/>
+  <link name="World_inspire_gen4_hand_right_tactile_hand_base_link">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.2"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_hand_base_link_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_hand_base_link_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_hand_base_link_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0000125 0.0309049 -0.0156538" rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_hand_base_link_tactile_palm.obj" scale="0.0751663 0.0305304 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_index_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_little_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_middle_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_index_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_1_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0118496 -0.0066372 -0.0193549" rpy="-0.168685 1.3358159 -0.1490296"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_1_tactile_index_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_index_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_2_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0083422 -0.0063358 -0.037123 " rpy="-3.0316715 1.2064729 -3.02373 "/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_2_tactile_index_02.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0113379 -0.0065724 -0.0484493" rpy="-0.2388384 1.4048103 -0.2205731"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_2_tactile_index_03.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0094278 -0.0067326 -0.052386 " rpy="-0.0648541 0.763078 -0.0351522"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_index_2_tactile_index_04.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_little_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_1_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0135794 -0.0066712 -0.0197416" rpy="-0.2237538 1.4126611 -0.2327296"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_1_tactile_little_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_little_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_2_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0431964 -0.0054806 -0.0005018" rpy="0.2481995 -1.0015658 -0.2087825"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_2_tactile_little_04.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0280381 -0.0055518 -0.0026273" rpy="0.1273656 0.1510897 0.0273178"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_2_tactile_little_02.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0397366 -0.0051363 -0.0031633" rpy="0.1350096 -0.3682838 -0.0408187"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_little_2_tactile_little_03.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_middle_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_1_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0125538 -0.0066704 -0.0197408" rpy="0.0250745 1.4165863 0.0191316"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_1_tactile_middle_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_middle_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_2_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0104404 -0.0059754 -0.0555845" rpy="-0.0460174 0.7661122 -0.0801246"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_2_tactile_middle_02.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0093055 -0.0058529 -0.0403204" rpy="-3.0705357 1.2052034 -3.1180472"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_2_tactile_middle_03.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0123307 -0.0057591 -0.0516409" rpy="-0.159085 1.4098794 -0.1998935"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_middle_2_tactile_middle_04.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_ring_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_1_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0127976 -0.0066689 -0.0197679" rpy="0.0194059 1.3710111 0.0133746"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_1_tactile_ring_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_ring_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_2_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0091443 -0.0059449 -0.0521977" rpy="-0.0460174 0.7661122 -0.0801246"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_2_tactile_ring_02.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0110346 -0.0057286 -0.0482542" rpy="-0.159085 1.4098794 -0.1998935"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_2_tactile_ring_03.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0080094 -0.0058224 -0.0369336" rpy="-3.0705357 1.2052034 -3.1180472"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_ring_2_tactile_ring_04.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_thumb_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0026834"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_1_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_thumb_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0055"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_2_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0143089 -0.0099968 -0.0249047" rpy="0. 0.0971489 -0.0438003"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_2_tactile_thumb_02.obj" scale="0.0184291 0.0156503 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_thumb_3">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0055"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_3_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_3_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_3_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0068583 -0.0083052 -0.0161117" rpy="-0.0207752 0.3442184 -0.0438003"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_3_tactile_thumb_03.obj" scale="0.014405 0.0108119 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_right_thumb_4">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0055"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_4_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_4_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_4_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.007371 -0.0072963 -0.0177239" rpy="-0.0665092 0.8215925 -0.0349041"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_4_tactile_thumb_04.obj" scale="0.0197342 0.0134308 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0160044 -0.0075504 -0.0261036" rpy="-0.015693 0.4920868 -0.020927 "/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_4_tactile_thumb_05.obj" scale="0.0041482 0.0134308 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0197188 -0.0076055 -0.0264617" rpy="-0.0139055 -0.1036401 -0.0120735"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_gen4_hand_right_tactile_right_thumb_4_tactile_thumb_06.obj" scale="0.003834 0.0116266 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_ring_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_gen4_hand_right_tactile_thumb_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_base"/>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.2"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0000125 0.0309049 -0.0156538" rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_hand_base_link_tactile_palm.obj" scale="0.0751663 0.0305304 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_index_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_little_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_middle_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0118496 -0.0066372 -0.0193549" rpy="-0.168685 1.3358159 -0.1490296"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_1_tactile_index_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0083422 -0.0063358 -0.037123 " rpy="-3.0316715 1.2064729 -3.02373 "/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2_tactile_index_02.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0113379 -0.0065724 -0.0484493" rpy="-0.2388384 1.4048103 -0.2205731"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2_tactile_index_03.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0094278 -0.0067326 -0.052386 " rpy="-0.0648541 0.763078 -0.0351522"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_index_2_tactile_index_04.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0135794 -0.0066712 -0.0197416" rpy="-0.2237538 1.4126611 -0.2327296"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_1_tactile_little_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0431964 -0.0054806 -0.0005018" rpy="0.2481995 -1.0015658 -0.2087825"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2_tactile_little_04.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0280381 -0.0055518 -0.0026273" rpy="0.1273656 0.1510897 0.0273178"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2_tactile_little_02.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0397366 -0.0051363 -0.0031633" rpy="0.1350096 -0.3682838 -0.0408187"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_little_2_tactile_little_03.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0125538 -0.0066704 -0.0197408" rpy="0.0250745 1.4165863 0.0191316"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_1_tactile_middle_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0104404 -0.0059754 -0.0555845" rpy="-0.0460174 0.7661122 -0.0801246"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2_tactile_middle_02.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0093055 -0.0058529 -0.0403204" rpy="-3.0705357 1.2052034 -3.1180472"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2_tactile_middle_03.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0123307 -0.0057591 -0.0516409" rpy="-0.159085 1.4098794 -0.1998935"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_middle_2_tactile_middle_04.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0063589"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0127976 -0.0066689 -0.0197679" rpy="0.0194059 1.3710111 0.0133746"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_1_tactile_ring_01.obj" scale="0.0245787 0.0145058 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.00645"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0091443 -0.0059449 -0.0521977" rpy="-0.0460174 0.7661122 -0.0801246"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2_tactile_ring_02.obj" scale="0.0037506 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0110346 -0.0057286 -0.0482542" rpy="-0.159085 1.4098794 -0.1998935"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2_tactile_ring_03.obj" scale="0.0056015 0.0116969 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.0080094 -0.0058224 -0.0369336" rpy="-3.0705357 1.2052034 -3.1180472"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_ring_2_tactile_ring_04.obj" scale="0.0173436 0.0131135 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_1">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0026834"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_1_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_2">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0055"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_2_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0143089 -0.0099968 -0.0249047" rpy="0. 0.0971489 -0.0438003"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_2_tactile_thumb_02.obj" scale="0.0184291 0.0156503 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_3">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0055"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_3_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0068583 -0.0083052 -0.0161117" rpy="-0.0207752 0.3442184 -0.0438003"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_3_tactile_thumb_03.obj" scale="0.014405 0.0108119 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.0055"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4_collisions.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.007371 -0.0072963 -0.0177239" rpy="-0.0665092 0.8215925 -0.0349041"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4_tactile_thumb_04.obj" scale="0.0197342 0.0134308 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0160044 -0.0075504 -0.0261036" rpy="-0.015693 0.4920868 -0.020927 "/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4_tactile_thumb_05.obj" scale="0.0041482 0.0134308 1. "/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.0197188 -0.0076055 -0.0264617" rpy="-0.0139055 -0.1036401 -0.0120735"/>
+      <geometry>
+        <mesh filename="meshes/World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_right_thumb_4_tactile_thumb_06.obj" scale="0.003834 0.0116266 1. "/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_ring_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+  <link name="World_inspire_tactile_hand_inspire_gen4_hand_right_tactile_thumb_tip">
+    <inertial>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <mass value="0.000001"/>
+      <inertia ixx="0." ixy="0." ixz="0." iyy="0." iyz="0." izz="0."/>
+    </inertial>
+  </link>
+</robot>

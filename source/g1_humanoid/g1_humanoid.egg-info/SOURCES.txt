@@ -1,0 +1,10 @@
+pyproject.toml
+setup.py
+g1_humanoid/__init__.py
+g1_humanoid/ui_extension_example.py
+g1_humanoid.egg-info/PKG-INFO
+g1_humanoid.egg-info/SOURCES.txt
+g1_humanoid.egg-info/dependency_links.txt
+g1_humanoid.egg-info/not-zip-safe
+g1_humanoid.egg-info/requires.txt
+g1_humanoid.egg-info/top_level.txt
