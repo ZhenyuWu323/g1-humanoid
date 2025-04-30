@@ -71,10 +71,6 @@ class NewRobotsSceneCfg(InteractiveSceneCfg):
 
     # robot
     g1bot = G1_INSPIRE_GEN4_CFG.replace(prim_path="{ENV_REGEX_NS}/G1bot")
-    g2bot = G1_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/G2bot", 
-        init_state=ArticulationCfg.InitialStateCfg(pos = (-0.3, 3.0, 0.74))
-    )
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):

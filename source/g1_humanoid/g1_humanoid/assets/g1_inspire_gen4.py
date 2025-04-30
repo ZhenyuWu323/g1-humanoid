@@ -4,25 +4,94 @@ from isaaclab.assets.articulation import ArticulationCfg
 
 from g1_humanoid.assets import ASSETS_DATA_DIR
 
-G1_INSPIRE_GEN4_CFG = ArticulationCfg(
+G1_INSPIRE_GEN4_CFG_2 = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        # usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_gen4.usd",
-        usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_gen4_update.usd", # fix mimic joint issue of left_middle_2_joint
+        usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_gen4_2.0.usd",
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
-            max_depenetration_velocity=5.0,
+            retain_accelerations=False,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=1000.0,
+            max_depenetration_velocity=1.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
             solver_position_iteration_count=8,
             solver_velocity_iteration_count=4,
-            #fix_root_link=True,
         ),
-        # collision_props=sim_utils.CollisionPropertiesCfg(
-        #     contact_offset=0.01, rest_offset=0.0
-        # ),
-        # joint_drive_props=sim_utils.JointDrivePropertiesCfg(drive_type="force"),
+    ),
+    init_state=ArticulationCfg.InitialStateCfg(
+        pos=(0.0, 0.0, 0.84),
+        joint_pos={".*": 0.0},
+        joint_vel={".*": 0.0},
+    ),
+    soft_joint_pos_limit_factor=0.9,
+    actuators={
+        "arm_shoulder": ImplicitActuatorCfg(
+            joint_names_expr=[
+                ".*_shoulder_roll_joint",
+                ".*_shoulder_pitch_joint",
+                ".*_shoulder_yaw_joint",
+                ".*_elbow_joint",
+            ],
+            effort_limit=300,
+            velocity_limit=100,
+            stiffness=40.0,
+            damping=10.0,
+        ),
+        "arm_forearm": ImplicitActuatorCfg(
+            joint_names_expr=[
+                ".*_wrist_roll_joint",
+                ".*_wrist_pitch_joint",
+                ".*_wrist_yaw_joint",
+            ],
+            effort_limit=300,
+            velocity_limit=100,
+            stiffness=40.0,
+            damping=10.0,
+        ),
+        "fingers": ImplicitActuatorCfg(
+            joint_names_expr=[
+                ".*_index_1_joint",
+                ".*_middle_1_joint",
+                ".*_ring_1_joint",
+                ".*_little_1_joint",
+                ".*_thumb_1_joint",
+                ".*_thumb_2_joint",
+            ],
+            velocity_limit_sim=5.0,
+            effort_limit_sim=5.0,
+            stiffness=1.0,
+            damping=0.1,
+        ),
+    },
+)
+"""Configuration for the Unitree G1 29 DoF Humanoid robot with Inspire Gen4 Hands."""
+
+
+
+
+G1_INSPIRE_GEN4_CFG = ArticulationCfg(
+    spawn=sim_utils.UsdFileCfg(
+        usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_gen4_update.usd",
+        activate_contact_sensors=False,
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            retain_accelerations=False,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=1000.0,
+            max_depenetration_velocity=1.0,
+        ),
+        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+            enabled_self_collisions=False,
+            solver_position_iteration_count=8,
+            solver_velocity_iteration_count=4,
+        ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.74),
@@ -70,45 +139,10 @@ G1_INSPIRE_GEN4_CFG = ArticulationCfg(
                 ".*_thumb_1_joint",
                 ".*_thumb_2_joint",
             ],
-            # velocity_limit=3.0,
-            # effort_limit={
-            #     ".*_index_1_joint": 5.0,
-            #     ".*_middle_1_joint": 5.0,
-            #     ".*_ring_1_joint": 5.0,
-            #     ".*_little_1_joint": 5.0,
-            #     ".*_thumb_1_joint": 5.0,
-            #     ".*_thumb_2_joint": 5.0,
-            # },
-            # stiffness={
-            #     ".*_index_1_joint": 5.0,
-            #     ".*_middle_1_joint": 5.0,
-            #     ".*_ring_1_joint": 5.0,
-            #     ".*_little_1_joint": 5.0,
-            #     ".*_thumb_1_joint": 5.0,
-            #     ".*_thumb_2_joint": 5.0,
-            # },
-            # damping={
-            #     ".*_index_1_joint": 0.5,
-            #     ".*_middle_1_joint": 0.5,
-            #     ".*_ring_1_joint": 0.5,
-            #     ".*_little_1_joint": 0.5,
-            #     ".*_thumb_1_joint": 0.5,
-            #     ".*_thumb_2_joint": 0.5,
-            # },
-            # armature={
-            #     ".*_index_1_joint": 0.001,
-            #     ".*_middle_1_joint": 0.001,
-            #     ".*_ring_1_joint": 0.001,
-            #     ".*_little_1_joint": 0.001,
-            #     ".*_thumb_1_joint": 0.001,
-            #     ".*_thumb_2_joint": 0.001,
-            # },
-            velocity_limit=10.0,
-            effort_limit=3.0,
-            stiffness=1.5,
-            damping=0.5,
-            friction=0.01,
+            velocity_limit_sim=5.0,
+            effort_limit_sim=5.0,
+            stiffness=1.0,
+            damping=0.1,
         ),
     },
 )
-"""Configuration for the Unitree G1 29 DoF Humanoid robot with Inspire Gen4 Hands."""
