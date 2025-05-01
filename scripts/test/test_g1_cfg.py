@@ -36,13 +36,8 @@ from g1_humanoid.assets import G1_INSPIRE_FTP
 
 
 """
-Describe robot
+Create a scene to test G1 ArticulationCfg
 """
-
-# Minimal to describe robot: spawn and actuators
-# USD check https://docs.isaacsim.omniverse.nvidia.com/latest/assets/usd_assets_robots.html
-
-
 
 class NewRobotsSceneCfg(InteractiveSceneCfg):
     """Designs the scene."""
@@ -72,22 +67,21 @@ class NewRobotsSceneCfg(InteractiveSceneCfg):
     )
 
     # robot
-    g1bot = G1_INSPIRE_FTP.replace(prim_path="{ENV_REGEX_NS}/G1bot")
-    '''g2bot = G1_INSPIRE_FTP.replace(
-        prim_path="{ENV_REGEX_NS}/G2bot",
-        init_state = RigidObjectCfg.InitialStateCfg(
+    g1_ftp = G1_INSPIRE_FTP.replace(prim_path="{ENV_REGEX_NS}/g1_ftp")
+    g1_dfq = G1_INSPIRE_DFQ.replace(
+        prim_path="{ENV_REGEX_NS}/g1_dfq",
+        init_state = ArticulationCfg.InitialStateCfg(
             pos = (-0.2, -1.0, 0.74)
         )
-    )'''
+    )
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     sim_dt = sim.get_physics_dt()
     sim_time = 0.0
     count = 0
-    '''robot = scene["g1bot"]
-    print(robot.num_joints)
-    print(robot.joint_names)'''
+    g1_ftq = scene['g1_ftp']
+    g1_dfq = scene['g1_dfq']
 
     while simulation_app.is_running():
         scene.reset()
