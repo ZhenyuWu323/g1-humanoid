@@ -21,6 +21,9 @@ It allows you to develop in an isolated environment, outside of the core Isaac L
 **G1 humanoid with inspire DFQ hand USD**
 - `source/g1_humanoid/assets/data/g1_inspire_DFQ.usd`： g1 humanoid with inspire DFQ hand
 
+**G1 humanoid ArticulationCfg**
+- `source/g1_humanoid/assets/g1_inspire.py`: articulation Cfg for both g1 with FTP and g1 with DFQ
+
 ## Installation
 
 - Install Isaac Lab by following the [installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html).
