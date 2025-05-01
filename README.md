@@ -1,4 +1,4 @@
-# Template for Isaac Lab Projects
+# G1 Humanoid Isaac Lab
 
 ## Overview
 
@@ -11,6 +11,15 @@ It allows you to develop in an isolated environment, outside of the core Isaac L
 - `Flexibility` This template is set up to allow your code to be run as an extension in Omniverse.
 
 **Keywords:** extension, template, isaaclab
+
+
+## Assets and USD
+
+**G1 humanoid with inspire FTP hand USD**
+- `source/g1_humanoid/assets/data/g1_inspire_FTP.usd`： g1 humanoid with inspire FTP hand
+
+**G1 humanoid with inspire DFQ hand USD**
+- `source/g1_humanoid/assets/data/g1_inspire_DFQ.usd`： g1 humanoid with inspire DFQ hand
 
 ## Installation
 
