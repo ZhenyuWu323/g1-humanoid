@@ -30,8 +30,9 @@ from isaaclab.assets import AssetBaseCfg, RigidObject, RigidObjectCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
-from g1_humanoid.assets.g1_inspire_gen4 import G1_INSPIRE_GEN4_CFG
+from g1_humanoid.assets import G1_INSPIRE_DFQ
 from isaaclab_assets.robots.unitree import G1_CFG
+from g1_humanoid.assets import G1_INSPIRE_FTP
 
 
 """
@@ -71,17 +72,22 @@ class NewRobotsSceneCfg(InteractiveSceneCfg):
     )
 
     # robot
-    g1bot = G1_INSPIRE_GEN4_CFG.replace(prim_path="{ENV_REGEX_NS}/G1bot")
-    #g2bot = G1_CFG.replace(prim_path="{ENV_REGEX_NS}/G2bot")
+    g1bot = G1_INSPIRE_FTP.replace(prim_path="{ENV_REGEX_NS}/G1bot")
+    '''g2bot = G1_INSPIRE_FTP.replace(
+        prim_path="{ENV_REGEX_NS}/G2bot",
+        init_state = RigidObjectCfg.InitialStateCfg(
+            pos = (-0.2, -1.0, 0.74)
+        )
+    )'''
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     sim_dt = sim.get_physics_dt()
     sim_time = 0.0
     count = 0
-    robot = scene["g1bot"]
+    '''robot = scene["g1bot"]
     print(robot.num_joints)
-    print(robot.joint_names)
+    print(robot.joint_names)'''
 
     while simulation_app.is_running():
         scene.reset()

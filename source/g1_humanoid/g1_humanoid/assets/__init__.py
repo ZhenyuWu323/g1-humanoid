@@ -20,6 +20,6 @@ if not os.path.exists(ASSETS_DATA_DIR):
 
 # Import other submodules or specific assets configurations
 try:
-    from .g1_inspire_gen4 import *  # Replace with actual submodules if needed
+    from .g1_inspire import *  # Replace with actual submodules if needed
 except ImportError:
     pass  # If no submodules exist, this can be safely ignored
