@@ -26,7 +26,7 @@ from . import agents
 """ G1 FTP Locomotion Flat """
 
 gym.register(
-    id="G1-FTP-Locomogion-Velocity-Flat-v0",
+    id="Template-G1-FTP-Locomogion-Velocity-Flat-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
@@ -37,7 +37,7 @@ gym.register(
 
 
 gym.register(
-    id="G1-FTP-Locomogion-Velocity-Flat-Play-v0",
+    id="Template-G1-FTP-Locomogion-Velocity-Flat-Play-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
