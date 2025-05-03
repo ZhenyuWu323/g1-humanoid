@@ -6,7 +6,7 @@ from g1_humanoid.assets import ASSETS_DATA_DIR
 
 G1_INSPIRE_FTP = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_FTP.usd",
+        usd_path=f"{ASSETS_DATA_DIR}/g1-inspire-ftp/g1_ftp.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -121,7 +121,7 @@ G1_INSPIRE_FTP = ArticulationCfg(
 
 G1_INSPIRE_DFQ = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ASSETS_DATA_DIR}/g1_inspire_DFQ.usd",
+        usd_path=f"{ASSETS_DATA_DIR}/g1-inspire-dfq/g1_dfq.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

@@ -16,10 +16,10 @@ It allows you to develop in an isolated environment, outside of the core Isaac L
 ## Assets and USD
 
 **G1 humanoid with inspire FTP hand USD**
-- `source/g1_humanoid/assets/data/g1_inspire_FTP.usd`： g1 humanoid with inspire FTP hand
+- `source/g1_humanoid/assets/data/g1-inspire-ftp/g1_ftp.usd`： g1 humanoid with inspire FTP hand
 
 **G1 humanoid with inspire DFQ hand USD**
-- `source/g1_humanoid/assets/data/g1_inspire_DFQ.usd`： g1 humanoid with inspire DFQ hand
+- `source/g1_humanoid/assets/data/g1-inspire-dfq/g1_dfq.usd`： g1 humanoid with inspire DFQ hand
 
 **G1 humanoid ArticulationCfg**
 - `source/g1_humanoid/assets/g1_inspire.py`: articulation Cfg for both g1 with FTP and g1 with DFQ
