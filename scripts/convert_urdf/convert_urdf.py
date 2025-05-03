@@ -66,10 +66,10 @@ parser.add_argument(
     help="The type of control to use for the joint drive.",
 )
 parser.add_argument(
-    "--convert-mimic-joints",
+    "--allow-mimic",
     type=bool,
-    default=True,
-    help="If convert mimic joints to normal joints"
+    default=False,
+    help="If Allow mimic joints"
 )
 
 # append AppLauncher cli args
@@ -90,9 +90,10 @@ import carb
 import isaacsim.core.utils.stage as stage_utils
 import omni.kit.app
 
-from isaaclab.sim.converters import UrdfConverter, UrdfConverterCfg
+from isaaclab.sim.converters import UrdfConverterCfg
 from isaaclab.utils.assets import check_file_path
 from isaaclab.utils.dict import print_dict
+from urdf_converter import UrdfConverter
 
 
 def main():
@@ -114,7 +115,8 @@ def main():
         usd_file_name=os.path.basename(dest_path),
         fix_base=args_cli.fix_base,
         merge_fixed_joints=args_cli.merge_joints,
-        convert_mimic_joints_to_normal_joints=True,
+        # NOTE: convert_mimic_joints_to_normal_joints need to be False to do conversion
+        convert_mimic_joints_to_normal_joints=args_cli.allow_mimic,
         force_usd_conversion=True,
         joint_drive=UrdfConverterCfg.JointDriveCfg(
             gains=UrdfConverterCfg.JointDriveCfg.PDGainsCfg(
