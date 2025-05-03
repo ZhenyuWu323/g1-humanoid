@@ -154,7 +154,13 @@ class G1FTPRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
         # terminations
-        self.terminations.base_contact.params["sensor_cfg"].body_names = "torso_link"
+        self.terminations.base_contact.params["sensor_cfg"].body_names = [
+            "torso_link",
+            ".*_shoulder_.*",
+            ".*_elbow_.*",
+            ".*_wrist_.*",
+            ".*_base_link"
+        ]
 
 
 @configclass
