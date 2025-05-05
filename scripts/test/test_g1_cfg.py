@@ -33,6 +33,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from g1_humanoid.assets import G1_INSPIRE_DFQ
 from isaaclab_assets.robots.unitree import G1_CFG
 from g1_humanoid.assets import G1_INSPIRE_FTP
+from isaaclab.sensors import ContactSensorCfg
 
 
 """
@@ -74,6 +75,8 @@ class NewRobotsSceneCfg(InteractiveSceneCfg):
             pos = (-0.2, -1.0, 0.74)
         )
     )
+    # sensor
+    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/g1_ftp/(?!.*shoulder).*", history_length=3, track_air_time=True)
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
