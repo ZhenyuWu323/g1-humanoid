@@ -118,7 +118,7 @@ hydra:
     override_dirname: ''
     id: ???
     num: ???
-    config_name: Template-G1-FTP-Locomotion-Velocity-Flat-v0
+    config_name: Template-G1-FTP-LowBody-Locomotion-Velocity-Flat-v0
     env_set: {}
     env_copy: []
     config:
@@ -140,7 +140,7 @@ hydra:
     - path: ''
       schema: structured
       provider: schema
-    output_dir: /workspace/g1-humanoid/scripts/rsl_rl/outputs/2025-05-05/07-38-24
+    output_dir: /workspace/g1-humanoid/scripts/rsl_rl/outputs/2025-05-08/03-26-30
     choices:
       hydra/env: default
       hydra/callbacks: null

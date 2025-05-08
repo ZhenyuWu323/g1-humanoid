@@ -1,0 +1,93 @@
+--- git status ---
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/g1_ftp_low_env_cfg.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/velocity_env_cfg.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/curriculums.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/rewards.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/terminations.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	scripts/rsl_rl/logs/rsl_rl/g1_flat/2025-05-08_03-26-30/
+	scripts/rsl_rl/outputs/2025-05-08/
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc b/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc
+index f7dba62..7fafdab 100644
+Binary files a/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc and b/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+index 8e7c027..a72b3a3 100644
+Binary files a/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc
+index 8c0f202..a701470 100644
+Binary files a/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc
+index c5daf77..ac9c1a2 100644
+Binary files a/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc
+index 093e06a..4f9b6fa 100644
+Binary files a/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc
+index 8543987..349bf8f 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc
+index 91c7b24..a30c92d 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc
+index fd7ca2e..398db62 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/g1_ftp_low_env_cfg.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/g1_ftp_low_env_cfg.cpython-310.pyc
+index 6bc4749..723a5a6 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/g1_ftp_low_env_cfg.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/g1_ftp_low_env_cfg.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/velocity_env_cfg.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/velocity_env_cfg.cpython-310.pyc
+index cdcd30f..bebe095 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/velocity_env_cfg.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/velocity_env_cfg.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc
+index c6d0366..1067580 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc
+index ca7b25a..f870210 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/__init__.cpython-310.pyc
+index 04f9e2e..6a10bc5 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/curriculums.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/curriculums.cpython-310.pyc
+index 5ae7a31..113ba18 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/curriculums.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/curriculums.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/rewards.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/rewards.cpython-310.pyc
+index b065e80..7c173a9 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/rewards.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/rewards.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/terminations.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/terminations.cpython-310.pyc
+index 7f5fc96..e5e7af3 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/terminations.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/mdp/__pycache__/terminations.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc
+index 79f6157..d10c619 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+index 437361f..0ed5062 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc
+index 9e864fe..64bc8a3 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc differ
