@@ -108,6 +108,11 @@ class G1FTPLowRewards(RewardsCfg):
 """G1 FTP Rough Terrian ENV"""
 @configclass
 class G1FTPLowRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
+
+    # HACK: Might need to remove waist roll and pitch from action space
+    # HACK: Might need to add reward to keep upper body upright (flat orientation)
+    # HACK: Might need to change action space (Remove upper body)
+
     rewards: G1FTPLowRewards = G1FTPLowRewards()
 
     def __post_init__(self):
