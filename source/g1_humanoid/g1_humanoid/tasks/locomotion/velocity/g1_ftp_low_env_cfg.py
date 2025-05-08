@@ -109,9 +109,9 @@ class G1FTPLowRewards(RewardsCfg):
 @configclass
 class G1FTPLowRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
-    # HACK: Might need to remove waist roll and pitch from action space
     # HACK: Might need to add reward to keep upper body upright (flat orientation)
     # HACK: Might need to change action space (Remove upper body)
+    # HACK: Add a reward: constact relative positition between waist and hand
 
     rewards: G1FTPLowRewards = G1FTPLowRewards()
 
