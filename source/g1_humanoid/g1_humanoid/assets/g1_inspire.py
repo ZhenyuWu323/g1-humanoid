@@ -25,11 +25,13 @@ G1_INSPIRE_FTP = ArticulationCfg(
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.74),
-        joint_pos={
-            ".*_hip_pitch_joint": -0.20,
-            ".*_knee_joint": 0.42,
-            ".*_ankle_pitch_joint": -0.23,
-        },
+        # TODO: Might need to use following joint positions for FTP
+        #joint_pos={
+        #    ".*_hip_pitch_joint": -0.10,
+        #    ".*_knee_joint": 0.30,
+        #    ".*_ankle_pitch_joint": -0.2,
+        #},
+        joint_pos={".*": 0.0},
         joint_vel={".*": 0.0},
     ),
     soft_joint_pos_limit_factor=0.9,
@@ -144,11 +146,13 @@ G1_INSPIRE_DFQ = ArticulationCfg(
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.74),
-        joint_pos={
-            ".*_hip_pitch_joint": -0.20,
-            ".*_knee_joint": 0.42,
-            ".*_ankle_pitch_joint": -0.23,
-        },
+        # TODO: Might need to use following joint positions for FTP
+        #joint_pos={
+        #    ".*_hip_pitch_joint": -0.20,
+        #    ".*_knee_joint": 0.42,
+        #    ".*_ankle_pitch_joint": -0.23,
+        #},
+        joint_pos={".*": 0.0},
         joint_vel={".*": 0.0},
     ),
     soft_joint_pos_limit_factor=0.9,

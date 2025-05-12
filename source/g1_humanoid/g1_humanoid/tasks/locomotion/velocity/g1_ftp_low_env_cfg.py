@@ -97,7 +97,7 @@ class G1FTPLowRewards(RewardsCfg):
     )
     joint_deviation_waist = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[
             "waist_yaw_joint",
             "waist_roll_joint",
@@ -155,7 +155,7 @@ class G1FTPLowRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # Rewards
         self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.0
+        self.rewards.flat_orientation_l2.weight = -3.0
         self.rewards.action_rate_l2.weight = -0.005
         self.rewards.dof_acc_l2.weight = -1.25e-7
         self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
