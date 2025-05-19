@@ -23,11 +23,11 @@ from . import agents
 """ G1 FTP Low Body Locomanipulation """
 
 gym.register(
-    id="Template-G1-FTP-LowBody-Locomotion-Velocity-Flat-v0",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    id="Template-G1-FTP-LowBody-Direct-Velocity-Flat-v0",
+    entry_point=f"{__name__}.g1_lowbody_env:G1LowBodyEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.g1_ftp_low_env_cfg:G1FTPLowFlatEnvCfg",
+        "env_cfg_entry_point": f"{__name__}.g1_lowbody_cfg:G1LowBodyEnvCfg",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatPPORunnerCfg",
     },
 )
