@@ -10,7 +10,8 @@ from isaaclab.assets import Articulation
 from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import quat_rotate
 from isaaclab.sensors import ContactSensor
-
+from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
+from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_lowbody_cfg import G1LowBodyEnvCfg
 
 
@@ -37,8 +38,14 @@ class G1LowBodyEnv(DirectRLEnv):
         # action offset and scale
         self.action_scale = self.cfg.action_scale
         self.default_joint_pos = self.robot.data.default_joint_pos[0]
-        self.default_lower_joint_pos = self.default_joint_pos[:,self.lower_body_indexes]
-        self.default_upper_joint_pos = self.default_joint_pos[:,self.upper_body_indexes]
+        self.default_lower_joint_pos = self.default_joint_pos[self.lower_body_indexes]
+        self.default_upper_joint_pos = self.default_joint_pos[self.upper_body_indexes]
+
+        # noise models
+        if self.cfg.obs_noise_models:
+            self.obs_noise_models = {}
+            for key, value in self.cfg.obs_noise_models.items():
+                self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
 
     def _setup_scene(self):
         # robot
@@ -57,13 +64,8 @@ class G1LowBodyEnv(DirectRLEnv):
 
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
+        self.cfg.sky_light_cfg.func("/World/Light", self.cfg.sky_light_cfg)
 
-        # add terrain
-        self.scene.terrains["terrain"] = self._terrain
-
-        # add lights
-        light_cfg = self.cfg.sky_light
-        light_cfg.func("/World/Light", light_cfg)
 
     def _pre_physics_step(self, actions: torch.Tensor):
         self.actions = actions.clone()
@@ -76,15 +78,28 @@ class G1LowBodyEnv(DirectRLEnv):
         # set upper body
         self.robot.set_joint_position_target(upper_body_target, self.upper_body_indexes)
 
+
     def _get_observations(self) -> dict:
         # relative joint positions and velocities
         joint_pos_rel = self.robot.data.joint_pos - self.robot.data.default_joint_pos
         joint_vel_rel = self.robot.data.joint_vel - self.robot.data.default_joint_vel
+        root_lin_vel_b = self.robot.data.root_lin_vel_b
+        root_ang_vel_b = self.robot.data.root_ang_vel_b
+        projected_gravity_b = self.robot.data.projected_gravity_b
+
+        # apply noise models
+        if self.obs_noise_models:
+            root_lin_vel_b = self.obs_noise_models["root_lin_vel_b"].apply(root_lin_vel_b)
+            root_ang_vel_b = self.obs_noise_models["root_ang_vel_b"].apply(root_ang_vel_b)
+            projected_gravity_b = self.obs_noise_models["projected_gravity_b"].apply(projected_gravity_b)
+            joint_pos_rel = self.obs_noise_models["joint_pos_rel"].apply(joint_pos_rel)
+            joint_vel_rel = self.obs_noise_models["joint_vel_rel"].apply(joint_vel_rel)
+
         # build task observation
         obs = compute_obs(
-            self.robot.data.root_lin_vel_b,
-            self.robot.data.root_ang_vel_b,
-            self.robot.data.projected_gravity_b,
+            root_lin_vel_b,
+            root_ang_vel_b,
+            projected_gravity_b,
             joint_pos_rel,
             joint_vel_rel,
             self.actions.clone()

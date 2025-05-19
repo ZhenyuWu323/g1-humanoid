@@ -13,7 +13,7 @@ from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
 from g1_humanoid.assets import G1_INSPIRE_FTP
-from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 
 @configclass
 class EventCfg:
@@ -119,7 +119,16 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     state_space = 0
 
     # obs noise
-    observation_noise_model: Unoise = Unoise(n_min=-0.1, n_max=0.1)
+    '''observation_noise_model: NoiseModelCfg = NoiseModelCfg(
+        noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)
+    )'''
+    obs_noise_models: dict[str, NoiseModelCfg] = {
+        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
+        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
+        "joint_pos_rel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
+        "joint_vel_rel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
+    }
 
 
     # terrain configuration
@@ -144,13 +153,9 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     )
 
     # lights
-    sky_light = AssetBaseCfg(
-        prim_path="/World/skyLight",
-        spawn=sim_utils.DomeLightCfg(
-            intensity=750.0,
-            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
-        ),
-    )
+    sky_light_cfg = sim_utils.DomeLightCfg(
+        intensity=750.0,
+        texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
 
     # robot configuration
     robot: ArticulationCfg = G1_INSPIRE_FTP.replace(prim_path="/World/envs/env_.*/Robot")
