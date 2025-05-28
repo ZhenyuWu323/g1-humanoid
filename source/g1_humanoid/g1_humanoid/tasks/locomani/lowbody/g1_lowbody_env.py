@@ -25,12 +25,16 @@ class G1LowBodyEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
 
         # DOF and key body indexes
-        self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso link
+        # joint indexes
         self.upper_body_indexes = self.robot.find_joints(self.cfg.upper_body_names)[0] # arm and fingers
         self.feet_indexes = self.robot.find_joints(self.cfg.feet_names)[0]
         self.waist_indexes = self.robot.find_joints(self.cfg.waist_names)[0]
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
+
+        # body/link indexes
+        self.feet_body_indexes = self.robot.find_bodies(self.cfg.feet_body_name)[0]
+        self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso link
 
         # action offset and scale
         self.action_scale = self.cfg.action_scale
@@ -219,10 +223,19 @@ class G1LowBodyEnv(DirectRLEnv):
         """
         # feet slides penalty
         feet_slide_penalty = mdp.feet_slide(
-            env=self,
+            body_lin_vel_w=self.robot.data.body_lin_vel_w,
+            contact_sensor=self._contact_sensor,
+            feet_body_indexes=self.feet_body_indexes,
             weight=self.cfg.reward_scales["feet_slide"],
-            sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            asset_cfg=SceneEntityCfg("robot", body_names=self.cfg.feet_names),
+        )
+
+        # feet air time
+        feet_air_time = mdp.feet_air_time_positive_biped(
+            vel_command=self.velocity_command.command,
+            contact_sensor=self._contact_sensor,
+            feet_body_indexes=self.feet_body_indexes,
+            threshold=0.4,
+            weight=self.cfg.reward_scales["feet_air_time"],
         )
 
         # reward

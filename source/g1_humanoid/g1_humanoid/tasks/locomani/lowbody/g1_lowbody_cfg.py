@@ -186,6 +186,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
 
     lower_body_names = waist_names + hips_names + feet_names
     upper_body_names = arm_names + finger_names
+    feet_body_name = ".*_ankle_roll_link"
 
 
 

@@ -122,9 +122,7 @@ def termination_penalty(terminated: torch.Tensor, weight: float) -> torch.Tensor
     return terminated * weight
 
 
-def feet_air_time(
-    env: DirectRLEnv, vel_command: torch.Tensor, sensor_cfg: SceneEntityCfg, threshold: float, weight: float
-) -> torch.Tensor:
+def feet_air_time(vel_command: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], step_dt: float, threshold: float, weight: float) -> torch.Tensor:
     """Reward long steps taken by the feet using L2-kernel.
 
     This function rewards the agent for taking steps that are longer than a threshold. This helps ensure
@@ -133,18 +131,16 @@ def feet_air_time(
 
     If the commands are small (i.e. the agent is not supposed to take a step), then the reward is zero.
     """
-    # extract the used quantities (to enable type-hinting)
-    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-    # compute the reward
-    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids]
-    last_air_time = contact_sensor.data.last_air_time[:, sensor_cfg.body_ids]
+
+    first_contact = contact_sensor.compute_first_contact(step_dt)[:, feet_body_indexes]
+    last_air_time = contact_sensor.data.last_air_time[:, feet_body_indexes]
     reward = torch.sum((last_air_time - threshold) * first_contact, dim=1)
     # no reward for zero command
     reward *= torch.norm(vel_command[:, :2], dim=1) > 0.1
     return reward * weight
 
 
-def feet_air_time_positive_biped(env, vel_command: torch.Tensor, threshold: float, sensor_cfg: SceneEntityCfg, weight: float) -> torch.Tensor:
+def feet_air_time_positive_biped(vel_command: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], threshold: float, weight: float) -> torch.Tensor:
     """Reward long steps taken by the feet for bipeds.
 
     This function rewards the agent for taking steps up to a specified threshold and also keep one foot at
@@ -152,10 +148,9 @@ def feet_air_time_positive_biped(env, vel_command: torch.Tensor, threshold: floa
 
     If the commands are small (i.e. the agent is not supposed to take a step), then the reward is zero.
     """
-    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-    # compute the reward
-    air_time = contact_sensor.data.current_air_time[:, sensor_cfg.body_ids]
-    contact_time = contact_sensor.data.current_contact_time[:, sensor_cfg.body_ids]
+
+    air_time = contact_sensor.data.current_air_time[:, feet_body_indexes]
+    contact_time = contact_sensor.data.current_contact_time[:, feet_body_indexes]
     in_contact = contact_time > 0.0
     in_mode_time = torch.where(in_contact, contact_time, air_time)
     single_stance = torch.sum(in_contact.int(), dim=1) == 1
@@ -166,19 +161,14 @@ def feet_air_time_positive_biped(env, vel_command: torch.Tensor, threshold: floa
     return reward * weight
 
 
-def feet_slide(env, weight: float, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+def feet_slide(body_lin_vel_w: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], weight: float) -> torch.Tensor:
     """Penalize feet sliding.
 
     This function penalizes the agent for sliding its feet on the ground. The reward is computed as the
     norm of the linear velocity of the feet multiplied by a binary contact sensor. This ensures that the
     agent is penalized only when the feet are in contact with the ground.
     """
-    # Penalize feet sliding
-    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-    contacts = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :].norm(dim=-1).max(dim=1)[0] > 1.0
-    asset = env.scene[asset_cfg.name]
-
-    body_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2]
-    reward = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
+    contacts = contact_sensor.data.net_forces_w_history[:, :, feet_body_indexes, :].norm(dim=-1).max(dim=1)[0] > 1.0
+    feet_vel = body_lin_vel_w[:, feet_body_indexes, :2]
+    reward = torch.sum(feet_vel.norm(dim=-1) * contacts, dim=1)
     return reward * weight
-
