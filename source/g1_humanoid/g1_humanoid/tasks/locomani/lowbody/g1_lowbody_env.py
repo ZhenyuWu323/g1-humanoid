@@ -239,7 +239,9 @@ class G1LowBodyEnv(DirectRLEnv):
         )
 
         # reward
-        reward = lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + flat_orientation_penalty + joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + joint_torques_l2 + joint_accelerations_l2 + action_rate + feet_slide_penalty
+        reward = (lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + flat_orientation_penalty + 
+                 joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + 
+                 joint_torques_l2 + joint_accelerations_l2 + action_rate + feet_slide_penalty + feet_air_time) * self.step_dt
         return reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
