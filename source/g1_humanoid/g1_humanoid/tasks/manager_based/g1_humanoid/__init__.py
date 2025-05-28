@@ -12,7 +12,7 @@ from . import agents
 ##
 
 
-gym.register(
+'''gym.register(
     id="Template-G1-Humanoid-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
@@ -20,4 +20,4 @@ gym.register(
         "env_cfg_entry_point": f"{__name__}.g1_humanoid_env_cfg:G1HumanoidEnvCfg",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
     },
-)
+)'''

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 
 import torch
 
@@ -13,6 +14,7 @@ from isaaclab.sensors import ContactSensor
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_lowbody_cfg import G1LowBodyEnvCfg
+from . import mdp
 
 
 class G1LowBodyEnv(DirectRLEnv):
@@ -46,6 +48,10 @@ class G1LowBodyEnv(DirectRLEnv):
             self.obs_noise_models = {}
             for key, value in self.cfg.obs_noise_models.items():
                 self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
+
+
+        # body velocity command 
+        self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
 
     def _setup_scene(self):
         # robot
@@ -95,6 +101,9 @@ class G1LowBodyEnv(DirectRLEnv):
             joint_pos_rel = self.obs_noise_models["joint_pos_rel"].apply(joint_pos_rel)
             joint_vel_rel = self.obs_noise_models["joint_vel_rel"].apply(joint_vel_rel)
 
+        # get command
+        vel_command = self.velocity_command.command
+
         # build task observation
         obs = compute_obs(
             root_lin_vel_b,
@@ -102,6 +111,7 @@ class G1LowBodyEnv(DirectRLEnv):
             projected_gravity_b,
             joint_pos_rel,
             joint_vel_rel,
+            vel_command,
             self.actions.clone()
         )
 
@@ -121,7 +131,10 @@ class G1LowBodyEnv(DirectRLEnv):
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
+        # reset robot
         self.robot.reset(env_ids)
+        # reset command
+        self.velocity_command._resample_command(env_ids)
         super()._reset_idx(env_ids)
 
 
@@ -132,6 +145,7 @@ def compute_obs(
     projected_gravity_b: torch.Tensor,
     joint_pos_rel: torch.Tensor,
     joint_vel_rel: torch.Tensor,
+    vel_command: torch.Tensor,
     actions: torch.Tensor,
 ) -> torch.Tensor:
     
@@ -142,6 +156,7 @@ def compute_obs(
             projected_gravity_b,
             joint_pos_rel,
             joint_vel_rel,
+            vel_command,
             actions,
         ),
         dim=-1,
