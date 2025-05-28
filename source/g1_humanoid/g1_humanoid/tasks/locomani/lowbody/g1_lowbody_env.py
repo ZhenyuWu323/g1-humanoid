@@ -14,6 +14,7 @@ from isaaclab.sensors import ContactSensor
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_lowbody_cfg import G1LowBodyEnvCfg
+from isaaclab.managers import SceneEntityCfg
 from . import mdp
 
 
@@ -22,12 +23,6 @@ class G1LowBodyEnv(DirectRLEnv):
 
     def __init__(self, cfg: G1LowBodyEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
-
-        '''# action offset and scale
-        dof_lower_limits = self.robot.data.soft_joint_pos_limits[0, :, 0]
-        dof_upper_limits = self.robot.data.soft_joint_pos_limits[0, :, 1]
-        self.action_offset = 0.5 * (dof_upper_limits + dof_lower_limits)
-        self.action_scale = dof_upper_limits - dof_lower_limits'''
 
         # DOF and key body indexes
         self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso
@@ -119,6 +114,50 @@ class G1LowBodyEnv(DirectRLEnv):
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
+
+        """
+        Tracking Rewards
+        """
+        # linear velocity tracking
+        lin_vel_xy_reward = mdp.track_lin_vel_xy_yaw_frame_exp(
+            root_quat_w=self.robot.data.root_quat_w,
+            root_lin_vel_w=self.robot.data.root_lin_vel_w,
+            vel_command=self.velocity_command.command,
+            std=0.5,
+            weight=self.cfg.reward_scales["track_lin_vel_xy_exp"],
+        )
+
+        # angular velocity tracking
+        ang_vel_z_reward = mdp.track_ang_vel_z_world_exp(
+            root_ang_vel_w=self.robot.data.root_ang_vel_w,
+            vel_command=self.velocity_command.command,
+            std=0.5,
+            weight=self.cfg.reward_scales["track_ang_vel_z_exp"],
+        )
+
+        """
+        Panelty Term
+        """
+        # terminate when the robot falls
+        died, _ = self._get_dones()
+        die_penalty = mdp.termination_penalty(died, weight=self.cfg.reward_scales["termination_penalty"])
+
+        # linear velocity z
+        lin_vel_z_penalty = mdp.lin_vel_z_l2(
+            root_lin_vel_b=self.robot.data.root_lin_vel_b,
+            weight=self.cfg.reward_scales["lin_vel_z_l2"],
+        )
+
+        # flat orientation
+        flat_orientation_penalty = mdp.flat_orientation_l2(
+            projected_gravity_b=self.robot.data.projected_gravity_b,
+            weight=self.cfg.reward_scales["flat_orientation_l2"],
+        )
+
+        # reward
+        reward = lin_vel_xy_reward + ang_vel_z_reward
+       
+        
         return torch.ones((self.num_envs,), dtype=torch.float32, device=self.sim.device)
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
