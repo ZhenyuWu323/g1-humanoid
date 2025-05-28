@@ -25,7 +25,7 @@ class G1LowBodyEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
 
         # DOF and key body indexes
-        self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso
+        self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso link
         self.upper_body_indexes = self.robot.find_joints(self.cfg.upper_body_names)[0] # arm and fingers
         self.feet_indexes = self.robot.find_joints(self.cfg.feet_names)[0]
         self.waist_indexes = self.robot.find_joints(self.cfg.waist_names)[0]
@@ -47,6 +47,10 @@ class G1LowBodyEnv(DirectRLEnv):
 
         # body velocity command 
         self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
+
+        # actions and previous actions (only lower body DOFs are in action space)
+        self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
     def _setup_scene(self):
         # robot
@@ -79,8 +83,11 @@ class G1LowBodyEnv(DirectRLEnv):
         # set upper body
         self.robot.set_joint_position_target(upper_body_target, self.upper_body_indexes)
 
-
     def _get_observations(self) -> dict:
+
+        # update previous actions
+        self.prev_actions = self.actions.clone()
+
         # relative joint positions and velocities
         joint_pos_rel = self.robot.data.joint_pos - self.robot.data.default_joint_pos
         joint_vel_rel = self.robot.data.joint_vel - self.robot.data.default_joint_vel
@@ -110,7 +117,7 @@ class G1LowBodyEnv(DirectRLEnv):
             self.actions.clone()
         )
 
-        observations = {"policy": obs}
+        observations = {"policy": obs} # NOTE: need to add 'critic' key for asymmetric policies
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
@@ -154,11 +161,73 @@ class G1LowBodyEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["flat_orientation_l2"],
         )
 
+        # joint deviation waist
+        joint_deviation_waist = mdp.joint_deviation_l1(
+            joint_pos=self.robot.data.joint_pos,
+            default_joint_pos=self.robot.data.default_joint_pos,
+            joint_idx=self.waist_indexes,
+            weight=self.cfg.reward_scales["joint_deviation_waist"],
+        )
+
+        # joint deviation upper body (arms and fingers)
+        joint_deviation_upper_body = mdp.joint_deviation_l1(
+            joint_pos=self.robot.data.joint_pos,
+            default_joint_pos=self.robot.data.default_joint_pos,
+            joint_idx=self.upper_body_indexes,
+            weight=self.cfg.reward_scales["joint_deviation_upper_body"],
+        )
+
+        # joint deviation hips
+        joint_deviation_hips = mdp.joint_deviation_l1(
+            joint_pos=self.robot.data.joint_pos,
+            default_joint_pos=self.robot.data.default_joint_pos,
+            joint_idx=self.hips_indexes,
+            weight=self.cfg.reward_scales["joint_deviation_hips"],
+        )
+
+        # joint position limits
+        joint_pos_limits = mdp.joint_pos_limits(
+            joint_pos=self.robot.data.joint_pos,
+            soft_joint_pos_limits=self.robot.data.soft_joint_pos_limits,
+            joint_idx=self.lower_body_indexes + self.upper_body_indexes,
+            weight=self.cfg.reward_scales["dof_pos_limits"],
+        )
+
+        # joint torques
+        joint_torques_l2 = mdp.joint_torque_l2(
+            joint_torque=self.robot.data.applied_torque,
+            joint_idx=self.lower_body_indexes + self.upper_body_indexes,
+            weight=self.cfg.reward_scales["dof_torques_l2"],
+        )
+
+        # joint accelerations
+        joint_accelerations_l2 = mdp.joint_accel_l2(
+            joint_accel=self.robot.data.joint_acc,
+            joint_idx=self.lower_body_indexes + self.upper_body_indexes,
+            weight=self.cfg.reward_scales["dof_acc_l2"],
+        )
+
+        # action rate
+        action_rate = mdp.action_rate_l2(
+            action=self.actions,
+            prev_action=self.prev_actions,
+            weight=self.cfg.reward_scales["action_rate_l2"],
+        )
+
+        """
+        Feet Contact Rewards
+        """
+        # feet slides penalty
+        feet_slide_penalty = mdp.feet_slide(
+            env=self,
+            weight=self.cfg.reward_scales["feet_slide"],
+            sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            asset_cfg=SceneEntityCfg("robot", body_names=self.cfg.feet_names),
+        )
+
         # reward
-        reward = lin_vel_xy_reward + ang_vel_z_reward
-       
-        
-        return torch.ones((self.num_envs,), dtype=torch.float32, device=self.sim.device)
+        reward = lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + flat_orientation_penalty + joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + joint_torques_l2 + joint_accelerations_l2 + action_rate + feet_slide_penalty
+        return reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         # time out
@@ -174,6 +243,9 @@ class G1LowBodyEnv(DirectRLEnv):
         self.robot.reset(env_ids)
         # reset command
         self.velocity_command._resample_command(env_ids)
+        # reset actions
+        self.actions[env_ids] = 0.0
+        self.prev_actions[env_ids] = 0.0
         super()._reset_idx(env_ids)
 
 

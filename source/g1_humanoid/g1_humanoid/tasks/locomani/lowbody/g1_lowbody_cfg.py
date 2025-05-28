@@ -115,7 +115,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
 
     # MDP configuration
     observation_space = 133
-    action_space = 15
+    action_space = 15 # NOTE: Only lower body DOFs are in action space
     action_scale = 0.5
     state_space = 0
 
@@ -207,8 +207,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
         "track_ang_vel_z_exp": 1.0,
         "feet_air_time": 0.75,
         "joint_deviation_waist": -0.5,
-        "joint_deviation_fingers": -0.05,
-        "joint_deviation_arms": -0.1,
+        "joint_deviation_upper_body": -0.1,
         "joint_deviation_hips": -0.1,
         "dof_pos_limits": -1.0,
         "feet_slide": -0.1,
