@@ -201,13 +201,13 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     # reward scales
     reward_scales = {
         "lin_vel_z_l2": -0.2,
-        "flat_orientation_l2": -3.0,
+        "flat_orientation_l2": -1.0, #-3.0
         "action_rate_l2": -0.005,
         "dof_acc_l2": -1.0e-7,
         "dof_torques_l2": -2.0e-6,
         "track_ang_vel_z_exp": 1.0,
         "feet_air_time": 0.75,
-        "joint_deviation_waist": -0.5,
+        "joint_deviation_waist": -0.1, #-0.5
         "joint_deviation_upper_body": -0.1,
         "joint_deviation_hips": -0.1,
         "dof_pos_limits": -1.0,
