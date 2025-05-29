@@ -67,6 +67,13 @@ def lin_vel_z_l2(root_lin_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
     return torch.square(root_lin_vel_b[:, 2]) * weight
 
 
+def ang_vel_xy_l2(root_ang_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
+    """Penalize xy-axis base angular velocity using L2 squared kernel."""
+
+    return torch.sum(torch.square(root_ang_vel_b[:, :2]), dim=1) * weight
+
+
+
 def flat_orientation_l2(projected_gravity_b: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize non-flat base orientation using L2 squared kernel.
 

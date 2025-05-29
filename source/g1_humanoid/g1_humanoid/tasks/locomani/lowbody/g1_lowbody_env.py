@@ -29,6 +29,7 @@ class G1LowBodyEnv(DirectRLEnv):
         self.upper_body_indexes = self.robot.find_joints(self.cfg.upper_body_names)[0] # arm and fingers
         self.feet_indexes = self.robot.find_joints(self.cfg.feet_names)[0]
         self.waist_indexes = self.robot.find_joints(self.cfg.waist_names)[0]
+        self.hips_yaw_roll_indexes = self.robot.find_joints(self.cfg.hips_names[:2])[0]
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
 
@@ -159,6 +160,12 @@ class G1LowBodyEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["lin_vel_z_l2"],
         )
 
+        # angular velocity xy
+        ang_vel_xy_penalty = mdp.ang_vel_xy_l2(
+            root_ang_vel_b=self.robot.data.root_ang_vel_b,
+            weight=self.cfg.reward_scales["ang_vel_xy_l2"],
+        )
+
         # flat orientation
         flat_orientation_penalty = mdp.flat_orientation_l2(
             projected_gravity_b=self.robot.data.projected_gravity_b,
@@ -185,7 +192,7 @@ class G1LowBodyEnv(DirectRLEnv):
         joint_deviation_hips = mdp.joint_deviation_l1(
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
-            joint_idx=self.hips_indexes,
+            joint_idx=self.hips_yaw_roll_indexes,
             weight=self.cfg.reward_scales["joint_deviation_hips"],
         )
 
@@ -193,21 +200,21 @@ class G1LowBodyEnv(DirectRLEnv):
         joint_pos_limits = mdp.joint_pos_limits(
             joint_pos=self.robot.data.joint_pos,
             soft_joint_pos_limits=self.robot.data.soft_joint_pos_limits,
-            joint_idx=self.lower_body_indexes + self.upper_body_indexes,
+            joint_idx=self.feet_indexes,
             weight=self.cfg.reward_scales["dof_pos_limits"],
         )
 
         # joint torques
         joint_torques_l2 = mdp.joint_torque_l2(
             joint_torque=self.robot.data.applied_torque,
-            joint_idx=self.lower_body_indexes + self.upper_body_indexes,
+            joint_idx=self.hips_indexes,
             weight=self.cfg.reward_scales["dof_torques_l2"],
         )
 
         # joint accelerations
         joint_accelerations_l2 = mdp.joint_accel_l2(
             joint_accel=self.robot.data.joint_acc,
-            joint_idx=self.lower_body_indexes + self.upper_body_indexes,
+            joint_idx=self.hips_indexes,
             weight=self.cfg.reward_scales["dof_acc_l2"],
         )
 
@@ -239,7 +246,7 @@ class G1LowBodyEnv(DirectRLEnv):
         )
 
         # reward
-        reward = (lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + flat_orientation_penalty + 
+        reward = (lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + 
                  joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + 
                  joint_torques_l2 + joint_accelerations_l2 + action_rate + feet_slide_penalty + feet_air_time) * self.step_dt
         return reward
