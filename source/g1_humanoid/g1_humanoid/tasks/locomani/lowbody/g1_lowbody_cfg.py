@@ -214,6 +214,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
         "feet_slide": -0.1,
         "termination_penalty": -200.0,
         "track_lin_vel_xy_exp": 1.0,
+        "ang_vel_xy_l2": -0.05
     }
 
     # terminations
