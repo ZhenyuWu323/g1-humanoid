@@ -113,7 +113,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     )
 
 
-    # MDP configuration
+    # MDP configuration # TODO: NEED add more attribute for upper and lower Actor/Critics
     observation_space = 133
     action_space = 15 # NOTE: Only lower body DOFs are in action space
     action_scale = 0.5
