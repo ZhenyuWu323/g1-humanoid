@@ -1,0 +1,54 @@
+--- git status ---
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	scripts/rsl_rl/logs/rsl_rl/g1_flat_direct/2025-06-02_04-20-29/
+	scripts/rsl_rl/logs/rsl_rl/g1_flat_direct/2025-06-02_04-51-30/
+	scripts/rsl_rl/outputs/2025-06-02/04-20-29/
+	scripts/rsl_rl/outputs/2025-06-02/04-51-30/
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc
+index bff6523..2a6c980 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
+index 7d5df99..b274966 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
+@@ -299,6 +299,7 @@ class G1LowBodyEnv(DirectRLEnv):
+         # reset actions
+         self.actions[env_ids] = 0.0
+         self.prev_actions[env_ids] = 0.0
++        self.episode_length_buf[env_ids] = 0
+         super()._reset_idx(env_ids)
+ 
+ 
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc
+index 4fcd6a3..94706f4 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
+index cba8b8f..30adedb 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
+@@ -243,7 +243,7 @@ def gait_phase_reward(
+     contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, 2] > 1.0
+ 
+     # current phase
+-    current_time = env.common_step_counter * env.step_dt
++    current_time = env.episode_length_buf * env.step_dt
+     base_phase = (current_time % gait_period) / gait_period
+     leg_phases = torch.zeros(env.num_envs, len(feet_body_indexes), device=env.device)
+     leg_phases[:, 0] = base_phase # left leg

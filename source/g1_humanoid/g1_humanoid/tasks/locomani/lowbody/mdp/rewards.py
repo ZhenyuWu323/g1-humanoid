@@ -243,7 +243,7 @@ def gait_phase_reward(
     contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, 2] > 1.0
 
     # current phase
-    current_time = env.common_step_counter * env.step_dt
+    current_time = env.episode_length_buf * env.step_dt
     base_phase = (current_time % gait_period) / gait_period
     leg_phases = torch.zeros(env.num_envs, len(feet_body_indexes), device=env.device)
     leg_phases[:, 0] = base_phase # left leg

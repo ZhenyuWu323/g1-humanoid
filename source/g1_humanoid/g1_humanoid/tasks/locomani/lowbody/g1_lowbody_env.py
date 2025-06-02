@@ -299,6 +299,7 @@ class G1LowBodyEnv(DirectRLEnv):
         # reset actions
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
+        self.episode_length_buf[env_ids] = 0
         super()._reset_idx(env_ids)
 
 
