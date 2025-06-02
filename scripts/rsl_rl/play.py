@@ -28,6 +28,19 @@ parser.add_argument(
     action="store_true",
     help="Use the pre-trained checkpoint from Nucleus.",
 )
+parser.add_argument(
+    "--renderer",
+    type=str,
+    default="PathTracing",
+    choices=["RayTracedLighting", "PathTracing"],
+    help="Renderer to use.",
+)
+parser.add_argument(
+    "--samples_per_pixel_per_frame",
+    type=int,
+    default=1,
+    help="Number of samples per pixel per frame.",
+)
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -84,6 +97,7 @@ def main():
     elif args_cli.checkpoint:
         resume_path = retrieve_file_path(args_cli.checkpoint)
     else:
+        print(f"[INFO] Loading checkpoint from: {log_root_path}/{agent_cfg.load_run}/{agent_cfg.load_checkpoint}")
         resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
 
     log_dir = os.path.dirname(resume_path)
