@@ -201,20 +201,24 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     # reward scales
     reward_scales = {
         "lin_vel_z_l2": -0.2,
-        "flat_orientation_l2": -1.0, #-3.0
+        "flat_orientation_l2": -1.0, 
         "action_rate_l2": -0.005,
         "dof_acc_l2": -1.0e-7,
         "dof_torques_l2": -2.0e-6,
         "track_ang_vel_z_exp": 1.0,
         "feet_air_time": 0.75,
-        "joint_deviation_waist": -0.1, #-0.5
-        "joint_deviation_upper_body": -0.1,
-        "joint_deviation_hips": -0.1,
+        "joint_deviation_waist": -0.5, # unitree offcial use -1.0
+        "joint_deviation_upper_body": -0.5, # unitree offcial use -1.0
+        "joint_deviation_hips": -0.5, # unitree offcial use -1.0
         "dof_pos_limits": -1.0,
         "feet_slide": -0.1,
         "termination_penalty": -200.0,
         "track_lin_vel_xy_exp": 1.0,
-        "ang_vel_xy_l2": -0.05
+        "ang_vel_xy_l2": -0.05,
+        "base_height": -10.0,
+        "gait_phase_reward": 0.18,
+        "feet_swing_height": -20.0,
+        "feet_slide": -0.2,
     }
 
     # terminations
@@ -234,3 +238,5 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
             lin_vel_x=(0.0, 1.0), lin_vel_y=(-0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
     )
+    # target base height
+    target_base_height = 0.78

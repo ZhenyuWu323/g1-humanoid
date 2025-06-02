@@ -1,0 +1,459 @@
+--- git status ---
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_cfg.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/curriculums.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/terminations.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+	modified:   source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	scripts/rsl_rl/logs/rsl_rl/g1_flat_direct/2025-06-02_00-19-26/
+	scripts/rsl_rl/logs/rsl_rl/g1_flat_direct/2025-06-02_01-19-01/
+	scripts/rsl_rl/logs/rsl_rl/g1_flat_direct/2025-06-02_01-25-49/
+	scripts/rsl_rl/outputs/2025-06-01/
+	scripts/rsl_rl/outputs/2025-06-02/
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc b/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc
+index e1169f6..f046a79 100644
+Binary files a/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc and b/scripts/rsl_rl/__pycache__/cli_args.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+index 8e7c027..99a1943 100644
+Binary files a/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc
+index 8c0f202..fa6eaa4 100644
+Binary files a/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/__pycache__/ui_extension_example.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc
+index c5daf77..e570bd4 100644
+Binary files a/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/assets/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc
+index 41d2286..15aab07 100644
+Binary files a/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/assets/__pycache__/g1_inspire.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc
+index 7134e59..74fe281 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/__pycache__/__init__.cpython-310.pyc
+index 6ecc93c..c14e138 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/__init__.cpython-310.pyc
+index 8a549d4..35a806c 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_cfg.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_cfg.cpython-310.pyc
+index 6450e6b..2012a83 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_cfg.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_cfg.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc
+index 5e936c0..bff6523 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/__pycache__/g1_lowbody_env.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/__init__.cpython-310.pyc
+index 2f88189..7714194 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc
+index d922544..cb7fea2 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/agents/__pycache__/rsl_rl_ppo_cfg.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_cfg.py
+index 4258b07..cd2fb51 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_cfg.py
+@@ -207,16 +207,44 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
+         "dof_torques_l2": -2.0e-6,
+         "track_ang_vel_z_exp": 1.0,
+         "feet_air_time": 0.75,
+-        "joint_deviation_waist": -0.1, #-0.5
+-        "joint_deviation_upper_body": -0.1,
+-        "joint_deviation_hips": -0.1,
++        "joint_deviation_waist": -0.5, #-0.5
++        "joint_deviation_upper_body": -0.5,
++        "joint_deviation_hips": -0.5,
+         "dof_pos_limits": -1.0,
+         "feet_slide": -0.1,
+         "termination_penalty": -200.0,
+         "track_lin_vel_xy_exp": 1.0,
+-        "ang_vel_xy_l2": -0.05
++        "ang_vel_xy_l2": -0.05,
++        "base_height": -10.0,
++        "gait_phase_reward": 0.18,
++        "feet_swing_height": -20.0,
++        "feet_slide": -0.2,
+     }
+ 
++
++    
++    '''reward_scales = {
++        "track_lin_vel_xy_exp": 1.0,
++        "track_ang_vel_z_exp": 0.5,
++        "lin_vel_z_l2": -2.0,
++        "ang_vel_xy_l2": -0.05,
++        "flat_orientation_l2": -1.0, #-3.0
++        "base_height": -10.0,
++        "dof_acc_l2": -2.5e-7,
++        "dof_vel_l2": -1.0e-3,
++        "action_rate_l2": -0.01,
++        "dof_torques_l2": -2.0e-6,
++        "joint_deviation_waist": -1.0, #-0.5
++        "joint_deviation_upper_body": -1.0,
++        "joint_deviation_hips": -1.0,
++        "dof_pos_limits": -5.0,
++        "feet_air_time": 0.0,
++        "feet_slide": -0.2,
++        "feet_swing_height": -20.0,
++        "termination_penalty": -200.0,
++        "gait_phase_reward": 0.18,
++    }'''
++
+     # terminations
+     termination_height = 0.5
+     
+@@ -233,4 +261,6 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
+         ranges=mdp.UniformVelocityCommandCfg.Ranges(
+             lin_vel_x=(0.0, 1.0), lin_vel_y=(-0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+         ),
+-    )
+\ No newline at end of file
++    )
++    # target base height
++    target_base_height = 0.78
+\ No newline at end of file
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
+index c0a7867..7d5df99 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/g1_lowbody_env.py
+@@ -131,20 +131,19 @@ class G1LowBodyEnv(DirectRLEnv):
+         Tracking Rewards
+         """
+         # linear velocity tracking
+-        lin_vel_xy_reward = mdp.track_lin_vel_xy_yaw_frame_exp(
+-            root_quat_w=self.robot.data.root_quat_w,
+-            root_lin_vel_w=self.robot.data.root_lin_vel_w,
++        lin_vel_xy_reward = mdp.track_lin_vel_xy_base_exp(
++            root_lin_vel_b=self.robot.data.root_lin_vel_b,
+             vel_command=self.velocity_command.command,
+             std=0.5,
+-            weight=self.cfg.reward_scales["track_lin_vel_xy_exp"],
++            weight=self.cfg.reward_scales["track_lin_vel_xy_exp"] if "track_lin_vel_xy_exp" in self.cfg.reward_scales else 0,
+         )
+ 
+         # angular velocity tracking
+-        ang_vel_z_reward = mdp.track_ang_vel_z_world_exp(
+-            root_ang_vel_w=self.robot.data.root_ang_vel_w,
++        ang_vel_z_reward = mdp.track_ang_vel_z_base_exp(
++            root_ang_vel_b=self.robot.data.root_ang_vel_b,
+             vel_command=self.velocity_command.command,
+             std=0.5,
+-            weight=self.cfg.reward_scales["track_ang_vel_z_exp"],
++            weight=self.cfg.reward_scales["track_ang_vel_z_exp"] if "track_ang_vel_z_exp" in self.cfg.reward_scales else 0,
+         )
+ 
+         """
+@@ -152,24 +151,24 @@ class G1LowBodyEnv(DirectRLEnv):
+         """
+         # terminate when the robot falls
+         died, _ = self._get_dones()
+-        die_penalty = mdp.termination_penalty(died, weight=self.cfg.reward_scales["termination_penalty"])
++        die_penalty = mdp.termination_penalty(died, weight=self.cfg.reward_scales["termination_penalty"] if "termination_penalty" in self.cfg.reward_scales else 0)
+ 
+         # linear velocity z
+         lin_vel_z_penalty = mdp.lin_vel_z_l2(
+             root_lin_vel_b=self.robot.data.root_lin_vel_b,
+-            weight=self.cfg.reward_scales["lin_vel_z_l2"],
++            weight=self.cfg.reward_scales["lin_vel_z_l2"] if "lin_vel_z_l2" in self.cfg.reward_scales else 0,
+         )
+ 
+         # angular velocity xy
+         ang_vel_xy_penalty = mdp.ang_vel_xy_l2(
+             root_ang_vel_b=self.robot.data.root_ang_vel_b,
+-            weight=self.cfg.reward_scales["ang_vel_xy_l2"],
++            weight=self.cfg.reward_scales["ang_vel_xy_l2"] if "ang_vel_xy_l2" in self.cfg.reward_scales else 0,
+         )
+ 
+         # flat orientation
+         flat_orientation_penalty = mdp.flat_orientation_l2(
+             projected_gravity_b=self.robot.data.projected_gravity_b,
+-            weight=self.cfg.reward_scales["flat_orientation_l2"],
++            weight=self.cfg.reward_scales["flat_orientation_l2"] if "flat_orientation_l2" in self.cfg.reward_scales else 0,
+         )
+ 
+         # joint deviation waist
+@@ -177,7 +176,7 @@ class G1LowBodyEnv(DirectRLEnv):
+             joint_pos=self.robot.data.joint_pos,
+             default_joint_pos=self.robot.data.default_joint_pos,
+             joint_idx=self.waist_indexes,
+-            weight=self.cfg.reward_scales["joint_deviation_waist"],
++            weight=self.cfg.reward_scales["joint_deviation_waist"] if "joint_deviation_waist" in self.cfg.reward_scales else 0,
+         )
+ 
+         # joint deviation upper body (arms and fingers)
+@@ -185,7 +184,7 @@ class G1LowBodyEnv(DirectRLEnv):
+             joint_pos=self.robot.data.joint_pos,
+             default_joint_pos=self.robot.data.default_joint_pos,
+             joint_idx=self.upper_body_indexes,
+-            weight=self.cfg.reward_scales["joint_deviation_upper_body"],
++            weight=self.cfg.reward_scales["joint_deviation_upper_body"] if "joint_deviation_upper_body" in self.cfg.reward_scales else 0,
+         )
+ 
+         # joint deviation hips
+@@ -193,7 +192,7 @@ class G1LowBodyEnv(DirectRLEnv):
+             joint_pos=self.robot.data.joint_pos,
+             default_joint_pos=self.robot.data.default_joint_pos,
+             joint_idx=self.hips_yaw_roll_indexes,
+-            weight=self.cfg.reward_scales["joint_deviation_hips"],
++            weight=self.cfg.reward_scales["joint_deviation_hips"] if "joint_deviation_hips" in self.cfg.reward_scales else 0,
+         )
+ 
+         # joint position limits
+@@ -201,28 +200,43 @@ class G1LowBodyEnv(DirectRLEnv):
+             joint_pos=self.robot.data.joint_pos,
+             soft_joint_pos_limits=self.robot.data.soft_joint_pos_limits,
+             joint_idx=self.feet_indexes,
+-            weight=self.cfg.reward_scales["dof_pos_limits"],
++            weight=self.cfg.reward_scales["dof_pos_limits"] if "dof_pos_limits" in self.cfg.reward_scales else 0,
+         )
+ 
+         # joint torques
+         joint_torques_l2 = mdp.joint_torque_l2(
+             joint_torque=self.robot.data.applied_torque,
+             joint_idx=self.hips_indexes,
+-            weight=self.cfg.reward_scales["dof_torques_l2"],
++            weight=self.cfg.reward_scales["dof_torques_l2"] if "dof_torques_l2" in self.cfg.reward_scales else 0,
+         )
+ 
+         # joint accelerations
+         joint_accelerations_l2 = mdp.joint_accel_l2(
+             joint_accel=self.robot.data.joint_acc,
+             joint_idx=self.hips_indexes,
+-            weight=self.cfg.reward_scales["dof_acc_l2"],
++            weight=self.cfg.reward_scales["dof_acc_l2"] if "dof_acc_l2" in self.cfg.reward_scales else 0,
++        )
++
++        # joint velocities
++        joint_velocities_l2 = mdp.joint_vel_l2(
++            joint_vel=self.robot.data.joint_vel,
++            joint_idx=self.hips_indexes,
++            weight=self.cfg.reward_scales["dof_vel_l2"] if "dof_vel_l2" in self.cfg.reward_scales else 0,
+         )
+ 
+         # action rate
+         action_rate = mdp.action_rate_l2(
+             action=self.actions,
+             prev_action=self.prev_actions,
+-            weight=self.cfg.reward_scales["action_rate_l2"],
++            weight=self.cfg.reward_scales["action_rate_l2"] if "action_rate_l2" in self.cfg.reward_scales else 0,
++        )
++
++        # base height
++        base_height_penalty = mdp.base_height(
++            body_pos_w=self.robot.data.body_pos_w,
++            body_idx=self.ref_body_index,
++            target_height=self.cfg.target_base_height,
++            weight=self.cfg.reward_scales["base_height"] if "base_height" in self.cfg.reward_scales else 0,
+         )
+ 
+         """
+@@ -233,7 +247,7 @@ class G1LowBodyEnv(DirectRLEnv):
+             body_lin_vel_w=self.robot.data.body_lin_vel_w,
+             contact_sensor=self._contact_sensor,
+             feet_body_indexes=self.feet_body_indexes,
+-            weight=self.cfg.reward_scales["feet_slide"],
++            weight=self.cfg.reward_scales["feet_slide"] if "feet_slide" in self.cfg.reward_scales else 0,
+         )
+ 
+         # feet air time
+@@ -242,13 +256,30 @@ class G1LowBodyEnv(DirectRLEnv):
+             contact_sensor=self._contact_sensor,
+             feet_body_indexes=self.feet_body_indexes,
+             threshold=0.4,
+-            weight=self.cfg.reward_scales["feet_air_time"],
++            weight=self.cfg.reward_scales["feet_air_time"] if "feet_air_time" in self.cfg.reward_scales else 0,
++        )
++
++        # feet swing height
++        feet_swing_height_penalty = mdp.feet_swing_height(
++            body_pos_w=self.robot.data.body_pos_w,
++            contact_sensor=self._contact_sensor,
++            feet_body_indexes=self.feet_body_indexes,
++            weight=self.cfg.reward_scales["feet_swing_height"] if "feet_swing_height" in self.cfg.reward_scales else 0,
++        )
++
++        # gait phase reward
++        gait_phase_reward = mdp.gait_phase_reward(
++            env=self,
++            contact_sensor=self._contact_sensor,
++            feet_body_indexes=self.feet_body_indexes,
++            weight=self.cfg.reward_scales["gait_phase_reward"] if "gait_phase_reward" in self.cfg.reward_scales else 0,
+         )
+ 
+         # reward
+         reward = (lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + 
+                  joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + 
+-                 joint_torques_l2 + joint_accelerations_l2 + action_rate + feet_slide_penalty + feet_air_time) * self.step_dt
++                 joint_torques_l2 + joint_accelerations_l2 + joint_velocities_l2 + action_rate + feet_slide_penalty + feet_air_time + 
++                 feet_swing_height_penalty + gait_phase_reward + base_height_penalty) * self.step_dt
+         return reward
+ 
+     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/__init__.cpython-310.pyc
+index 5d5e8cf..e035963 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/curriculums.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/curriculums.cpython-310.pyc
+index f4e5a4c..e36037a 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/curriculums.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/curriculums.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc
+index d526bb1..4fcd6a3 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/rewards.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/terminations.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/terminations.cpython-310.pyc
+index deb6205..9829cab 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/terminations.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/__pycache__/terminations.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
+index 48338b2..cba8b8f 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/locomani/lowbody/mdp/rewards.py
+@@ -94,6 +94,12 @@ def joint_accel_l2(joint_accel: torch.Tensor, joint_idx: Sequence[int], weight:
+     return torch.sum(torch.square(joint_accel[:, joint_idx]), dim=1) * weight
+ 
+ 
++def joint_vel_l2(joint_vel: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
++    """Penalize the rate of change of the joint velocities using L2 squared kernel."""
++
++    return torch.sum(torch.square(joint_vel[:, joint_idx]), dim=1) * weight
++
++
+ def joint_torque_l2(joint_torque: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
+     """Penalize the rate of change of the joint torques using L2 squared kernel."""
+ 
+@@ -123,11 +129,41 @@ def joint_pos_limits(joint_pos: torch.Tensor, soft_joint_pos_limits: torch.Tenso
+     return torch.sum(out_of_limits, dim=1) * weight
+ 
+ 
++def joint_vel_limits(joint_vel: torch.Tensor, soft_joint_vel_limits: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
++    """Penalize joint velocities if they cross the soft limits.
++    
++    This is computed as a sum of the absolute value of the difference between the joint velocity and the soft limits.
++    """
++    # violation
++    violation = (torch.abs(joint_vel[:, joint_idx]) - soft_joint_vel_limits[:, joint_idx]).clip(min=0.0, max=1.0)
++    # compute out of limits constraints
++    out_of_limits = torch.sum(violation, dim=1)
++    return out_of_limits * weight
++
++
++def joint_torque_limits(joint_torque: torch.Tensor, effort_limits: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
++    """Penalize joint torques if they cross the soft limits.
++
++    This is computed as a sum of the absolute value of the difference between the joint torque and the soft limits.
++    """
++    # violation
++    violation = (torch.abs(joint_torque[:, joint_idx]) - effort_limits[:, joint_idx]).clip(min=0.0, max=1.0)
++    # compute out of limits constraints
++    out_of_limits = torch.sum(violation, dim=1)
++    return out_of_limits * weight
++
++
+ def termination_penalty(terminated: torch.Tensor, weight: float) -> torch.Tensor:
+     """Penalize termination."""
+ 
+     return terminated * weight
+ 
++def base_height(body_pos_w: torch.Tensor, body_idx: int, target_height: float, weight: float) -> torch.Tensor:
++    """Penalize base height."""
++    base_height = body_pos_w[:, body_idx, 2]
++    height_error = torch.square(base_height - target_height)
++    return height_error * weight
++
+ 
+ def feet_air_time(vel_command: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], step_dt: float, threshold: float, weight: float) -> torch.Tensor:
+     """Reward long steps taken by the feet using L2-kernel.
+@@ -179,3 +215,47 @@ def feet_slide(body_lin_vel_w: torch.Tensor, contact_sensor: ContactSensor, feet
+     feet_vel = body_lin_vel_w[:, feet_body_indexes, :2]
+     reward = torch.sum(feet_vel.norm(dim=-1) * contacts, dim=1)
+     return reward * weight
++
++
++def feet_swing_height(body_pos_w: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], weight: float, target_height=0.08) -> torch.Tensor:
++    """Reward Feet Swing Height"""
++
++    # get feet contact
++    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, :3].norm(dim=-1) > 1.0
++
++    # get feet swing height
++    feet_pos_z = body_pos_w[:, feet_body_indexes, 2]
++    pos_error = torch.square(feet_pos_z - target_height) * (~contact)
++    return torch.sum(pos_error, dim=1) * weight
++
++
++def gait_phase_reward(
++        env: DirectRLEnv, 
++        contact_sensor: ContactSensor, 
++        feet_body_indexes: Sequence[int],
++        weight: float, 
++        gait_period: float = 0.8,
++        phase_offset: float = 0.5,
++        stance_phase_threshold: float = 0.55
++        ) -> torch.Tensor:
++    """Reward Gait Phase"""
++
++    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, 2] > 1.0
++
++    # current phase
++    current_time = env.common_step_counter * env.step_dt
++    base_phase = (current_time % gait_period) / gait_period
++    leg_phases = torch.zeros(env.num_envs, len(feet_body_indexes), device=env.device)
++    leg_phases[:, 0] = base_phase # left leg
++    leg_phases[:, 1] = (base_phase + phase_offset) % 1.0 # right leg
++
++    # stance phase
++    stance_phase = leg_phases < stance_phase_threshold
++
++    # reward
++    reward = torch.zeros(env.num_envs, device=env.device)
++    for i in range(len(feet_body_indexes)):
++        match = ~(contact[:, i] ^ stance_phase[:, i]) 
++        reward += match.float()
++    
++    return reward * weight
+\ No newline at end of file
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc
+index 91c7b24..6aef941 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc
+index fd7ca2e..50df5b0 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc
+index c6d0366..d9890f2 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/locomotion/velocity/agents/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc
+index 79f6157..dea86ed 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/manager_based/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc
+index 2afcceb..3dac868 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/__pycache__/__init__.cpython-310.pyc differ
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc
+index 9e864fe..a7f0cba 100644
+Binary files a/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc and b/source/g1_humanoid/g1_humanoid/tasks/manager_based/g1_humanoid/agents/__pycache__/__init__.cpython-310.pyc differ

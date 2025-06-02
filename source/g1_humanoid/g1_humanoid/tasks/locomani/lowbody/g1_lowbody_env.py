@@ -131,20 +131,19 @@ class G1LowBodyEnv(DirectRLEnv):
         Tracking Rewards
         """
         # linear velocity tracking
-        lin_vel_xy_reward = mdp.track_lin_vel_xy_yaw_frame_exp(
-            root_quat_w=self.robot.data.root_quat_w,
-            root_lin_vel_w=self.robot.data.root_lin_vel_w,
+        lin_vel_xy_reward = mdp.track_lin_vel_xy_base_exp(
+            root_lin_vel_b=self.robot.data.root_lin_vel_b,
             vel_command=self.velocity_command.command,
             std=0.5,
-            weight=self.cfg.reward_scales["track_lin_vel_xy_exp"],
+            weight=self.cfg.reward_scales["track_lin_vel_xy_exp"] if "track_lin_vel_xy_exp" in self.cfg.reward_scales else 0,
         )
 
         # angular velocity tracking
-        ang_vel_z_reward = mdp.track_ang_vel_z_world_exp(
-            root_ang_vel_w=self.robot.data.root_ang_vel_w,
+        ang_vel_z_reward = mdp.track_ang_vel_z_base_exp(
+            root_ang_vel_b=self.robot.data.root_ang_vel_b,
             vel_command=self.velocity_command.command,
             std=0.5,
-            weight=self.cfg.reward_scales["track_ang_vel_z_exp"],
+            weight=self.cfg.reward_scales["track_ang_vel_z_exp"] if "track_ang_vel_z_exp" in self.cfg.reward_scales else 0,
         )
 
         """
@@ -152,24 +151,24 @@ class G1LowBodyEnv(DirectRLEnv):
         """
         # terminate when the robot falls
         died, _ = self._get_dones()
-        die_penalty = mdp.termination_penalty(died, weight=self.cfg.reward_scales["termination_penalty"])
+        die_penalty = mdp.termination_penalty(died, weight=self.cfg.reward_scales["termination_penalty"] if "termination_penalty" in self.cfg.reward_scales else 0)
 
         # linear velocity z
         lin_vel_z_penalty = mdp.lin_vel_z_l2(
             root_lin_vel_b=self.robot.data.root_lin_vel_b,
-            weight=self.cfg.reward_scales["lin_vel_z_l2"],
+            weight=self.cfg.reward_scales["lin_vel_z_l2"] if "lin_vel_z_l2" in self.cfg.reward_scales else 0,
         )
 
         # angular velocity xy
         ang_vel_xy_penalty = mdp.ang_vel_xy_l2(
             root_ang_vel_b=self.robot.data.root_ang_vel_b,
-            weight=self.cfg.reward_scales["ang_vel_xy_l2"],
+            weight=self.cfg.reward_scales["ang_vel_xy_l2"] if "ang_vel_xy_l2" in self.cfg.reward_scales else 0,
         )
 
         # flat orientation
         flat_orientation_penalty = mdp.flat_orientation_l2(
             projected_gravity_b=self.robot.data.projected_gravity_b,
-            weight=self.cfg.reward_scales["flat_orientation_l2"],
+            weight=self.cfg.reward_scales["flat_orientation_l2"] if "flat_orientation_l2" in self.cfg.reward_scales else 0,
         )
 
         # joint deviation waist
@@ -177,7 +176,7 @@ class G1LowBodyEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
             joint_idx=self.waist_indexes,
-            weight=self.cfg.reward_scales["joint_deviation_waist"],
+            weight=self.cfg.reward_scales["joint_deviation_waist"] if "joint_deviation_waist" in self.cfg.reward_scales else 0,
         )
 
         # joint deviation upper body (arms and fingers)
@@ -185,7 +184,7 @@ class G1LowBodyEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
             joint_idx=self.upper_body_indexes,
-            weight=self.cfg.reward_scales["joint_deviation_upper_body"],
+            weight=self.cfg.reward_scales["joint_deviation_upper_body"] if "joint_deviation_upper_body" in self.cfg.reward_scales else 0,
         )
 
         # joint deviation hips
@@ -193,7 +192,7 @@ class G1LowBodyEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
             joint_idx=self.hips_yaw_roll_indexes,
-            weight=self.cfg.reward_scales["joint_deviation_hips"],
+            weight=self.cfg.reward_scales["joint_deviation_hips"] if "joint_deviation_hips" in self.cfg.reward_scales else 0,
         )
 
         # joint position limits
@@ -201,28 +200,43 @@ class G1LowBodyEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             soft_joint_pos_limits=self.robot.data.soft_joint_pos_limits,
             joint_idx=self.feet_indexes,
-            weight=self.cfg.reward_scales["dof_pos_limits"],
+            weight=self.cfg.reward_scales["dof_pos_limits"] if "dof_pos_limits" in self.cfg.reward_scales else 0,
         )
 
         # joint torques
         joint_torques_l2 = mdp.joint_torque_l2(
             joint_torque=self.robot.data.applied_torque,
             joint_idx=self.hips_indexes,
-            weight=self.cfg.reward_scales["dof_torques_l2"],
+            weight=self.cfg.reward_scales["dof_torques_l2"] if "dof_torques_l2" in self.cfg.reward_scales else 0,
         )
 
         # joint accelerations
         joint_accelerations_l2 = mdp.joint_accel_l2(
             joint_accel=self.robot.data.joint_acc,
             joint_idx=self.hips_indexes,
-            weight=self.cfg.reward_scales["dof_acc_l2"],
+            weight=self.cfg.reward_scales["dof_acc_l2"] if "dof_acc_l2" in self.cfg.reward_scales else 0,
+        )
+
+        # joint velocities
+        joint_velocities_l2 = mdp.joint_vel_l2(
+            joint_vel=self.robot.data.joint_vel,
+            joint_idx=self.hips_indexes,
+            weight=self.cfg.reward_scales["dof_vel_l2"] if "dof_vel_l2" in self.cfg.reward_scales else 0,
         )
 
         # action rate
         action_rate = mdp.action_rate_l2(
             action=self.actions,
             prev_action=self.prev_actions,
-            weight=self.cfg.reward_scales["action_rate_l2"],
+            weight=self.cfg.reward_scales["action_rate_l2"] if "action_rate_l2" in self.cfg.reward_scales else 0,
+        )
+
+        # base height
+        base_height_penalty = mdp.base_height(
+            body_pos_w=self.robot.data.body_pos_w,
+            body_idx=self.ref_body_index,
+            target_height=self.cfg.target_base_height,
+            weight=self.cfg.reward_scales["base_height"] if "base_height" in self.cfg.reward_scales else 0,
         )
 
         """
@@ -233,7 +247,7 @@ class G1LowBodyEnv(DirectRLEnv):
             body_lin_vel_w=self.robot.data.body_lin_vel_w,
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
-            weight=self.cfg.reward_scales["feet_slide"],
+            weight=self.cfg.reward_scales["feet_slide"] if "feet_slide" in self.cfg.reward_scales else 0,
         )
 
         # feet air time
@@ -242,13 +256,30 @@ class G1LowBodyEnv(DirectRLEnv):
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
             threshold=0.4,
-            weight=self.cfg.reward_scales["feet_air_time"],
+            weight=self.cfg.reward_scales["feet_air_time"] if "feet_air_time" in self.cfg.reward_scales else 0,
+        )
+
+        # feet swing height
+        feet_swing_height_penalty = mdp.feet_swing_height(
+            body_pos_w=self.robot.data.body_pos_w,
+            contact_sensor=self._contact_sensor,
+            feet_body_indexes=self.feet_body_indexes,
+            weight=self.cfg.reward_scales["feet_swing_height"] if "feet_swing_height" in self.cfg.reward_scales else 0,
+        )
+
+        # gait phase reward
+        gait_phase_reward = mdp.gait_phase_reward(
+            env=self,
+            contact_sensor=self._contact_sensor,
+            feet_body_indexes=self.feet_body_indexes,
+            weight=self.cfg.reward_scales["gait_phase_reward"] if "gait_phase_reward" in self.cfg.reward_scales else 0,
         )
 
         # reward
         reward = (lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + 
                  joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + 
-                 joint_torques_l2 + joint_accelerations_l2 + action_rate + feet_slide_penalty + feet_air_time) * self.step_dt
+                 joint_torques_l2 + joint_accelerations_l2 + joint_velocities_l2 + action_rate + feet_slide_penalty + feet_air_time + 
+                 feet_swing_height_penalty + gait_phase_reward + base_height_penalty) * self.step_dt
         return reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:

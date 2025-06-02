@@ -94,6 +94,12 @@ def joint_accel_l2(joint_accel: torch.Tensor, joint_idx: Sequence[int], weight: 
     return torch.sum(torch.square(joint_accel[:, joint_idx]), dim=1) * weight
 
 
+def joint_vel_l2(joint_vel: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize the rate of change of the joint velocities using L2 squared kernel."""
+
+    return torch.sum(torch.square(joint_vel[:, joint_idx]), dim=1) * weight
+
+
 def joint_torque_l2(joint_torque: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
     """Penalize the rate of change of the joint torques using L2 squared kernel."""
 
@@ -123,10 +129,40 @@ def joint_pos_limits(joint_pos: torch.Tensor, soft_joint_pos_limits: torch.Tenso
     return torch.sum(out_of_limits, dim=1) * weight
 
 
+def joint_vel_limits(joint_vel: torch.Tensor, soft_joint_vel_limits: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize joint velocities if they cross the soft limits.
+    
+    This is computed as a sum of the absolute value of the difference between the joint velocity and the soft limits.
+    """
+    # violation
+    violation = (torch.abs(joint_vel[:, joint_idx]) - soft_joint_vel_limits[:, joint_idx]).clip(min=0.0, max=1.0)
+    # compute out of limits constraints
+    out_of_limits = torch.sum(violation, dim=1)
+    return out_of_limits * weight
+
+
+def joint_torque_limits(joint_torque: torch.Tensor, effort_limits: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize joint torques if they cross the soft limits.
+
+    This is computed as a sum of the absolute value of the difference between the joint torque and the soft limits.
+    """
+    # violation
+    violation = (torch.abs(joint_torque[:, joint_idx]) - effort_limits[:, joint_idx]).clip(min=0.0, max=1.0)
+    # compute out of limits constraints
+    out_of_limits = torch.sum(violation, dim=1)
+    return out_of_limits * weight
+
+
 def termination_penalty(terminated: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize termination."""
 
     return terminated * weight
+
+def base_height(body_pos_w: torch.Tensor, body_idx: int, target_height: float, weight: float) -> torch.Tensor:
+    """Penalize base height."""
+    base_height = body_pos_w[:, body_idx, 2]
+    height_error = torch.square(base_height - target_height)
+    return height_error * weight
 
 
 def feet_air_time(vel_command: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], step_dt: float, threshold: float, weight: float) -> torch.Tensor:
@@ -178,4 +214,48 @@ def feet_slide(body_lin_vel_w: torch.Tensor, contact_sensor: ContactSensor, feet
     contacts = contact_sensor.data.net_forces_w_history[:, :, feet_body_indexes, :].norm(dim=-1).max(dim=1)[0] > 1.0
     feet_vel = body_lin_vel_w[:, feet_body_indexes, :2]
     reward = torch.sum(feet_vel.norm(dim=-1) * contacts, dim=1)
+    return reward * weight
+
+
+def feet_swing_height(body_pos_w: torch.Tensor, contact_sensor: ContactSensor, feet_body_indexes: Sequence[int], weight: float, target_height=0.08) -> torch.Tensor:
+    """Reward Feet Swing Height"""
+
+    # get feet contact
+    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, :3].norm(dim=-1) > 1.0
+
+    # get feet swing height
+    feet_pos_z = body_pos_w[:, feet_body_indexes, 2]
+    pos_error = torch.square(feet_pos_z - target_height) * (~contact)
+    return torch.sum(pos_error, dim=1) * weight
+
+
+def gait_phase_reward(
+        env: DirectRLEnv, 
+        contact_sensor: ContactSensor, 
+        feet_body_indexes: Sequence[int],
+        weight: float, 
+        gait_period: float = 0.8,
+        phase_offset: float = 0.5,
+        stance_phase_threshold: float = 0.55
+        ) -> torch.Tensor:
+    """Reward Gait Phase"""
+
+    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, 2] > 1.0
+
+    # current phase
+    current_time = env.common_step_counter * env.step_dt
+    base_phase = (current_time % gait_period) / gait_period
+    leg_phases = torch.zeros(env.num_envs, len(feet_body_indexes), device=env.device)
+    leg_phases[:, 0] = base_phase # left leg
+    leg_phases[:, 1] = (base_phase + phase_offset) % 1.0 # right leg
+
+    # stance phase
+    stance_phase = leg_phases < stance_phase_threshold
+
+    # reward
+    reward = torch.zeros(env.num_envs, device=env.device)
+    for i in range(len(feet_body_indexes)):
+        match = ~(contact[:, i] ^ stance_phase[:, i]) 
+        reward += match.float()
+    
     return reward * weight
