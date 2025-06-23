@@ -115,8 +115,8 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
 
     # MDP configuration # TODO: NEED add more attribute for upper and lower Actor/Critics
     observation_space = 133
-    action_space = 15 # NOTE: Only lower body DOFs are in action space
-    action_scale = 0.5
+    action_space = 15 # NOTE: Only lower body DOFs are in action space, upper body DOFs=14
+    action_scale = 0.5 # NOTE: Upper body DOFS need to be scaled by at least 1.0
     state_space = 0
 
     # obs noise

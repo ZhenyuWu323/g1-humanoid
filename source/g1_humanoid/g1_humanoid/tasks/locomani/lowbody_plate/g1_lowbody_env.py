@@ -36,8 +36,7 @@ class G1LowBodyEnv(DirectRLEnv):
         # body/link indexes
         self.feet_body_indexes = self.robot.find_bodies(self.cfg.feet_body_name)[0]
         self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso link
-        #self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name) # plate
-        print(self.robot.data.body_names)
+        self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name) # plate
 
         # action offset and scale
         self.action_scale = self.cfg.action_scale
