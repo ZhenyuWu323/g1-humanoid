@@ -91,7 +91,7 @@ class EventCfg:
 
 
 @configclass
-class G1LowBodyEnvCfg(DirectRLEnvCfg):
+class G1LowBodyPlateEnvCfg(DirectRLEnvCfg):
     """ G1 Low Body Locomanipulation Environment Configuration """
 
 

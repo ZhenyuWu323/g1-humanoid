@@ -6,4 +6,3 @@
 import gymnasium as gym  # noqa: F401
 
 from .lowbody import *
-from .lowbody_plate import *

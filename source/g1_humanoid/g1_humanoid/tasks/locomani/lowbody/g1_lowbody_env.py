@@ -14,14 +14,15 @@ from isaaclab.sensors import ContactSensor
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_lowbody_cfg import G1LowBodyEnvCfg
+from .g1_lowbody_plate_cfg import G1LowBodyPlateEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 
 
 class G1LowBodyEnv(DirectRLEnv):
-    cfg: G1LowBodyEnvCfg
+    cfg: G1LowBodyEnvCfg | G1LowBodyPlateEnvCfg
 
-    def __init__(self, cfg: G1LowBodyEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1LowBodyEnvCfg | G1LowBodyPlateEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         # DOF and key body indexes
@@ -32,6 +33,10 @@ class G1LowBodyEnv(DirectRLEnv):
         self.hips_yaw_roll_indexes = self.robot.find_joints(self.cfg.hips_names[:2])[0]
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
+
+        # if plate is used, add plate joint indexes
+        if isinstance(self.cfg, G1LowBodyPlateEnvCfg):
+            self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
 
         # body/link indexes
         self.feet_body_indexes = self.robot.find_bodies(self.cfg.feet_body_name)[0]
@@ -265,6 +270,7 @@ class G1LowBodyEnv(DirectRLEnv):
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
             weight=self.cfg.reward_scales["feet_swing_height"] if "feet_swing_height" in self.cfg.reward_scales else 0,
+            target_height=0.1,
         )
 
         # gait phase reward
