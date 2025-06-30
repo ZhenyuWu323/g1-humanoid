@@ -234,9 +234,9 @@ def gait_phase_reward(
         contact_sensor: ContactSensor, 
         feet_body_indexes: Sequence[int],
         weight: float, 
-        gait_period: float = 0.8,
+        gait_period: float = 0.8, # Can use 1.2
         phase_offset: float = 0.5,
-        stance_phase_threshold: float = 0.55
+        stance_phase_threshold: float = 0.55 # Can use 0.6 if gait_period is 1.2
         ) -> torch.Tensor:
     """Reward Gait Phase"""
 
