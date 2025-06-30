@@ -335,15 +335,15 @@ class G1WholeBodyEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["plate_ang_acc_exp"] if "plate_ang_acc_exp" in self.cfg.reward_scales else 0,
             lambda_acc=1.5,
         )
-
-       
+        
+		# locomotion reward
+        locomotion_reward = lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + joint_torques_l2 + joint_accelerations_l2 + joint_velocities_l2 + action_rate + feet_slide_penalty + feet_air_time + feet_swing_height_penalty + gait_phase_reward + base_height_penalty
+        
+		# plate reward
+        plate_reward = plate_flat_orientation_penalty
 
         # reward
-        reward = (lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + 
-                 joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + 
-                 joint_torques_l2 + joint_accelerations_l2 + joint_velocities_l2 + action_rate + feet_slide_penalty + feet_air_time + 
-                 feet_swing_height_penalty + gait_phase_reward + base_height_penalty + plate_flat_orientation_penalty + plate_lin_acc_l2 + 
-                 plate_ang_acc_l2 + plate_lin_acc_exp + plate_ang_acc_exp) * self.step_dt
+        reward = (locomotion_reward + plate_reward) * self.step_dt
         return reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:

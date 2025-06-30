@@ -37,7 +37,7 @@ class EventCfg:
         func=mdp.randomize_rigid_body_mass,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="pelvis"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
             "mass_distribution_params": (-5.0, 5.0),
             "operation": "add",
         },
@@ -205,6 +205,7 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
     events: EventCfg = EventCfg()
     events.push_robot = None
     events.add_base_mass = None
+    events.add_plate_mass = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
@@ -230,11 +231,11 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
-        "plate_flat_orientation_l2": -1.0,
-        "plate_lin_acc_l2": -0.05,
-        "plate_ang_acc_l2": -0.05,
-        "plate_lin_acc_exp": 0.2,
-        "plate_ang_acc_exp": 0.15,
+        "plate_flat_orientation_l2": -0.05,
+        "plate_lin_acc_l2": -0.01,
+        "plate_ang_acc_l2": -0.01,
+        "plate_lin_acc_exp": 0,
+        "plate_ang_acc_exp": 0,
     }
 
     # terminations
