@@ -13,7 +13,7 @@ from isaaclab.utils import configclass
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
-from g1_humanoid.assets import G1_INSPIRE_FTP
+from g1_humanoid.assets import G1_WITH_PLATE
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 
 @configclass
@@ -37,8 +37,18 @@ class EventCfg:
         func=mdp.randomize_rigid_body_mass,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="pelvis"),
             "mass_distribution_params": (-5.0, 5.0),
+            "operation": "add",
+        },
+    )
+
+    add_plate_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+            "mass_distribution_params": (0.0, 5.0),
             "operation": "add",
         },
     )
@@ -91,8 +101,8 @@ class EventCfg:
 
 
 @configclass
-class G1LowBodyEnvCfg(DirectRLEnvCfg):
-    """ G1 Low Body Locomanipulation Environment Configuration """
+class G1WholeBodyEnvCfg(DirectRLEnvCfg):
+    """ G1 Whole Body Locomanipulation Environment Configuration """
 
 
     # simulation configuration
@@ -114,9 +124,9 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
 
 
     # MDP configuration # TODO: NEED add more attribute for upper and lower Actor/Critics
-    observation_space = 85
-    action_space = 15 # NOTE: Only lower body DOFs are in action space
-    action_scale = 0.5
+    observation_space = 114
+    action_space = 14 + 15 # NOTE: upper body DOFs + lower body DOFs
+    action_scale = 0.5 # NOTE: Upper body DOFS need to be scaled by at least 1.0
     state_space = 0
 
     # obs noise
@@ -129,6 +139,10 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
         "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
         "joint_pos_rel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
         "joint_vel_rel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
+        "plate_lin_vel_w": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+        "plate_lin_acc_w": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+        "plate_ang_vel_w": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+        "plate_ang_acc_w": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
     }
 
 
@@ -159,11 +173,13 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
 
     # robot configuration
-    robot: ArticulationCfg = G1_INSPIRE_FTP.replace(prim_path="/World/envs/env_.*/Robot")
+    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
     )
     reference_body = "torso_link"
+
+    plate_name = "plate"
     arm_names = [".*_shoulder_pitch_joint",
                 ".*_shoulder_roll_joint",
                 ".*_shoulder_yaw_joint",
@@ -172,11 +188,6 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
                 ".*_wrist_pitch_joint",
                 ".*_wrist_yaw_joint",]
     
-    finger_names = [".*_index_.*",
-                    ".*_middle_.*",
-                    ".*_ring_.*",
-                    ".*_little_.*",
-                    ".*_thumb_.*",]
     
     waist_names = ["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"]
 
@@ -185,7 +196,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     feet_names = [".*_ankle_pitch_joint", ".*_ankle_roll_joint"]
 
     lower_body_names = waist_names + hips_names + feet_names
-    upper_body_names = arm_names + finger_names
+    upper_body_names = arm_names 
     feet_body_name = ".*_ankle_roll_link"
 
 
@@ -219,6 +230,11 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
+        "plate_flat_orientation_l2": -1.0,
+        "plate_lin_acc_l2": -0.05,
+        "plate_ang_acc_l2": -0.05,
+        "plate_lin_acc_exp": 0.2,
+        "plate_ang_acc_exp": 0.15,
     }
 
     # terminations
