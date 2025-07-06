@@ -7,3 +7,4 @@ import gymnasium as gym  # noqa: F401
 
 from .lowbody import *
 from .wholebody import *
+from .decoupled import *
