@@ -48,9 +48,7 @@ class G1DecoupledEnv(DirectRLEnv):
         self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body) # torso link
 
         # action scale
-        self.upper_body_action_scale = self.cfg.action_scale["upper_body"]
-        self.lower_body_action_scale = self.cfg.action_scale["lower_body"]
-        self.whole_body_action_scale = self.cfg.action_scale["whole_body"]
+        self.action_scale = self.cfg.action_scale
 
         # default joint positions
         self.default_joint_pos = self.robot.data.default_joint_pos[0]
@@ -70,11 +68,8 @@ class G1DecoupledEnv(DirectRLEnv):
         self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
 
         # actions and previous actions
-        lower_body_action_space = self.cfg.action_space["lower_body"]
-        upper_body_action_space = self.cfg.action_space["upper_body"]
-        combined_action_space = lower_body_action_space + upper_body_action_space
-        self.actions = torch.zeros((self.num_envs, combined_action_space), device=self.sim.device)
-        self.prev_actions = torch.zeros((self.num_envs, combined_action_space), device=self.sim.device)
+        self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
 
     def _setup_scene(self):

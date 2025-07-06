@@ -125,17 +125,12 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
 
 
     # MDP configuration
-    observation_space = 108
-    action_space = {
-        "upper_body": 14,
-        "lower_body": 15,
-        "whole_body": 29,
+    observation_space = {
+        "actor_obs": 108,
+        "critic_obs": 108,
     }
-    action_scale = {
-        "upper_body": 0.5,
-        "lower_body": 0.5,
-        "whole_body": 0.5,
-    }
+    action_space = 29 # NOTE: whole body action space, lower body is 14 DOFs and upper body is 15 DOFs
+    action_scale = 0.5
     state_space = 0
 
     # obs noise
