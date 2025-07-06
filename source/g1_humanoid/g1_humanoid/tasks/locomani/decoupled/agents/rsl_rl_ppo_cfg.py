@@ -10,7 +10,7 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class G1DecoupledPPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    num_steps_per_env = 24
+    num_steps_per_env = 48
     max_iterations = 1500
     save_interval = 50
     experiment_name = "g1_decoupled_direct"

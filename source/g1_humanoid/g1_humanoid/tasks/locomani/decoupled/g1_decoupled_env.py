@@ -354,9 +354,9 @@ class G1DecoupledEnv(DirectRLEnv):
 		# plate reward
         plate_reward = plate_flat_orientation_penalty
 
-        # reward
-        lower_body_reward = locomotion_reward * self.step_dt
-        upper_body_reward = plate_reward * self.step_dt
+        # reward 
+        lower_body_reward = locomotion_reward #NOTE: removed * self.step_dt
+        upper_body_reward = plate_reward 
         return {'upper_body': upper_body_reward, 'lower_body': lower_body_reward}
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:

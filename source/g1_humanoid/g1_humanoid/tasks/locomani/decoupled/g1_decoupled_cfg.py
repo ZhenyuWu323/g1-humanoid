@@ -33,12 +33,24 @@ class EventCfg:
         },
     )
 
+    scale_control_gain = EventTerm(
+        func=mdp.randomize_actuator_gains,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "stiffness_distribution_params": (0.9, 1.1),
+            "damping_distribution_params": (0.9, 1.1),
+            "operation": "scale",
+            'distribution': 'uniform',
+        },
+    )
+
     add_base_mass = EventTerm(
         func=mdp.randomize_rigid_body_mass,
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "mass_distribution_params": (-5.0, 5.0),
+            "mass_distribution_params": (-1.0, 3.0),
             "operation": "add",
         },
     )
