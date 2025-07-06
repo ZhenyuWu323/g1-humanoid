@@ -69,9 +69,6 @@ class JointRslRlVecEnvWrapper(VecEnv):
             self.num_obs[obs_key] = gym.spaces.flatdim(self.unwrapped.single_observation_space["policy"][obs_key])
         
         self.num_privileged_obs = self.num_obs["critic_obs"]
-        print(self.num_actions)
-        print(self.num_obs)
-        print(self.num_privileged_obs)
 
         # modify the action space to the clip range
         self._modify_action_space()

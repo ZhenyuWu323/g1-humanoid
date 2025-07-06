@@ -96,8 +96,16 @@ class G1DecoupledEnv(DirectRLEnv):
         self.actions = actions.clone()
 
     def _apply_action(self):
-        wholebody_target = self.default_joint_pos + self.action_scale * self.actions
-        self.robot.set_joint_position_target(wholebody_target)
+        upper_actions = self.actions[:, :self.cfg.action_dim["upper_body"]]
+        lower_actions = self.actions[:, self.cfg.action_dim["upper_body"]:]
+
+        upper_body_target = self.default_upper_joint_pos + self.action_scale * upper_actions
+        lower_body_target = self.default_lower_joint_pos + self.action_scale * lower_actions
+
+        # set upper body
+        self.robot.set_joint_position_target(upper_body_target, self.upper_body_indexes)
+        # set lower body
+        self.robot.set_joint_position_target(lower_body_target, self.lower_body_indexes)
 
     def _get_observations(self) -> dict:
 
@@ -142,9 +150,9 @@ class G1DecoupledEnv(DirectRLEnv):
             joint_pos_rel,
             joint_vel_rel,
             vel_command,
-            plate_ang_vel_w,
-            plate_ang_acc_w,
-            plate_projected_gravity_b,
+            #plate_ang_vel_w,
+            #plate_ang_acc_w,
+            #plate_projected_gravity_b,
             self.actions.clone(),
         )
 
@@ -380,9 +388,9 @@ def compute_obs(
     joint_pos_rel: torch.Tensor,
     joint_vel_rel: torch.Tensor,
     vel_command: torch.Tensor,
-    plate_ang_vel_w: torch.Tensor,
-    plate_ang_acc_w: torch.Tensor,
-    plate_projected_gravity_b: torch.Tensor,
+    #plate_ang_vel_w: torch.Tensor,
+    #plate_ang_acc_w: torch.Tensor,
+    #plate_projected_gravity_b: torch.Tensor,
     actions: torch.Tensor,
 ) -> torch.Tensor:
     
@@ -394,9 +402,9 @@ def compute_obs(
             joint_pos_rel,
             joint_vel_rel,
             vel_command,
-            plate_ang_vel_w,
-            plate_ang_acc_w,
-            plate_projected_gravity_b,
+            #plate_ang_vel_w,
+            #plate_ang_acc_w,
+            #plate_projected_gravity_b,
             actions,
         ),
         dim=-1,

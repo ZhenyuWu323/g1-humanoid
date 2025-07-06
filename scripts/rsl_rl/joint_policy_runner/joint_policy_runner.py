@@ -129,7 +129,12 @@ class JointOnPolicyRunner:
         for key in self.body_keys:
             action_dict[key] = self.algs[key].act(actor_obs, critic_obs)
         # Step the environment
-        action = torch.cat([action_dict[key] for key in self.body_keys], dim=1)
+        action_dict["upper_body"] = torch.zeros(self.env.num_envs, 14, device=self.device) # TODO: remove this
+        action = torch.cat([action_dict["upper_body"], action_dict["lower_body"]], dim=1)
+        assert action_dict["upper_body"].shape[1] == 14, "Upper body should have 14 actions"
+        assert action_dict["lower_body"].shape[1] == 15, "Lower body should have 15 actions"
+        assert action.shape[1] == 29, "Total actions should be 29"
+
         obs, rewards, dones, infos = self.env.step(action.to(self.env.device))
         actor_obs, critic_obs = obs["actor_obs"], obs["critic_obs"]
         # Move to device
@@ -477,9 +482,8 @@ class JointOnPolicyRunner:
             
             # Get actions from each body part
             actions_list = []
-            for body_key in self.body_keys:
-                action = self.algs[body_key].policy.act_inference(obs)
-                actions_list.append(action)
+            actions_list.append(torch.zeros(self.env.num_envs, 14, device=self.device)) # TODO: remove this
+            actions_list.append(self.algs["lower_body"].policy.act_inference(obs))
             
             # Concatenate actions (same order as training)
             combined_actions = torch.cat(actions_list, dim=1)

@@ -127,8 +127,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 108,
-        "critic_obs": 108,
+        "actor_obs": 99,
+        "critic_obs": 99,
     }
     action_dim= {
         "upper_body": 14,
@@ -233,7 +233,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
-        "plate_flat_orientation_l2": -0.05,
+        "plate_flat_orientation_l2": -1.0,
         "plate_ang_acc_l2": -0.01,
         "plate_ang_acc_exp": 0,
     }
