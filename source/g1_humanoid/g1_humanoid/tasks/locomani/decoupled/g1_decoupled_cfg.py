@@ -125,11 +125,16 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
 
 
     # MDP configuration
+    # NOTE: Remember to update these if any updates are made to env
     observation_space = {
         "actor_obs": 108,
         "critic_obs": 108,
     }
-    action_space = 29 # NOTE: whole body action space, lower body is 14 DOFs and upper body is 15 DOFs
+    action_dim= {
+        "upper_body": 14,
+        "lower_body": 15,
+    }
+    action_space = 29
     action_scale = 0.5
     state_space = 0
 

@@ -59,13 +59,18 @@ class JointRslRlVecEnvWrapper(VecEnv):
         self.max_episode_length = self.unwrapped.max_episode_length
 
         # obtain dimensions of the environment
-        self.num_actions = gym.spaces.flatdim(self.unwrapped.single_action_space)
-        self.actor_num_obs = gym.spaces.flatdim(self.unwrapped.single_observation_space["policy"]["actor_obs"])
-        self.critic_num_obs = gym.spaces.flatdim(self.unwrapped.single_observation_space["policy"]["critic_obs"])
-        self.num_privileged_obs = self.critic_num_obs
+        self.num_obs = {}
+        self.num_actions = {}
+        
+        for action_key in self.unwrapped.cfg.action_dim:
+            self.num_actions[action_key] = self.unwrapped.cfg.action_dim[action_key]
+
+        for obs_key in self.unwrapped.single_observation_space["policy"]:
+            self.num_obs[obs_key] = gym.spaces.flatdim(self.unwrapped.single_observation_space["policy"][obs_key])
+        
+        self.num_privileged_obs = self.num_obs["critic_obs"]
         print(self.num_actions)
-        print(self.actor_num_obs)
-        print(self.critic_num_obs)
+        print(self.num_obs)
         print(self.num_privileged_obs)
 
         # modify the action space to the clip range

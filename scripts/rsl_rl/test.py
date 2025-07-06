@@ -49,7 +49,7 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import parse_env_cfg
 
 import g1_humanoid.tasks  # noqa: F401
-from joint_policy_runner import JointOnPolicyRunner, JointRslRlVecEnvWrapper
+from joint_policy_runner import JointRslRlVecEnvWrapper
 
 def main():
     """Random actions agent with Isaac Lab environment."""
@@ -74,7 +74,7 @@ def main():
             actions = 2 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
             # apply actions
             obs, rew, dones, extras= env.step(actions)
-            
+
     # close the simulator
     env.close()
 
