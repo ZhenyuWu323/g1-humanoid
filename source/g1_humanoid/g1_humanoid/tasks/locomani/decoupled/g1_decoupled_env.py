@@ -344,7 +344,7 @@ class G1DecoupledEnv(DirectRLEnv):
         locomotion_reward = lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + joint_torques_l2 + joint_accelerations_l2 + joint_velocities_l2 + action_rate + feet_slide_penalty + feet_air_time + feet_swing_height_penalty + gait_phase_reward + base_height_penalty
         
 		# plate reward
-        plate_reward = plate_flat_orientation_penalty + plate_ang_acc_l2 + plate_ang_acc_exp
+        plate_reward = plate_flat_orientation_penalty
 
         # reward
         lower_body_reward = locomotion_reward * self.step_dt

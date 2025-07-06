@@ -1,2 +1,2 @@
-#from .joint_policy_runner import JointOnPolicyRunner
+from .joint_policy_runner import JointOnPolicyRunner
 from .joint_env_wrapper import JointRslRlVecEnvWrapper

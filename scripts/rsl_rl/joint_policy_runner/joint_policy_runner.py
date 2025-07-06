@@ -22,7 +22,7 @@ from rsl_rl.modules import (
     StudentTeacherRecurrent,
 )
 from rsl_rl.utils import store_code_state
-from joint_env_wrapper import JointRslRlVecEnvWrapper
+from .joint_env_wrapper import JointRslRlVecEnvWrapper
 
 class JointOnPolicyRunner:
     """On-policy runner for training and evaluation."""
@@ -70,6 +70,7 @@ class JointOnPolicyRunner:
     def __setup_policy(self):
         # initialize policies
         self.policies = {}
+        self.policy_cfg.pop("class_name")
         for body_key in self.body_keys:
             # ActorCritic for upper and lower body
             self.policies[body_key] = ActorCritic(
@@ -81,6 +82,7 @@ class JointOnPolicyRunner:
 
         # initialize algorithm
         self.algs = {}
+        self.alg_cfg.pop("class_name")
         for body_key in self.body_keys:
             self.algs[body_key] = PPO(
                 policy=self.policies[body_key],
@@ -131,7 +133,7 @@ class JointOnPolicyRunner:
         obs, rewards, dones, infos = self.env.step(action.to(self.env.device))
         actor_obs, critic_obs = obs["actor_obs"], obs["critic_obs"]
         # Move to device
-        actor_obs, critic_obs, rewards, dones = (actor_obs.to(self.device), critic_obs.to(self.device), dones.to(self.device))
+        actor_obs, critic_obs, dones = (actor_obs.to(self.device), critic_obs.to(self.device), dones.to(self.device))
         rewards = {key: rewards[key].to(self.device) for key in self.body_keys}
         # perform normalization
         actor_obs = self.actor_obs_normalizer(actor_obs)
