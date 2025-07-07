@@ -232,7 +232,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         # lower body
         "track_lin_vel_x": 2.0,
         "track_lin_vel_y": 1.5,
-        "track_ang_vel_z": 4.0,
+        "track_ang_vel_z": 1.5,
         "penalty_base_height": -4.0,
         "penalty_lin_vel_z": -0.2,
         "penalty_ang_vel_xy": -0.05,

@@ -330,11 +330,10 @@ class G1DecoupledEnv(DirectRLEnv):
         )
 
         # feet air time
-        feet_air_time = mdp.feet_air_time(
+        feet_air_time = mdp.feet_air_time_positive_biped(
             vel_command=self.velocity_command.command,
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
-            step_dt=self.step_dt,
             threshold=0.5,
             weight=self.cfg.reward_scales["feet_air_time"] if "feet_air_time" in self.cfg.reward_scales else 0,
         )
