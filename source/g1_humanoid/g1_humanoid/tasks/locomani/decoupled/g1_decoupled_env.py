@@ -73,6 +73,24 @@ class G1DecoupledEnv(DirectRLEnv):
         self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
         self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
+        # history
+        self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
+        self._init_history_buffers()
+
+    def _init_history_buffers(self):
+        """Initialize history buffers for observations and actions."""
+        
+        # proprioceptive observations
+        self.root_ang_vel_b_history = torch.zeros((self.num_envs, self.obs_history_length, 3), device=self.sim.device)
+        self.projected_gravity_b_history = torch.zeros((self.num_envs, self.obs_history_length, 3), device=self.sim.device)
+        self.dof_pos_history = torch.zeros((self.num_envs, self.obs_history_length, self.cfg.action_space), device=self.sim.device)
+        self.dof_vel_history = torch.zeros((self.num_envs, self.obs_history_length, self.cfg.action_space), device=self.sim.device)
+        
+        # action history buffer
+        self.action_history = torch.zeros((self.num_envs, self.obs_history_length, self.cfg.action_space), device=self.sim.device)
+        
+        # step counter for history management
+        self.history_step_counter = torch.zeros(self.num_envs, dtype=torch.long, device=self.sim.device)
 
     def _setup_scene(self):
         # robot
@@ -120,15 +138,51 @@ class G1DecoupledEnv(DirectRLEnv):
         self.leg_phases[:, 0] = self.phase # left leg
         self.leg_phases[:, 1] = (self.phase + self.cfg.phase_offset) % 1.0 # right leg
 
+        # update history buffers
+        self._update_history_buffers()
+        self.history_step_counter += 1
+
+    def _update_history_buffers(self):
+        """Update history buffers for observations and actions."""
+        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
+        dof_vel = self.robot.data.joint_vel
+        root_ang_vel_b = self.robot.data.root_ang_vel_b
+        projected_gravity_b = self.robot.data.projected_gravity_b
+
+        # update history buffers
+        self.root_ang_vel_b_history = torch.roll(self.root_ang_vel_b_history, shifts=1, dims=1)
+        self.root_ang_vel_b_history[:, 0, :] = root_ang_vel_b
+        
+        self.projected_gravity_b_history = torch.roll(self.projected_gravity_b_history, shifts=1, dims=1)
+        self.projected_gravity_b_history[:, 0, :] = projected_gravity_b
+        
+        self.dof_pos_history = torch.roll(self.dof_pos_history, shifts=1, dims=1)
+        self.dof_pos_history[:, 0, :] = dof_pos
+        
+        self.dof_vel_history = torch.roll(self.dof_vel_history, shifts=1, dims=1)
+        self.dof_vel_history[:, 0, :] = dof_vel
+
+        mask = self.history_step_counter > 0
+        if mask.any():
+            self.action_history = torch.roll(self.action_history, shifts=1, dims=1)
+            self.action_history[mask, 0, :] = self.prev_actions[mask]
+
 
     def _get_observations(self) -> dict:
 
-        # relative joint positions and velocities
+        # get proprioceptive observations
         dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
         dof_vel = self.robot.data.joint_vel
         root_lin_vel_b = self.robot.data.root_lin_vel_b
         root_ang_vel_b = self.robot.data.root_ang_vel_b
         projected_gravity_b = self.robot.data.projected_gravity_b
+
+        # get history observations
+        root_ang_vel_b_hist_flat = self.root_ang_vel_b_history.flatten(start_dim=1)  # (num_envs, history_length * 3)
+        projected_gravity_b_hist_flat = self.projected_gravity_b_history.flatten(start_dim=1)  # (num_envs, history_length * 3)
+        dof_pos_hist_flat = self.dof_pos_history.flatten(start_dim=1)  # (num_envs, history_length * total_dof)
+        dof_vel_hist_flat = self.dof_vel_history.flatten(start_dim=1)  # (num_envs, history_length * total_dof)
+        action_hist_flat = self.action_history.flatten(start_dim=1)  # (num_envs, action_history_length * action_dim)
 
 
         # plate velocity in world frame
@@ -160,15 +214,15 @@ class G1DecoupledEnv(DirectRLEnv):
 
         # scale observations
         actor_observations_dict = {
-            'root_ang_vel_b': root_ang_vel_b,
-            'projected_gravity_b': projected_gravity_b,
-            'vel_command': vel_command,
-            'ref_upper_body_dof_pos': self.default_upper_joint_pos,
-            'dof_pos': dof_pos,
-            'dof_vel': dof_vel,
-            'actions': self.actions.clone(),
-            'sin_phase': sin_phase,
-            'cos_phase': cos_phase,
+            'root_ang_vel_b': root_ang_vel_b_hist_flat, # 15
+            'projected_gravity_b': projected_gravity_b_hist_flat, # 15
+            'vel_command': vel_command, # 3
+            'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
+            'dof_pos': dof_pos_hist_flat, # 145
+            'dof_vel': dof_vel_hist_flat, # 145
+            'actions': action_hist_flat, # 145
+            'sin_phase': sin_phase, # 1
+            'cos_phase': cos_phase, # 1
         }
         critic_observations_dict = {
             'root_lin_vel_b': root_lin_vel_b,
@@ -477,6 +531,12 @@ class G1DecoupledEnv(DirectRLEnv):
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
+        self.history_step_counter[env_ids] = 0
+        self.root_ang_vel_b_history[env_ids] = 0.0
+        self.projected_gravity_b_history[env_ids] = 0.0
+        self.dof_pos_history[env_ids] = 0.0
+        self.dof_vel_history[env_ids] = 0.0
+        self.action_history[env_ids] = 0.0
         if hasattr(self, 'phase'):
             self.phase[env_ids] = 0.0
             self.leg_phases[env_ids] = 0.0

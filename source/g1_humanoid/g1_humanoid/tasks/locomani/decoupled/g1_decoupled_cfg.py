@@ -139,7 +139,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 112,
+        "actor_obs": 484,
         "critic_obs": 115,
     }
     action_dim= {
@@ -147,8 +147,9 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "lower_body": 15,
     }
     action_space = 29
-    action_scale = 0.5
+    action_scale = 0.25
     state_space = 0
+    obs_history_length = 5
 
     # obs noise
     obs_noise_models: dict[str, NoiseModelCfg] = {
@@ -230,19 +231,19 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # reward scales
     reward_scales = {
         # lower body
-        "track_lin_vel_x": 2.0,
-        "track_lin_vel_y": 1.5,
-        "track_ang_vel_z": 1.5,
-        "penalty_base_height": -4.0,
+        "track_lin_vel_x": 1.0,
+        "track_lin_vel_y": 1.0,
+        "track_ang_vel_z": 1.0,
+        "penalty_base_height": -10.0,
         "penalty_lin_vel_z": -0.2,
         "penalty_ang_vel_xy": -0.05,
         "penalty_flat_orientation": -1.0, 
         "penalty_lower_body_action_rate": -0.005,
         "penalty_lower_body_dof_acc": -1.0e-7,
-        "penalty_lower_body_dof_torques": -1.0e-5,
+        "penalty_lower_body_dof_torques": -2.0e-6,
         "penalty_lower_body_dof_pos_limits": -1.0,
         "penalty_lower_body_dof_vel": -1e-3,
-        "feet_air_time": 4.0,
+        "feet_air_time": 0.75,
         "penalty_dof_pos_waist": -0.5, # unitree offcial use -1.0
         "penalty_dof_pos_hips": -0.5, # unitree offcial use -1.0
         "penalty_lower_body_termination": -200.0,
@@ -285,7 +286,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         heading_control_stiffness=0.5,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 1.0), lin_vel_y=(-0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
     )
     # target base height
