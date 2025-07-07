@@ -30,7 +30,8 @@ class JointOnPolicyRunner:
     def __init__(self, env: JointRslRlVecEnvWrapper, train_cfg: dict, log_dir: str | None = None, device="cpu"):
         self.cfg = train_cfg
         self.alg_cfg = train_cfg["algorithm"]
-        self.policy_cfg = train_cfg["policy"]
+        self.upper_body_policy_cfg = train_cfg["upper_body_policy"]
+        self.lower_body_policy_cfg = train_cfg["lower_body_policy"]
         self.device = device
         self.env = env
 
@@ -70,16 +71,21 @@ class JointOnPolicyRunner:
     def __setup_policy(self):
         # initialize policies
         self.policies = {}
-        self.policy_cfg.pop("class_name")
-        for body_key in self.body_keys:
-            # ActorCritic for upper and lower body
-            self.policies[body_key] = ActorCritic(
-                num_actor_obs=self.num_obs["actor_obs"],
-                num_critic_obs=self.num_obs["critic_obs"],
-                num_actions=self.num_actions[body_key],
-                **self.policy_cfg
-            ).to(self.device)
-
+        self.upper_body_policy_cfg.pop("class_name")
+        self.lower_body_policy_cfg.pop("class_name")
+        self.policies["upper_body"] = ActorCritic(
+            num_actor_obs=self.num_obs["actor_obs"],
+            num_critic_obs=self.num_obs["critic_obs"],
+            num_actions=self.num_actions["upper_body"],
+            **self.upper_body_policy_cfg
+        ).to(self.device)
+        self.policies["lower_body"] = ActorCritic(
+            num_actor_obs=self.num_obs["actor_obs"],
+            num_critic_obs=self.num_obs["critic_obs"],
+            num_actions=self.num_actions["lower_body"],
+            **self.lower_body_policy_cfg
+        ).to(self.device)
+        
         # initialize algorithm
         self.algs = {}
         self.alg_cfg.pop("class_name")
@@ -129,7 +135,7 @@ class JointOnPolicyRunner:
         for key in self.body_keys:
             action_dict[key] = self.algs[key].act(actor_obs, critic_obs)
         # Step the environment
-        action_dict["upper_body"] = torch.zeros(self.env.num_envs, 14, device=self.device) # TODO: remove this
+        #action_dict["upper_body"] = torch.zeros(self.env.num_envs, 14, device=self.device) # TODO: remove this
         action = torch.cat([action_dict["upper_body"], action_dict["lower_body"]], dim=1)
         assert action_dict["upper_body"].shape[1] == 14, "Upper body should have 14 actions"
         assert action_dict["lower_body"].shape[1] == 15, "Lower body should have 15 actions"
@@ -482,7 +488,8 @@ class JointOnPolicyRunner:
             
             # Get actions from each body part
             actions_list = []
-            actions_list.append(torch.zeros(self.env.num_envs, 14, device=self.device)) # TODO: remove this
+            #actions_list.append(torch.zeros(self.env.num_envs, 14, device=self.device)) # TODO: remove this
+            actions_list.append(self.algs["upper_body"].policy.act_inference(obs))
             actions_list.append(self.algs["lower_body"].policy.act_inference(obs))
             
             # Concatenate actions (same order as training)

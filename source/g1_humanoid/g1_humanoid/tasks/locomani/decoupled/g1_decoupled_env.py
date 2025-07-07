@@ -53,9 +53,9 @@ class G1DecoupledEnv(DirectRLEnv):
         self.action_scale = self.cfg.action_scale
 
         # default joint positions
-        self.default_joint_pos = self.robot.data.default_joint_pos[0]
-        self.default_lower_joint_pos = self.default_joint_pos[self.lower_body_indexes]
-        self.default_upper_joint_pos = self.default_joint_pos[self.upper_body_indexes]
+        self.default_joint_pos = self.robot.data.default_joint_pos
+        self.default_lower_joint_pos = self.default_joint_pos[:,self.lower_body_indexes]
+        self.default_upper_joint_pos = self.default_joint_pos[:,self.upper_body_indexes]
 
         
 
@@ -95,6 +95,8 @@ class G1DecoupledEnv(DirectRLEnv):
 
 
     def _pre_physics_step(self, actions: torch.Tensor):
+        # update previous actions
+        self.prev_actions = self.actions.clone()
         self.actions = actions.clone()
 
     def _apply_action(self):
@@ -121,12 +123,9 @@ class G1DecoupledEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
 
-        # update previous actions
-        self.prev_actions = self.actions.clone()
-
         # relative joint positions and velocities
-        joint_pos_rel = self.robot.data.joint_pos - self.robot.data.default_joint_pos
-        joint_vel_rel = self.robot.data.joint_vel - self.robot.data.default_joint_vel
+        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
+        dof_vel = self.robot.data.joint_vel
         root_lin_vel_b = self.robot.data.root_lin_vel_b
         root_ang_vel_b = self.robot.data.root_ang_vel_b
         projected_gravity_b = self.robot.data.projected_gravity_b
@@ -160,151 +159,170 @@ class G1DecoupledEnv(DirectRLEnv):
 
 
         # scale observations
-        observations_dict = {
-            'root_lin_vel_b': root_lin_vel_b,
+        actor_observations_dict = {
             'root_ang_vel_b': root_ang_vel_b,
             'projected_gravity_b': projected_gravity_b,
             'vel_command': vel_command,
-            'joint_pos_rel': joint_pos_rel,
-            'joint_vel_rel': joint_vel_rel,
+            'ref_upper_body_dof_pos': self.default_upper_joint_pos,
+            'dof_pos': dof_pos,
+            'dof_vel': dof_vel,
             'actions': self.actions.clone(),
             'sin_phase': sin_phase,
             'cos_phase': cos_phase,
         }
-        scaled_obs = {}
-        for obs_name, obs_value in observations_dict.items():
+        critic_observations_dict = {
+            'root_lin_vel_b': root_lin_vel_b,
+            'root_ang_vel_b': root_ang_vel_b,
+            'projected_gravity_b': projected_gravity_b,
+            'vel_command': vel_command,
+            'ref_upper_body_dof_pos': self.default_upper_joint_pos,
+            'dof_pos': dof_pos,
+            'dof_vel': dof_vel,
+            'actions': self.actions.clone(),
+            'sin_phase': sin_phase,
+            'cos_phase': cos_phase,
+        }
+        actor_scaled_obs = {}
+        critic_scaled_obs = {}
+        for obs_name, obs_value in actor_observations_dict.items():
             if hasattr(self.cfg.obs_scales, obs_name):
                 scale = getattr(self.cfg.obs_scales, obs_name)
-                scaled_obs[obs_name] = obs_value * scale
+                actor_scaled_obs[obs_name] = obs_value * scale
             else:
-                scaled_obs[obs_name] = obs_value
-        obs_list = list(scaled_obs.values())
+                actor_scaled_obs[obs_name] = obs_value
+        for obs_name, obs_value in critic_observations_dict.items():
+            if hasattr(self.cfg.obs_scales, obs_name):
+                scale = getattr(self.cfg.obs_scales, obs_name)
+                critic_scaled_obs[obs_name] = obs_value * scale
+            else:
+                critic_scaled_obs[obs_name] = obs_value
+        actor_obs_list = list(actor_scaled_obs.values())
+        critic_obs_list = list(critic_scaled_obs.values())
 
         # build task observation
-        obs = compute_obs(obs_list)
+        actor_obs = compute_obs(actor_obs_list)
+        critic_obs = compute_obs(critic_obs_list)
 
-        observations = {"actor_obs": obs, "critic_obs": obs}
+        observations = {"actor_obs": actor_obs, "critic_obs": critic_obs}
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
 
         """
-        Tracking Rewards
+        Lower Body Tracking Rewards
         """
         # linear velocity tracking
-        lin_vel_xy_reward = mdp.track_lin_vel_xy_base_exp(
+        tracking_lin_vel_x = mdp.track_lin_vel_x_base_exp(
             root_lin_vel_b=self.robot.data.root_lin_vel_b,
             vel_command=self.velocity_command.command,
             std=0.5,
-            weight=self.cfg.reward_scales["track_lin_vel_xy_exp"] if "track_lin_vel_xy_exp" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["track_lin_vel_x"] if "track_lin_vel_x" in self.cfg.reward_scales else 0,
+        )
+        tracking_lin_vel_y = mdp.track_lin_vel_y_base_exp(
+            root_lin_vel_b=self.robot.data.root_lin_vel_b,
+            vel_command=self.velocity_command.command,
+            std=0.5,
+            weight=self.cfg.reward_scales["track_lin_vel_y"] if "track_lin_vel_y" in self.cfg.reward_scales else 0,
         )
 
         # angular velocity tracking
-        ang_vel_z_reward = mdp.track_ang_vel_z_base_exp(
+        tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
             root_ang_vel_b=self.robot.data.root_ang_vel_b,
             vel_command=self.velocity_command.command,
             std=0.5,
-            weight=self.cfg.reward_scales["track_ang_vel_z_exp"] if "track_ang_vel_z_exp" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["track_ang_vel_z"] if "track_ang_vel_z" in self.cfg.reward_scales else 0,
         )
 
         """
-        Panelty Term
+        Lower Body Penalty Terms
         """
         # terminate when the robot falls
         died, _ = self._get_dones()
         die_penalty = mdp.termination_penalty(died, weight=self.cfg.reward_scales["termination_penalty"] if "termination_penalty" in self.cfg.reward_scales else 0)
 
         # linear velocity z
-        lin_vel_z_penalty = mdp.lin_vel_z_l2(
+        penalty_lin_vel_z = mdp.lin_vel_z_l2(
             root_lin_vel_b=self.robot.data.root_lin_vel_b,
-            weight=self.cfg.reward_scales["lin_vel_z_l2"] if "lin_vel_z_l2" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_lin_vel_z"] if "penalty_lin_vel_z" in self.cfg.reward_scales else 0,
         )
 
         # angular velocity xy
-        ang_vel_xy_penalty = mdp.ang_vel_xy_l2(
+        penalty_ang_vel_xy = mdp.ang_vel_xy_l2(
             root_ang_vel_b=self.robot.data.root_ang_vel_b,
-            weight=self.cfg.reward_scales["ang_vel_xy_l2"] if "ang_vel_xy_l2" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_ang_vel_xy"] if "penalty_ang_vel_xy" in self.cfg.reward_scales else 0,
         )
 
         # flat orientation
-        flat_orientation_penalty = mdp.flat_orientation_l2(
+        penalty_flat_orientation = mdp.flat_orientation_l2(
             projected_gravity_b=self.robot.data.projected_gravity_b,
-            weight=self.cfg.reward_scales["flat_orientation_l2"] if "flat_orientation_l2" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_flat_orientation"] if "penalty_flat_orientation" in self.cfg.reward_scales else 0,
         )
 
         # joint deviation waist
-        joint_deviation_waist = mdp.joint_deviation_l1(
+        penalty_dof_pos_waist = mdp.joint_deviation_l1(
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
             joint_idx=self.waist_indexes,
-            weight=self.cfg.reward_scales["joint_deviation_waist"] if "joint_deviation_waist" in self.cfg.reward_scales else 0,
-        )
-
-        # joint deviation upper body (arms and fingers)
-        joint_deviation_upper_body = mdp.joint_deviation_l1(
-            joint_pos=self.robot.data.joint_pos,
-            default_joint_pos=self.robot.data.default_joint_pos,
-            joint_idx=self.upper_body_indexes,
-            weight=self.cfg.reward_scales["joint_deviation_upper_body"] if "joint_deviation_upper_body" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_dof_pos_waist"] if "penalty_dof_pos_waist" in self.cfg.reward_scales else 0,
         )
 
         # joint deviation hips
-        joint_deviation_hips = mdp.joint_deviation_l1(
+        penalty_dof_pos_hips = mdp.joint_deviation_l1(
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
             joint_idx=self.hips_yaw_roll_indexes,
-            weight=self.cfg.reward_scales["joint_deviation_hips"] if "joint_deviation_hips" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_dof_pos_hips"] if "penalty_dof_pos_hips" in self.cfg.reward_scales else 0,
         )
 
         # joint position limits
-        joint_pos_limits = mdp.joint_pos_limits(
+        penalty_lower_body_dof_pos_limits = mdp.joint_pos_limits(
             joint_pos=self.robot.data.joint_pos,
             soft_joint_pos_limits=self.robot.data.soft_joint_pos_limits,
-            joint_idx=self.feet_indexes,
-            weight=self.cfg.reward_scales["dof_pos_limits"] if "dof_pos_limits" in self.cfg.reward_scales else 0,
+            joint_idx=self.lower_body_indexes,
+            weight=self.cfg.reward_scales["penalty_lower_body_dof_pos_limits"] if "penalty_lower_body_dof_pos_limits" in self.cfg.reward_scales else 0,
         )
 
         # joint torques
-        joint_torques_l2 = mdp.joint_torque_l2(
+        penalty_lower_body_dof_torques = mdp.joint_torque_l2(
             joint_torque=self.robot.data.applied_torque,
             joint_idx=self.hips_indexes,
-            weight=self.cfg.reward_scales["dof_torques_l2"] if "dof_torques_l2" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_lower_body_dof_torques"] if "penalty_lower_body_dof_torques" in self.cfg.reward_scales else 0,
         )
 
         # joint accelerations
-        joint_accelerations_l2 = mdp.joint_accel_l2(
+        penalty_lower_body_dof_acc = mdp.joint_accel_l2(
             joint_accel=self.robot.data.joint_acc,
             joint_idx=self.hips_indexes,
-            weight=self.cfg.reward_scales["dof_acc_l2"] if "dof_acc_l2" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_lower_body_dof_acc"] if "penalty_lower_body_dof_acc" in self.cfg.reward_scales else 0,
         )
 
         # joint velocities
-        joint_velocities_l2 = mdp.joint_vel_l2(
+        penalty_lower_body_dof_vel = mdp.joint_vel_l2(
             joint_vel=self.robot.data.joint_vel,
             joint_idx=self.hips_indexes,
-            weight=self.cfg.reward_scales["dof_vel_l2"] if "dof_vel_l2" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_lower_body_dof_vel"] if "penalty_lower_body_dof_vel" in self.cfg.reward_scales else 0,
         )
 
         # action rate
-        action_rate = mdp.action_rate_l2(
-            action=self.actions,
-            prev_action=self.prev_actions,
-            weight=self.cfg.reward_scales["action_rate_l2"] if "action_rate_l2" in self.cfg.reward_scales else 0,
+        penalty_lower_body_action_rate = mdp.action_rate_l2(
+            action=self.actions[:, self.cfg.action_dim["upper_body"]:],
+            prev_action=self.prev_actions[:, self.cfg.action_dim["upper_body"]:],
+            weight=self.cfg.reward_scales["penalty_lower_body_action_rate"] if "penalty_lower_body_action_rate" in self.cfg.reward_scales else 0,
         )
 
         # base height
-        base_height_penalty = mdp.base_height(
+        penalty_base_height = mdp.base_height(
             body_pos_w=self.robot.data.body_pos_w,
             body_idx=self.ref_body_index,
             target_height=self.cfg.target_base_height,
-            weight=self.cfg.reward_scales["base_height"] if "base_height" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_base_height"] if "penalty_base_height" in self.cfg.reward_scales else 0,
         )
 
         """
-        Feet Contact Rewards
+        Lower Body Feet Contact Rewards
         """
         # feet slides penalty
-        feet_slide_penalty = mdp.feet_slide(
+        penalty_feet_slide = mdp.feet_slide(
             body_lin_vel_w=self.robot.data.body_lin_vel_w,
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
@@ -312,16 +330,17 @@ class G1DecoupledEnv(DirectRLEnv):
         )
 
         # feet air time
-        feet_air_time = mdp.feet_air_time_positive_biped(
+        feet_air_time = mdp.feet_air_time(
             vel_command=self.velocity_command.command,
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
-            threshold=0.4,
+            step_dt=self.step_dt,
+            threshold=0.5,
             weight=self.cfg.reward_scales["feet_air_time"] if "feet_air_time" in self.cfg.reward_scales else 0,
         )
 
         # feet swing height
-        feet_swing_height_penalty = mdp.feet_swing_height(
+        penalty_feet_swing_height = mdp.feet_swing_height(
             body_pos_w=self.robot.data.body_pos_w,
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
@@ -340,7 +359,7 @@ class G1DecoupledEnv(DirectRLEnv):
         )
 
         """
-        Plate Rewards
+        Upper Body Rewards
         """
         # plate flat orientation
         plate_projected_gravity_b = compute_projected_gravity(self.plate_body_index, self.robot.data.body_quat_w, self.robot.data.GRAVITY_VEC_W)
@@ -348,44 +367,97 @@ class G1DecoupledEnv(DirectRLEnv):
             projected_gravity_b=plate_projected_gravity_b,
             weight=self.cfg.reward_scales["plate_flat_orientation_l2"] if "plate_flat_orientation_l2" in self.cfg.reward_scales else 0,
         )
-
-        # plate velocity acceleration
-        '''plate_lin_acc_l2 = mdp.body_acc_l2(
-            body_acc_w=self.robot.data.body_lin_acc_w,
-            body_idx=self.plate_body_index,
-            weight=self.cfg.reward_scales["plate_lin_acc_l2"] if "plate_lin_acc_l2" in self.cfg.reward_scales else 0,
-        )'''
-
-        # plate angular acceleration
-        plate_ang_acc_l2 = mdp.body_acc_l2(
-            body_acc_w=self.robot.data.body_ang_acc_w,
-            body_idx=self.plate_body_index,
-            weight=self.cfg.reward_scales["plate_ang_acc_l2"] if "plate_ang_acc_l2" in self.cfg.reward_scales else 0,
-        )
-
-        # plate near-zero velocity acc
-        '''plate_lin_acc_exp = mdp.body_acc_exp(
-            body_acc_w=self.robot.data.body_lin_acc_w,
-            body_idx=self.plate_body_index,
-            weight=self.cfg.reward_scales["plate_lin_acc_exp"] if "plate_lin_acc_exp" in self.cfg.reward_scales else 0,
-            lambda_acc=1.0,
-        )'''
-        plate_ang_acc_exp = mdp.body_acc_exp(
-            body_acc_w=self.robot.data.body_ang_acc_w,
-            body_idx=self.plate_body_index,
-            weight=self.cfg.reward_scales["plate_ang_acc_exp"] if "plate_ang_acc_exp" in self.cfg.reward_scales else 0,
-            lambda_acc=1.5,
-        )
         
+        # upper body tracking
+        tracking_upper_body_dof_pos = mdp.joint_tracking_exp(
+            joint_pos=self.robot.data.joint_pos,
+            joint_idx=self.upper_body_indexes,
+            joint_pos_command=self.default_upper_joint_pos,
+            weight=self.cfg.reward_scales["tracking_upper_body_dof_pos"] if "tracking_upper_body_dof_pos" in self.cfg.reward_scales else 0,
+            std=0.5,
+        )
+
+        """
+        Upper Body Penalty Terms
+        """
+        # upper body torques
+        penalty_upper_body_dof_torques = mdp.joint_torque_l2(
+            joint_torque=self.robot.data.applied_torque,
+            joint_idx=self.upper_body_indexes,
+            weight=self.cfg.reward_scales["penalty_upper_body_dof_torques"] if "penalty_upper_body_dof_torques" in self.cfg.reward_scales else 0,
+        )
+
+        # upper body accelerations
+        penalty_upper_body_dof_acc = mdp.joint_accel_l2(
+            joint_accel=self.robot.data.joint_acc,
+            joint_idx=self.upper_body_indexes,
+            weight=self.cfg.reward_scales["penalty_upper_body_dof_acc"] if "penalty_upper_body_dof_acc" in self.cfg.reward_scales else 0,
+        )
+
+        # upper body position limits
+        penalty_upper_body_dof_pos_limits = mdp.joint_pos_limits(
+            joint_pos=self.robot.data.joint_pos,
+            soft_joint_pos_limits=self.robot.data.soft_joint_pos_limits,
+            joint_idx=self.upper_body_indexes,
+            weight=self.cfg.reward_scales["penalty_upper_body_dof_pos_limits"] if "penalty_upper_body_dof_pos_limits" in self.cfg.reward_scales else 0,
+        )
+
+        # upper body action rate
+        penalty_upper_body_action_rate = mdp.action_rate_l2(
+            action=self.actions[:, :self.cfg.action_dim["upper_body"]],
+            prev_action=self.prev_actions[:, :self.cfg.action_dim["upper_body"]],
+            weight=self.cfg.reward_scales["penalty_upper_body_action_rate"] if "penalty_upper_body_action_rate" in self.cfg.reward_scales else 0,
+        )
+
+        # upper body velocities
+        penalty_upper_body_dof_vel = mdp.joint_vel_l2(
+            joint_vel=self.robot.data.joint_vel,
+            joint_idx=self.upper_body_indexes,
+            weight=self.cfg.reward_scales["penalty_upper_body_dof_vel"] if "penalty_upper_body_dof_vel" in self.cfg.reward_scales else 0,
+        )
+
+        # upper body termination
+        penalty_upper_body_termination = mdp.termination_penalty(
+            terminated=died,
+            weight=self.cfg.reward_scales["penalty_upper_body_termination"] if "penalty_upper_body_termination" in self.cfg.reward_scales else 0,
+        )
+
+
 		# locomotion reward
-        locomotion_reward = lin_vel_xy_reward + ang_vel_z_reward + die_penalty + lin_vel_z_penalty + ang_vel_xy_penalty + flat_orientation_penalty + joint_deviation_waist + joint_deviation_upper_body + joint_deviation_hips + joint_pos_limits + joint_torques_l2 + joint_accelerations_l2 + joint_velocities_l2 + action_rate + feet_slide_penalty + feet_air_time + feet_swing_height_penalty + gait_phase_reward + base_height_penalty
+        locomotion_reward = (tracking_lin_vel_x + 
+                             tracking_lin_vel_y + 
+                             tracking_ang_vel_z + 
+                             die_penalty + 
+                             penalty_lin_vel_z + 
+                             penalty_ang_vel_xy + 
+                             penalty_flat_orientation + 
+                             penalty_dof_pos_waist + 
+                             penalty_dof_pos_hips + 
+                             penalty_lower_body_dof_pos_limits + 
+                             penalty_lower_body_dof_torques + 
+                             penalty_lower_body_dof_acc + 
+                             penalty_lower_body_dof_vel + 
+                             penalty_lower_body_action_rate + 
+                             penalty_feet_slide + 
+                             feet_air_time + 
+                             penalty_feet_swing_height + 
+                             gait_phase_reward + 
+                             penalty_base_height)
         
-		# plate reward
-        plate_reward = plate_flat_orientation_penalty
+		# upper body reward
+        upper_body_reward = (
+            tracking_upper_body_dof_pos + 
+            penalty_upper_body_dof_torques + 
+            penalty_upper_body_dof_acc + 
+            penalty_upper_body_dof_pos_limits + 
+            penalty_upper_body_action_rate + 
+            penalty_upper_body_dof_vel + 
+            penalty_upper_body_termination
+        )
 
         # reward 
         lower_body_reward = locomotion_reward #NOTE: removed * self.step_dt
-        upper_body_reward = plate_reward 
+        upper_body_reward = upper_body_reward 
         return {'upper_body': upper_body_reward, 'lower_body': lower_body_reward}
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:

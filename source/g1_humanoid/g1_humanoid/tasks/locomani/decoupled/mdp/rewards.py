@@ -61,6 +61,17 @@ def track_ang_vel_z_base_exp(root_ang_vel_b: torch.Tensor, vel_command: torch.Te
     return torch.exp(-ang_vel_error / std**2) * weight
 
 
+def track_lin_vel_x_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+    """Reward tracking of linear velocity commands (x-axis) base frame using exponential kernel."""
+    lin_vel_error = torch.square(vel_command[:, 0] - root_lin_vel_b[:, 0])
+    return torch.exp(-lin_vel_error / std**2) * weight
+
+def track_lin_vel_y_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+    """Reward tracking of linear velocity commands (y-axis) base frame using exponential kernel."""
+    lin_vel_error = torch.square(vel_command[:, 1] - root_lin_vel_b[:, 1])
+    return torch.exp(-lin_vel_error / std**2) * weight
+
+
 def lin_vel_z_l2(root_lin_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize z-axis base linear velocity using L2 squared kernel."""
 
@@ -72,7 +83,10 @@ def ang_vel_xy_l2(root_ang_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
 
     return torch.sum(torch.square(root_ang_vel_b[:, :2]), dim=1) * weight
 
-
+def joint_tracking_exp(joint_pos: torch.Tensor, joint_idx: Sequence[int], joint_pos_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+    """Reward tracking of joint positions using exponential kernel."""
+    joint_pos_error = torch.sum(torch.square(joint_pos[:, joint_idx] - joint_pos_command), dim=1)
+    return torch.exp(-joint_pos_error / std**2) * weight
 
 def flat_orientation_l2(projected_gravity_b: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize non-flat base orientation using L2 squared kernel.

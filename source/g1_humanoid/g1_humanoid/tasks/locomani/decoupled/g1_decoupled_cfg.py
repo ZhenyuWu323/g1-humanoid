@@ -139,8 +139,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 101,
-        "critic_obs": 101,
+        "actor_obs": 112,
+        "critic_obs": 115,
     }
     action_dim= {
         "upper_body": 14,
@@ -155,8 +155,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
         "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
         "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
-        "joint_pos_rel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
-        "joint_vel_rel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
+        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
+        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
     }
 
 
@@ -229,28 +229,35 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
 
     # reward scales
     reward_scales = {
-        "lin_vel_z_l2": -0.2,
-        "flat_orientation_l2": -1.0, 
-        "action_rate_l2": -0.005,
-        "dof_acc_l2": -1.0e-7,
-        "dof_torques_l2": -2.0e-6,
-        "track_ang_vel_z_exp": 1.0,
-        "feet_air_time": 0.75,
-        "joint_deviation_waist": -0.5, # unitree offcial use -1.0
-        "joint_deviation_upper_body": -0.5, # unitree offcial use -1.0
-        "joint_deviation_hips": -0.5, # unitree offcial use -1.0
-        "dof_pos_limits": -1.0,
-        "feet_slide": -0.1,
-        "termination_penalty": -200.0,
-        "track_lin_vel_xy_exp": 1.0,
-        "ang_vel_xy_l2": -0.05,
-        "base_height": -10.0,
+        # lower body
+        "track_lin_vel_x": 2.0,
+        "track_lin_vel_y": 1.5,
+        "track_ang_vel_z": 4.0,
+        "penalty_base_height": -4.0,
+        "penalty_lin_vel_z": -0.2,
+        "penalty_ang_vel_xy": -0.05,
+        "penalty_flat_orientation": -1.0, 
+        "penalty_lower_body_action_rate": -0.005,
+        "penalty_lower_body_dof_acc": -1.0e-7,
+        "penalty_lower_body_dof_torques": -1.0e-5,
+        "penalty_lower_body_dof_pos_limits": -1.0,
+        "penalty_lower_body_dof_vel": -1e-3,
+        "feet_air_time": 4.0,
+        "penalty_dof_pos_waist": -0.5, # unitree offcial use -1.0
+        "penalty_dof_pos_hips": -0.5, # unitree offcial use -1.0
+        "penalty_lower_body_termination": -200.0,
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
-        "plate_flat_orientation_l2": -1.0,
-        "plate_ang_acc_l2": -0.01,
-        "plate_ang_acc_exp": 0,
+
+        # upper body
+        "tracking_upper_body_dof_pos": 4.0,
+        "penalty_upper_body_dof_torques": -1e-5,
+        "penalty_upper_body_dof_acc": -1.0e-7,
+        "penalty_upper_body_dof_pos_limits": -1.0,
+        "penalty_upper_body_dof_action_rate": -0.1,
+        "penalty_upper_body_dof_vel": -1e-3,
+        "penalty_upper_body_termination": -100.0,
     }
 
     # observation scales
@@ -258,8 +265,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "root_lin_vel_b": 2.0,
         "root_ang_vel_b": 0.25,
         "projected_gravity_b": 1.0,
-        "joint_pos_rel": 1.0,
-        "joint_vel_rel": 0.05,
+        "dof_pos": 1.0,
+        "dof_vel": 0.05,
     }
 
 
