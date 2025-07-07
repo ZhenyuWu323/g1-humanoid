@@ -222,8 +222,6 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # events
     events: EventCfg = EventCfg()
     events.push_robot = None
-    events.add_base_mass = None
-    events.add_plate_mass = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
@@ -250,6 +248,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
+        "penalty_stand_still": -0.1,
 
         # upper body
         "tracking_upper_body_dof_pos": 4.0,
@@ -286,7 +285,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         heading_control_stiffness=0.5,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(0.0, 1.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
     )
     # target base height

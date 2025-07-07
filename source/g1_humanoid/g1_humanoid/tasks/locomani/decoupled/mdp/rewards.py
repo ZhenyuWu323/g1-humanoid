@@ -267,6 +267,11 @@ def gait_phase_reward(
     
     return reward * weight
 
+def stand_still(joint_pos: torch.Tensor, joint_idx: Sequence[int], default_joint_pos: torch.Tensor, vel_command: torch.Tensor, weight: float) -> torch.Tensor:
+    """Penalize action if zero vel command."""
+    
+    return torch.sum(torch.abs(joint_pos[:, joint_idx] - default_joint_pos[:, joint_idx]), dim=1) * (torch.norm(vel_command[:, :2], dim=1) < 0.1) * weight
+
 
 def body_acc_l2(body_acc_w: torch.Tensor, body_idx: int, weight: float) -> torch.Tensor:
     """Penalize body linear/angular acceleration using L2 squared kernel."""

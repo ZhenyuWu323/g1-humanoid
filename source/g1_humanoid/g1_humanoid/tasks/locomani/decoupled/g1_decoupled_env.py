@@ -372,6 +372,15 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["penalty_base_height"] if "penalty_base_height" in self.cfg.reward_scales else 0,
         )
 
+        # stand still
+        penalty_stand_still = mdp.stand_still(
+            joint_pos=self.robot.data.joint_pos,
+            joint_idx=self.lower_body_indexes,
+            default_joint_pos=self.robot.data.default_joint_pos,
+            vel_command=self.velocity_command.command,
+            weight=self.cfg.reward_scales["penalty_stand_still"] if "penalty_stand_still" in self.cfg.reward_scales else 0,
+        )
+
         """
         Lower Body Feet Contact Rewards
         """
@@ -491,6 +500,7 @@ class G1DecoupledEnv(DirectRLEnv):
                              penalty_lower_body_dof_acc + 
                              penalty_lower_body_dof_vel + 
                              penalty_lower_body_action_rate + 
+                             penalty_stand_still + 
                              penalty_feet_slide + 
                              feet_air_time + 
                              penalty_feet_swing_height + 
