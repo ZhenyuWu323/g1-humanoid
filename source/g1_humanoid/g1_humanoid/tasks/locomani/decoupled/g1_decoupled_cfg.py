@@ -139,8 +139,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 99,
-        "critic_obs": 99,
+        "actor_obs": 101,
+        "critic_obs": 101,
     }
     action_dim= {
         "upper_body": 14,
@@ -213,7 +213,10 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     upper_body_names = arm_names 
     feet_body_name = ".*_ankle_roll_link"
 
-
+    # gait phase
+    gait_period = 0.8
+    phase_offset = 0.5
+    stance_phase_threshold = 0.55
 
     # events
     events: EventCfg = EventCfg()
@@ -249,6 +252,17 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "plate_ang_acc_l2": -0.01,
         "plate_ang_acc_exp": 0,
     }
+
+    # observation scales
+    obs_scales = {
+        "root_lin_vel_b": 2.0,
+        "root_ang_vel_b": 0.25,
+        "projected_gravity_b": 1.0,
+        "joint_pos_rel": 1.0,
+        "joint_vel_rel": 0.05,
+    }
+
+
 
     # terminations
     termination_height = 0.5

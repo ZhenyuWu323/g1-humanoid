@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+from typing import List
 
 import torch
 
@@ -17,6 +18,7 @@ from .g1_decoupled_cfg import G1DecoupledEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from .utils import compute_projected_gravity
+from isaaclab.envs.common import VecEnvStepReturn
 
 class G1DecoupledEnv(DirectRLEnv):
     cfg: G1DecoupledEnvCfg
@@ -107,6 +109,16 @@ class G1DecoupledEnv(DirectRLEnv):
         # set lower body
         self.robot.set_joint_position_target(lower_body_target, self.lower_body_indexes)
 
+
+    def _post_physics_step(self):
+        # update gait phase
+        current_time = self.episode_length_buf * self.step_dt
+        self.phase = (current_time % self.cfg.gait_period) / self.cfg.gait_period
+        self.leg_phases = torch.zeros(self.num_envs, len(self.feet_body_indexes), device=self.device)
+        self.leg_phases[:, 0] = self.phase # left leg
+        self.leg_phases[:, 1] = (self.phase + self.cfg.phase_offset) % 1.0 # right leg
+
+
     def _get_observations(self) -> dict:
 
         # update previous actions
@@ -132,29 +144,44 @@ class G1DecoupledEnv(DirectRLEnv):
         plate_projected_gravity_b = compute_projected_gravity(self.plate_body_index, self.robot.data.body_quat_w, self.robot.data.GRAVITY_VEC_W)
 
         # apply noise models
-        if self.obs_noise_models:
+        '''if self.obs_noise_models:
             root_lin_vel_b = self.obs_noise_models["root_lin_vel_b"].apply(root_lin_vel_b)
             root_ang_vel_b = self.obs_noise_models["root_ang_vel_b"].apply(root_ang_vel_b)
             projected_gravity_b = self.obs_noise_models["projected_gravity_b"].apply(projected_gravity_b)
             joint_pos_rel = self.obs_noise_models["joint_pos_rel"].apply(joint_pos_rel)
-            joint_vel_rel = self.obs_noise_models["joint_vel_rel"].apply(joint_vel_rel)
+            joint_vel_rel = self.obs_noise_models["joint_vel_rel"].apply(joint_vel_rel)'''
 
         # get command
         vel_command = self.velocity_command.command
 
+        # phase
+        sin_phase = torch.sin(2 * np.pi * self.phase ).unsqueeze(1)
+        cos_phase = torch.cos(2 * np.pi * self.phase ).unsqueeze(1)
+
+
+        # scale observations
+        observations_dict = {
+            'root_lin_vel_b': root_lin_vel_b,
+            'root_ang_vel_b': root_ang_vel_b,
+            'projected_gravity_b': projected_gravity_b,
+            'vel_command': vel_command,
+            'joint_pos_rel': joint_pos_rel,
+            'joint_vel_rel': joint_vel_rel,
+            'actions': self.actions.clone(),
+            'sin_phase': sin_phase,
+            'cos_phase': cos_phase,
+        }
+        scaled_obs = {}
+        for obs_name, obs_value in observations_dict.items():
+            if hasattr(self.cfg.obs_scales, obs_name):
+                scale = getattr(self.cfg.obs_scales, obs_name)
+                scaled_obs[obs_name] = obs_value * scale
+            else:
+                scaled_obs[obs_name] = obs_value
+        obs_list = list(scaled_obs.values())
+
         # build task observation
-        obs = compute_obs(
-            root_lin_vel_b,
-            root_ang_vel_b,
-            projected_gravity_b,
-            joint_pos_rel,
-            joint_vel_rel,
-            vel_command,
-            #plate_ang_vel_w,
-            #plate_ang_acc_w,
-            #plate_projected_gravity_b,
-            self.actions.clone(),
-        )
+        obs = compute_obs(obs_list)
 
         observations = {"actor_obs": obs, "critic_obs": obs}
         return observations
@@ -306,7 +333,9 @@ class G1DecoupledEnv(DirectRLEnv):
         gait_phase_reward = mdp.gait_phase_reward(
             env=self,
             contact_sensor=self._contact_sensor,
+            leg_phases=self.leg_phases,
             feet_body_indexes=self.feet_body_indexes,
+            stance_phase_threshold=self.cfg.stance_phase_threshold,
             weight=self.cfg.reward_scales["gait_phase_reward"] if "gait_phase_reward" in self.cfg.reward_scales else 0,
         )
 
@@ -377,37 +406,111 @@ class G1DecoupledEnv(DirectRLEnv):
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
+        if hasattr(self, 'phase'):
+            self.phase[env_ids] = 0.0
+            self.leg_phases[env_ids] = 0.0
+        else:
+            self.phase = torch.zeros(self.num_envs, device=self.device)
+            self.leg_phases = torch.zeros(self.num_envs, len(self.feet_body_indexes), device=self.device)
+    
         super()._reset_idx(env_ids)
 
 
+    def step(self, action: torch.Tensor) -> VecEnvStepReturn:
+        """Execute one time-step of the environment's dynamics.
+
+        The environment steps forward at a fixed time-step, while the physics simulation is decimated at a
+        lower time-step. This is to ensure that the simulation is stable. These two time-steps can be configured
+        independently using the :attr:`DirectRLEnvCfg.decimation` (number of simulation steps per environment step)
+        and the :attr:`DirectRLEnvCfg.sim.physics_dt` (physics time-step). Based on these parameters, the environment
+        time-step is computed as the product of the two.
+
+        This function performs the following steps:
+
+        1. Pre-process the actions before stepping through the physics.
+        2. Apply the actions to the simulator and step through the physics in a decimated manner.
+        3. Compute the reward and done signals.
+        4. Reset environments that have terminated or reached the maximum episode length.
+        5. Apply interval events if they are enabled.
+        6. Compute observations.
+
+        Args:
+            action: The actions to apply on the environment. Shape is (num_envs, action_dim).
+
+        Returns:
+            A tuple containing the observations, rewards, resets (terminated and truncated) and extras.
+        """
+        action = action.to(self.device)
+        # add action noise
+        if self.cfg.action_noise_model:
+            action = self._action_noise_model.apply(action)
+
+        # process actions
+        self._pre_physics_step(action)
+
+        # check if we need to do rendering within the physics loop
+        # note: checked here once to avoid multiple checks within the loop
+        is_rendering = self.sim.has_gui() or self.sim.has_rtx_sensors()
+
+        # perform physics stepping
+        for _ in range(self.cfg.decimation):
+            self._sim_step_counter += 1
+            # set actions into buffers
+            self._apply_action()
+            # set actions into simulator
+            self.scene.write_data_to_sim()
+            # simulate
+            self.sim.step(render=False)
+            # render between steps only if the GUI or an RTX sensor needs it
+            # note: we assume the render interval to be the shortest accepted rendering interval.
+            #    If a camera needs rendering at a faster frequency, this will lead to unexpected behavior.
+            if self._sim_step_counter % self.cfg.sim.render_interval == 0 and is_rendering:
+                self.sim.render()
+            # update buffers at sim dt
+            self.scene.update(dt=self.physics_dt)
+
+        # post-step:
+        # -- update gait phase
+        self._post_physics_step()
+
+        # -- update env counters (used for curriculum generation)
+        self.episode_length_buf += 1  # step in current episode (per env)
+        self.common_step_counter += 1  # total step (common for all envs)
+
+        self.reset_terminated[:], self.reset_time_outs[:] = self._get_dones()
+        self.reset_buf = self.reset_terminated | self.reset_time_outs
+        self.reward_buf = self._get_rewards()
+
+        # -- reset envs that terminated/timed-out and log the episode information
+        reset_env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
+        if len(reset_env_ids) > 0:
+            self._reset_idx(reset_env_ids)
+            # update articulation kinematics
+            self.scene.write_data_to_sim()
+            self.sim.forward()
+            # if sensors are added to the scene, make sure we render to reflect changes in reset
+            if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
+                self.sim.render()
+
+        # post-step: step interval event
+        if self.cfg.events:
+            if "interval" in self.event_manager.available_modes:
+                self.event_manager.apply(mode="interval", dt=self.step_dt)
+
+        # update observations
+        self.obs_buf = self._get_observations()
+
+        # add observation noise
+        # note: we apply no noise to the state space (since it is used for critic networks)
+        #if self.cfg.observation_noise_model:
+            #self.obs_buf["policy"] = self._observation_noise_model.apply(self.obs_buf["policy"])
+
+        # return observations, rewards, resets and extras
+        return self.obs_buf, self.reward_buf, self.reset_terminated, self.reset_time_outs, self.extras
+
+
 @torch.jit.script
-def compute_obs(
-    root_lin_vel_b: torch.Tensor,
-    root_ang_vel_b: torch.Tensor,
-    projected_gravity_b: torch.Tensor,
-    joint_pos_rel: torch.Tensor,
-    joint_vel_rel: torch.Tensor,
-    vel_command: torch.Tensor,
-    #plate_ang_vel_w: torch.Tensor,
-    #plate_ang_acc_w: torch.Tensor,
-    #plate_projected_gravity_b: torch.Tensor,
-    actions: torch.Tensor,
-) -> torch.Tensor:
+def compute_obs(obs_tensors: List[torch.Tensor]) -> torch.Tensor:
     
-    obs = torch.cat(
-        (
-            root_lin_vel_b,
-            root_ang_vel_b,
-            projected_gravity_b,
-            joint_pos_rel,
-            joint_vel_rel,
-            vel_command,
-            #plate_ang_vel_w,
-            #plate_ang_acc_w,
-            #plate_projected_gravity_b,
-            actions,
-        ),
-        dim=-1,
-    )
-    return obs
+    return torch.cat(obs_tensors, dim=-1)
 
