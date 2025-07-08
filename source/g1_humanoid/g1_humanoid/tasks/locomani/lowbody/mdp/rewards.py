@@ -158,6 +158,10 @@ def joint_torque_limits(joint_torque: torch.Tensor, effort_limits: torch.Tensor,
     out_of_limits = torch.sum(violation, dim=1)
     return out_of_limits * weight
 
+def negative_knee_joint(joint_pos: torch.Tensor, joint_idx: Sequence[int], min_threshold: float, weight: float) -> torch.Tensor:
+    """Penalize negative knee joint angles (lower body only)."""
+    return torch.sum((joint_pos[:, joint_idx] < min_threshold).float(), dim=1) * weight
+
 
 def termination_penalty(terminated: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize termination."""

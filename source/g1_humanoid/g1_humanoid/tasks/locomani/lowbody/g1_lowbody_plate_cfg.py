@@ -225,6 +225,7 @@ class G1LowBodyPlateEnvCfg(DirectRLEnvCfg):
         "penalty_lower_body_dof_torques": -1e-5,
         "penalty_lower_body_termination": -0.0,
         "penalty_joint_deviation_waist": -0.5,
+        "penalty_negative_knee_joint": -1.0,
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,

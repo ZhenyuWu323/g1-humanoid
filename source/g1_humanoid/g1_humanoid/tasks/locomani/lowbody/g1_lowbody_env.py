@@ -33,6 +33,7 @@ class G1LowBodyEnv(DirectRLEnv):
         self.feet_indexes = self.robot.find_joints(self.cfg.feet_names)[0]
         self.waist_indexes = self.robot.find_joints(self.cfg.waist_names)[0]
         self.hips_yaw_roll_indexes = self.robot.find_joints(self.cfg.hips_names[:2])[0]
+        self.knee_indexes = self.robot.find_joints(self.cfg.hips_names[-1])[0]
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
 
@@ -286,6 +287,14 @@ class G1LowBodyEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["penalty_base_height"] if "penalty_base_height" in self.cfg.reward_scales else 0,
         )
 
+        # negative knee joint
+        penalty_negative_knee_joint = mdp.negative_knee_joint(
+            joint_pos=self.robot.data.joint_pos,
+            joint_idx=self.knee_indexes,
+            min_threshold=0.2,
+            weight=self.cfg.reward_scales["penalty_negative_knee_joint"] if "penalty_negative_knee_joint" in self.cfg.reward_scales else 0,
+        )
+
         """
         Feet Contact Rewards
         """
@@ -341,6 +350,7 @@ class G1LowBodyEnv(DirectRLEnv):
                  penalty_dof_vel + 
                  penalty_action_rate + 
                  penalty_base_height + 
+                 penalty_negative_knee_joint + 
                  penalty_feet_slide + 
                  feet_air_time + 
                  feet_swing_height_penalty + 
