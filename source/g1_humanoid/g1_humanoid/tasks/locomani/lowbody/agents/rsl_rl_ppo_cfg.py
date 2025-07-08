@@ -41,8 +41,17 @@ class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.max_iterations = 1500
+        self.max_iterations = 10000
         self.experiment_name = "g1_flat_direct"
+        self.policy = RslRlPpoActorCriticRecurrentCfg(
+            init_noise_std=0.8,
+            actor_hidden_dims=[32],
+            critic_hidden_dims=[32],
+            activation="elu",
+            rnn_hidden_dim=64,
+            rnn_num_layers=1,
+            rnn_type='lstm',
+        )
         
 
 @configclass

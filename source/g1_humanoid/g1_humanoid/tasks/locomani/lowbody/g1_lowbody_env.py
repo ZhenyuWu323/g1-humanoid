@@ -312,7 +312,7 @@ class G1LowBodyEnv(DirectRLEnv):
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
             weight=self.cfg.reward_scales["feet_swing_height"] if "feet_swing_height" in self.cfg.reward_scales else 0,
-            target_height=0.1,
+            target_height=self.cfg.target_feet_height,
         )
 
         # gait phase reward
