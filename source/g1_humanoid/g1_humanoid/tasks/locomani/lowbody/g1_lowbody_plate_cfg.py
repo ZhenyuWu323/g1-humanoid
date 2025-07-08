@@ -26,8 +26,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.8, 0.8),
-            "dynamic_friction_range": (0.6, 0.6),
+            "static_friction_range": (0.1, 1.25),
+            "dynamic_friction_range": (0.1, 1.25),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -38,7 +38,7 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "mass_distribution_params": (-5.0, 5.0),
+            "mass_distribution_params": (-1.0, 3.0),
             "operation": "add",
         },
     )
@@ -113,10 +113,13 @@ class G1LowBodyPlateEnvCfg(DirectRLEnvCfg):
     )
 
 
-    # MDP configuration # TODO: NEED add more attribute for upper and lower Actor/Critics
-    observation_space = 85
+    # MDP configuration
+    observation_space = {
+        "actor_obs": 56,
+        "critic_obs": 59,
+    }
     action_space = 15 # NOTE: Only lower body DOFs are in action space, upper body DOFs=14
-    action_scale = 0.5 # NOTE: Upper body DOFS need to be scaled by at least 1.0
+    action_scale = 0.25 
     state_space = 0
 
     # obs noise
@@ -160,6 +163,12 @@ class G1LowBodyPlateEnvCfg(DirectRLEnvCfg):
 
     # robot configuration
     robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+    # NOTE: increase stiffness for upper body
+    robot.actuators['arm_shoulder'].stiffness = 40.0
+    robot.actuators['arm_shoulder'].damping = 10.0
+    robot.actuators['arm_forearm'].stiffness = 40.0
+    robot.actuators['arm_forearm'].damping = 10.0
+
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
     )
@@ -186,40 +195,57 @@ class G1LowBodyPlateEnvCfg(DirectRLEnvCfg):
     feet_body_name = ".*_ankle_roll_link"
 
 
+    # gait phase
+    gait_period = 0.8
+    phase_offset = 0.5
+    stance_phase_threshold = 0.55
+
 
     # events
     events: EventCfg = EventCfg()
     events.push_robot = None
-    events.add_base_mass = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
 
     # reward scales
     reward_scales = {
-        "lin_vel_z_l2": -0.2,
-        "flat_orientation_l2": -1.0, 
-        "action_rate_l2": -0.005,
-        "dof_acc_l2": -1.0e-7,
-        "dof_torques_l2": -2.0e-6,
-        "track_ang_vel_z_exp": 1.0,
-        "feet_air_time": 0.75,
-        "joint_deviation_waist": -0.5, # unitree offcial use -1.0
-        "joint_deviation_upper_body": -0.5, # unitree offcial use -1.0
-        "joint_deviation_hips": -0.5, # unitree offcial use -1.0
-        "dof_pos_limits": -1.0,
-        "feet_slide": -0.1,
-        "termination_penalty": -200.0,
-        "track_lin_vel_xy_exp": 1.0,
-        "ang_vel_xy_l2": -0.05,
-        "base_height": -10.0,
+        "track_lin_vel_xy": 1.0,
+        "track_ang_vel_z": 0.5,
+        "alive": 0.15,
+        "penalty_lin_vel_z": -2.0,
+        "penalty_ang_vel_xy": -0.05,
+        "penalty_flat_orientation": -1.0,
+        "penalty_base_height": -10.0,
+        "penalty_lower_body_dof_acc": -2.5e-7,
+        "penalty_lower_body_dof_vel": -1e-3,
+        "penalty_lower_body_action_rate": -0.01,
+        "penalty_lower_body_hip_pos": -1.0,
+        "penalty_lower_body_dof_pos_limits": -5.0,
+        "penalty_lower_body_dof_torques": -1e-5,
+        "penalty_lower_body_termination": -0.0,
+        "penalty_joint_deviation_waist": -0.5,
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
+        "feet_air_time": 0.0
     }
 
     # terminations
     termination_height = 0.5
+
+    # observation scales
+    obs_scales = {
+        "root_lin_vel_b": 2.0,
+        "root_ang_vel_b": 0.25,
+        "projected_gravity_b": 1.0,
+        "dof_pos": 1.0,
+        "dof_vel": 0.05,
+    }
+
+    # clips
+    clip_action = 100
+    clip_observation = 100
     
 
     # command

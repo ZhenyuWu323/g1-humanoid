@@ -48,37 +48,37 @@ G1_WITH_PLATE = ArticulationCfg(
             effort_limit_sim=300,
             velocity_limit_sim=100.0,
             stiffness={
-                ".*_hip_yaw_joint": 150.0,
-                ".*_hip_roll_joint": 150.0,
-                ".*_hip_pitch_joint": 200.0,
-                ".*_knee_joint": 200.0,
-                "waist_yaw_joint": 200.0,
-                "waist_roll_joint": 200.0,
-                "waist_pitch_joint": 200.0
+                ".*_hip_yaw_joint": 100.0,
+                ".*_hip_roll_joint": 100.0,
+                ".*_hip_pitch_joint": 100.0,
+                ".*_knee_joint": 150.0,
+                "waist_yaw_joint": 300.0,
+                "waist_roll_joint": 300.0,
+                "waist_pitch_joint": 300.0
             },
             damping={
-                ".*_hip_yaw_joint": 5.0,
-                ".*_hip_roll_joint": 5.0,
-                ".*_hip_pitch_joint": 5.0,
-                ".*_knee_joint": 5.0,
+                ".*_hip_yaw_joint": 2.0,
+                ".*_hip_roll_joint": 2.0,
+                ".*_hip_pitch_joint": 2.0,
+                ".*_knee_joint": 4.0,
                 "waist_yaw_joint": 5.0,
                 "waist_roll_joint": 5.0,
                 "waist_pitch_joint": 5.0
             },
             armature={
-                ".*_hip_.*": 0.01,
-                ".*_knee_joint": 0.01,
-                "waist_yaw_joint": 0.01,
-                "waist_roll_joint": 0.01,
-                "waist_pitch_joint": 0.01
+                ".*_hip_.*": 0.03,
+                ".*_knee_joint": 0.03,
+                "waist_yaw_joint": 0.03,
+                "waist_roll_joint": 0.03,
+                "waist_pitch_joint": 0.03
             },
         ),
         "feet": ImplicitActuatorCfg(
             effort_limit_sim=20,
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
-            stiffness=20.0,
+            stiffness=40.0,
             damping=2.0,
-            armature=0.01,
+            armature=0.03,
         ),
         "arm_shoulder": ImplicitActuatorCfg(
             joint_names_expr=[
@@ -89,9 +89,24 @@ G1_WITH_PLATE = ArticulationCfg(
             ],
             effort_limit_sim=300,
             velocity_limit_sim=100,
-            stiffness=40.0,
-            damping=10.0,
-            armature=0.01
+            stiffness={
+                ".*_shoulder_roll_joint": 60.0,
+                ".*_shoulder_pitch_joint": 90.0,
+                ".*_shoulder_yaw_joint": 20.0,
+                ".*_elbow_joint": 60.0,
+            },
+            damping={
+                ".*_shoulder_roll_joint": 1.0,
+                ".*_shoulder_pitch_joint": 2.0,
+                ".*_shoulder_yaw_joint": 0.4,
+                ".*_elbow_joint": 1.0,
+            },
+            armature={
+                ".*_shoulder_roll_joint": 0.03,
+                ".*_shoulder_pitch_joint": 0.03,
+                ".*_shoulder_yaw_joint": 0.03,
+                ".*_elbow_joint": 0.03,
+            },
         ),
         "arm_forearm": ImplicitActuatorCfg(
             joint_names_expr=[
@@ -101,9 +116,9 @@ G1_WITH_PLATE = ArticulationCfg(
             ],
             effort_limit_sim=300,
             velocity_limit_sim=100,
-            stiffness=40.0,
-            damping=10.0,
-            armature=0.01
+            stiffness=4.0,
+            damping=0.2,
+            armature=0.03
         ),
     },
 )

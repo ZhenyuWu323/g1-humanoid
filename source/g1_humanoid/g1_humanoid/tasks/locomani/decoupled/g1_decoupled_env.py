@@ -73,6 +73,10 @@ class G1DecoupledEnv(DirectRLEnv):
         self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
         self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
+        # gait phase
+        self.phase = torch.zeros(self.num_envs, device=self.device)
+        self.leg_phases = torch.zeros(self.num_envs, len(self.feet_body_indexes), device=self.device)
+
         # history
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
         self._init_history_buffers()
@@ -547,12 +551,8 @@ class G1DecoupledEnv(DirectRLEnv):
         self.dof_pos_history[env_ids] = 0.0
         self.dof_vel_history[env_ids] = 0.0
         self.action_history[env_ids] = 0.0
-        if hasattr(self, 'phase'):
-            self.phase[env_ids] = 0.0
-            self.leg_phases[env_ids] = 0.0
-        else:
-            self.phase = torch.zeros(self.num_envs, device=self.device)
-            self.leg_phases = torch.zeros(self.num_envs, len(self.feet_body_indexes), device=self.device)
+        self.phase[env_ids] = 0.0
+        self.leg_phases[env_ids] = 0.0
     
         super()._reset_idx(env_ids)
 
@@ -585,6 +585,10 @@ class G1DecoupledEnv(DirectRLEnv):
         # add action noise
         if self.cfg.action_noise_model:
             action = self._action_noise_model.apply(action)
+
+        # clip actions
+        clip_actions = self.cfg.clip_action
+        action = torch.clip(action, -clip_actions, clip_actions)
 
         # process actions
         self._pre_physics_step(action)
@@ -645,6 +649,11 @@ class G1DecoupledEnv(DirectRLEnv):
         # note: we apply no noise to the state space (since it is used for critic networks)
         #if self.cfg.observation_noise_model:
             #self.obs_buf["policy"] = self._observation_noise_model.apply(self.obs_buf["policy"])
+
+        # clip observations
+        clip_observations = self.cfg.clip_observation
+        for key, value in self.obs_buf.items():
+            self.obs_buf[key] = torch.clip(value, -clip_observations, clip_observations)
 
         # return observations, rewards, resets and extras
         return self.obs_buf, self.reward_buf, self.reset_terminated, self.reset_time_outs, self.extras

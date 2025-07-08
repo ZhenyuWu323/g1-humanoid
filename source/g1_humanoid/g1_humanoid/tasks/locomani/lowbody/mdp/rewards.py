@@ -72,7 +72,9 @@ def ang_vel_xy_l2(root_ang_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
 
     return torch.sum(torch.square(root_ang_vel_b[:, :2]), dim=1) * weight
 
-
+def alive_reward(weight: float) -> torch.Tensor:
+    """Reward alive."""
+    return weight * 1.0
 
 def flat_orientation_l2(projected_gravity_b: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize non-flat base orientation using L2 squared kernel.
@@ -111,6 +113,10 @@ def joint_deviation_l1(joint_pos: torch.Tensor, default_joint_pos: torch.Tensor,
     # compute out of limits constraints
     angle = joint_pos[:, joint_idx] - default_joint_pos[:, joint_idx]
     return torch.sum(torch.abs(angle), dim=1) * weight
+
+def joint_pos_l2(joint_pos: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize joint positions that deviate from the default one."""
+    return torch.sum(torch.square(joint_pos[:, joint_idx]), dim=1) * weight
 
 
 def joint_pos_limits(joint_pos: torch.Tensor, soft_joint_pos_limits: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
@@ -232,22 +238,15 @@ def feet_swing_height(body_pos_w: torch.Tensor, contact_sensor: ContactSensor, f
 def gait_phase_reward(
         env: DirectRLEnv, 
         contact_sensor: ContactSensor, 
+        leg_phases: torch.Tensor,
         feet_body_indexes: Sequence[int],
         weight: float, 
-        gait_period: float = 0.8, # Can use 1.2
-        phase_offset: float = 0.5,
         stance_phase_threshold: float = 0.55 # Can use 0.6 if gait_period is 1.2
         ) -> torch.Tensor:
     """Reward Gait Phase"""
 
-    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, 2] > 1.0
+    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, :3].norm(dim=-1) > 1.0
 
-    # current phase
-    current_time = env.episode_length_buf * env.step_dt
-    base_phase = (current_time % gait_period) / gait_period
-    leg_phases = torch.zeros(env.num_envs, len(feet_body_indexes), device=env.device)
-    leg_phases[:, 0] = base_phase # left leg
-    leg_phases[:, 1] = (base_phase + phase_offset) % 1.0 # right leg
 
     # stance phase
     stance_phase = leg_phases < stance_phase_threshold

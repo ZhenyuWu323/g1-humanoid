@@ -269,7 +269,9 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         "dof_vel": 0.05,
     }
 
-
+    # clips
+    clip_action = 100
+    clip_observation = 100
 
     # terminations
     termination_height = 0.5

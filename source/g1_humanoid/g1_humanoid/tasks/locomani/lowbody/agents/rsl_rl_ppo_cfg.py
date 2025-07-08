@@ -5,8 +5,7 @@
 
 from isaaclab.utils import configclass
 
-from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
-
+from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg, RslRlPpoActorCriticRecurrentCfg
 
 @configclass
 class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
@@ -25,7 +24,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
-        entropy_coef=0.008,
+        entropy_coef=0.01,
         num_learning_epochs=5,
         num_mini_batches=4,
         learning_rate=1.0e-3,
@@ -44,15 +43,22 @@ class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
 
         self.max_iterations = 1500
         self.experiment_name = "g1_flat_direct"
-        self.policy.actor_hidden_dims = [256, 128, 128]
-        self.policy.critic_hidden_dims = [256, 128, 128]
+        
 
 @configclass
 class G1PlateFlatPPORunnerCfg(G1RoughPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.max_iterations = 1500
+        self.max_iterations = 10000
         self.experiment_name = "g1_plate_flat_direct"
-        self.policy.actor_hidden_dims = [256, 128, 128]
-        self.policy.critic_hidden_dims = [256, 128, 128]
+        self.policy = RslRlPpoActorCriticRecurrentCfg(
+            init_noise_std=0.8,
+            actor_hidden_dims=[32],
+            critic_hidden_dims=[32],
+            activation="elu",
+            rnn_hidden_dim=64,
+            rnn_num_layers=1,
+            rnn_type='lstm',
+        )
+        
