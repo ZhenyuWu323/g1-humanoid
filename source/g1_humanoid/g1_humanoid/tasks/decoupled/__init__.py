@@ -23,7 +23,7 @@ from . import agents
 """ G1 Decoupled Locomanipulation"""
 
 gym.register(
-    id="Template-G1-Plate-Decoupled-Direct-v0",
+    id="Template-G1-Decoupled-Plate-Locomanipulation",
     entry_point=f"{__name__}.g1_decoupled_env:G1DecoupledEnv",
     disable_env_checker=True,
     kwargs={

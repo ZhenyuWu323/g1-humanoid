@@ -43,6 +43,6 @@ class G1WholeBodyPlatePPORunnerCfg(G1RoughPPORunnerCfg):
         super().__post_init__()
 
         self.max_iterations = 1500
-        self.experiment_name = "g1_wholebody_plate_direct"
+        self.experiment_name = "g1_wholebody_locomanipulation"
         self.policy.actor_hidden_dims = [256, 128, 128]
         self.policy.critic_hidden_dims = [256, 128, 128]

@@ -23,7 +23,7 @@ from . import agents
 """ G1 FTP Low Body Locomotion Flat """
 
 gym.register(
-    id="Template-G1-FTP-LowBody-Locomotion-Velocity-Flat-v0",
+    id="Template-G1-FTP-LowBody-Locomotion-Manager-Based",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
@@ -36,7 +36,7 @@ gym.register(
 """ G1 FTP Whole Body Locomotion Flat """
 
 gym.register(
-    id="Template-G1-FTP-Locomotion-Velocity-Flat-v0",
+    id="Template-G1-FTP-Locomotion-Manager-Based",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
@@ -47,7 +47,7 @@ gym.register(
 
 
 gym.register(
-    id="Template-G1-FTP-Locomotion-Velocity-Flat-Play-v0",
+    id="Template-G1-FTP-Locomotion-Play-Manager-Based",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={

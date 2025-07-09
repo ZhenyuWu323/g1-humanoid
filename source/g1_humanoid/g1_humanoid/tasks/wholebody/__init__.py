@@ -23,7 +23,7 @@ from . import agents
 """ G1 Plate Whole Body Locomanipulation"""
 
 gym.register(
-    id="Template-G1-Plate-WholeBody-Direct-Velocity-Flat-v0",
+    id="Template-G1-WholeBody-Plate-Locomanipulation",
     entry_point=f"{__name__}.g1_wholebody_env:G1WholeBodyEnv",
     disable_env_checker=True,
     kwargs={
