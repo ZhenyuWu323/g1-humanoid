@@ -14,8 +14,7 @@ from isaaclab.utils.math import quat_rotate
 from isaaclab.sensors import ContactSensor
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .g1_lowbody_cfg import G1LowBodyEnvCfg
-from .g1_lowbody_plate_cfg import G1LowBodyPlateEnvCfg
+from .g1_lowbody_cfg import G1LowBodyEnvCfg, G1LowBodyPlateEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
@@ -239,7 +238,7 @@ class G1LowBodyEnv(DirectRLEnv):
         # hip joint position
         penalty_hip_joint_pos = mdp.joint_pos_l2(
             joint_pos=self.robot.data.joint_pos,
-            joint_idx=self.hips_indexes,
+            joint_idx=self.hips_yaw_roll_indexes, # NOTE: only yaw and roll are in penalty
             weight=self.cfg.reward_scales["penalty_lower_body_hip_pos"] if "penalty_lower_body_hip_pos" in self.cfg.reward_scales else 0,
         )
 
@@ -291,7 +290,7 @@ class G1LowBodyEnv(DirectRLEnv):
         penalty_negative_knee_joint = mdp.negative_knee_joint(
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.knee_indexes,
-            min_threshold=0.2,
+            min_threshold=self.cfg.knee_joint_threshold,
             weight=self.cfg.reward_scales["penalty_negative_knee_joint"] if "penalty_negative_knee_joint" in self.cfg.reward_scales else 0,
         )
 

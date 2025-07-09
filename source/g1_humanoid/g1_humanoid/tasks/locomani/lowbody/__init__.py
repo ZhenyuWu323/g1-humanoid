@@ -20,27 +20,27 @@ from . import agents
 # Register Gym environments.
 ##
 
-""" G1 FTP Low Body Locomanipulation """
+""" G1 Low Body Locomotion """
 
 gym.register(
-    id="Template-G1-FTP-LowBody-Direct-Velocity-Flat-v0",
+    id="Template-G1-LowBody-Locomotion",
     entry_point=f"{__name__}.g1_lowbody_env:G1LowBodyEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.g1_lowbody_cfg:G1LowBodyEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1FlatPPORunnerCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1LowBodyLocomotionPPORunnerCfg",
     },
 )
 
 
-""" G1 Plate Low Body Locomanipulation"""
+""" G1 Plate Low Body Locomotion"""
 
 gym.register(
-    id="Template-G1-Plate-LowBody-Direct-Velocity-Flat-v0",
+    id="Template-G1-LowBody-Plate-Locomotion",
     entry_point=f"{__name__}.g1_lowbody_env:G1LowBodyEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.g1_lowbody_plate_cfg:G1LowBodyPlateEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1PlateFlatPPORunnerCfg",
+        "env_cfg_entry_point": f"{__name__}.g1_lowbody_cfg:G1LowBodyPlateEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1LowBodyPlateLocomotionPPORunnerCfg",
     },
 )

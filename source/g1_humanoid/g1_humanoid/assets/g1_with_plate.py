@@ -24,7 +24,7 @@ G1_WITH_PLATE = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.74),
+        pos=(0.0, 0.0, 0.75),
         joint_pos={
             ".*_hip_pitch_joint": -0.10,
             ".*_knee_joint": 0.30,

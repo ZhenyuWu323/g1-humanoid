@@ -13,81 +13,9 @@ from isaaclab.utils import configclass
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
-from g1_humanoid.assets import G1_INSPIRE_FTP
+from g1_humanoid.assets import G1_CFG, G1_WITH_PLATE
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
-
-@configclass
-class EventCfg:
-    """Configuration for events."""
-
-    # startup
-    physics_material = EventTerm(
-        func=mdp.randomize_rigid_body_material,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.1, 1.25),
-            "dynamic_friction_range": (0.1, 1.25),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
-        },
-    )
-
-    add_base_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "mass_distribution_params": (-1.0, 3.0),
-            "operation": "add",
-        },
-    )
-
-    # reset
-    base_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "force_range": (0.0, 0.0),
-            "torque_range": (-0.0, 0.0),
-        },
-    )
-
-    reset_base = EventTerm(
-        func=mdp.reset_root_state_uniform,
-        mode="reset",
-        params={
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
-            "velocity_range": {
-                "x": (0.0, 0.0),
-                "y": (0.0, 0.0),
-                "z": (0.0, 0.0),
-                "roll": (0.0, 0.0),
-                "pitch": (0.0, 0.0),
-                "yaw": (0.0, 0.0),
-            },
-        },
-    )
-
-    reset_robot_joints = EventTerm(
-        func=mdp.reset_joints_by_scale,
-        mode="reset",
-        params={
-            "position_range": (1.0, 1.0),
-            "velocity_range": (0.0, 0.0),
-        },
-    )
-
-    # interval
-    push_robot = EventTerm(
-        func=mdp.push_by_setting_velocity,
-        mode="interval",
-        interval_range_s=(10.0, 15.0),
-        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
-    )
-
-
+from ..domain_rand import EventCfg
 
 
 @configclass
@@ -126,6 +54,8 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     '''observation_noise_model: NoiseModelCfg = NoiseModelCfg(
         noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)
     )'''
+
+    # NOTE: Not applied yet
     obs_noise_models: dict[str, NoiseModelCfg] = {
         "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
         "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
@@ -162,12 +92,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
 
     # robot configuration
-    robot: ArticulationCfg = G1_INSPIRE_FTP.replace(prim_path="/World/envs/env_.*/Robot")
-    # NOTE: increase stiffness for upper body
-    robot.actuators['arm_shoulder'].stiffness = 40.0
-    robot.actuators['arm_shoulder'].damping = 10.0
-    robot.actuators['arm_forearm'].stiffness = 40.0
-    robot.actuators['arm_forearm'].damping = 10.0
+    robot: ArticulationCfg = G1_CFG.replace(prim_path="/World/envs/env_.*/Robot")
 
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
@@ -182,11 +107,6 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
                 ".*_wrist_pitch_joint",
                 ".*_wrist_yaw_joint",]
     
-    finger_names = [".*_index_.*",
-                    ".*_middle_.*",
-                    ".*_ring_.*",
-                    ".*_little_.*",
-                    ".*_thumb_.*",]
     
     waist_names = ["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"]
 
@@ -195,7 +115,7 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     feet_names = [".*_ankle_pitch_joint", ".*_ankle_roll_joint"]
 
     lower_body_names = waist_names + hips_names + feet_names
-    upper_body_names = arm_names + finger_names
+    upper_body_names = arm_names
     feet_body_name = ".*_ankle_roll_link"
 
 
@@ -208,6 +128,8 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
     # events
     events: EventCfg = EventCfg()
     events.push_robot = None
+    events.add_plate_mass = None
+    events.scale_control_gain = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
@@ -271,3 +193,25 @@ class G1LowBodyEnvCfg(DirectRLEnvCfg):
 
     # target feet height
     target_feet_height = 0.12
+
+    # knee joint threshold
+    knee_joint_threshold = 0.2
+
+
+
+
+@configclass
+class G1LowBodyPlateEnvCfg(G1LowBodyEnvCfg):
+    """ G1 Low Body Locomanipulation Environment Configuration """
+
+    # robot configuration
+    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+
+    # NOTE: increase stiffness for upper body to hold the plate
+    robot.actuators['arm_shoulder'].stiffness = 40.0
+    robot.actuators['arm_shoulder'].damping = 10.0
+    robot.actuators['arm_forearm'].stiffness = 40.0
+    robot.actuators['arm_forearm'].damping = 10.0
+
+    # plate link
+    plate_name = "plate"

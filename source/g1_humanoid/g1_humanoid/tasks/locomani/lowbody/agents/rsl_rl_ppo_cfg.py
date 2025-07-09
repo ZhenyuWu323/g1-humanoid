@@ -8,11 +8,11 @@ from isaaclab.utils import configclass
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg, RslRlPpoActorCriticRecurrentCfg
 
 @configclass
-class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class G1LocomotionPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 3000
     save_interval = 50
-    experiment_name = "g1_rough_direct"
+    experiment_name = "g1_lowbody_locomotion"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
@@ -37,12 +37,12 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
+class G1LowBodyLocomotionPPORunnerCfg(G1LocomotionPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
         self.max_iterations = 10000
-        self.experiment_name = "g1_flat_direct"
+        self.experiment_name = "g1_lowbody_locomotion"
         self.policy = RslRlPpoActorCriticRecurrentCfg(
             init_noise_std=0.8,
             actor_hidden_dims=[32],
@@ -55,12 +55,12 @@ class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
         
 
 @configclass
-class G1PlateFlatPPORunnerCfg(G1RoughPPORunnerCfg):
+class G1LowBodyPlateLocomotionPPORunnerCfg(G1LocomotionPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
 
         self.max_iterations = 10000
-        self.experiment_name = "g1_plate_flat_direct"
+        self.experiment_name = "g1_lowbody_plate_locomotion"
         self.policy = RslRlPpoActorCriticRecurrentCfg(
             init_noise_std=0.8,
             actor_hidden_dims=[32],
