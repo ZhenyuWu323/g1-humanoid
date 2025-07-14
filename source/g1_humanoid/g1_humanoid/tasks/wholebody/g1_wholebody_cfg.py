@@ -5,6 +5,7 @@ from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg, RayCasterCfg, patterns
 from isaaclab.sim import SimulationCfg, PhysxCfg
@@ -98,8 +99,6 @@ class EventCfg:
     )
 
 
-
-
 @configclass
 class G1WholeBodyEnvCfg(DirectRLEnvCfg):
     """ G1 Whole Body Locomanipulation Environment Configuration """
@@ -123,16 +122,18 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
     )
 
 
-    # MDP configuration # TODO: NEED add more attribute for upper and lower Actor/Critics
-    observation_space = 114
-    action_space = 14 + 15 # NOTE: upper body DOFs + lower body DOFs
-    action_scale = 0.5 # NOTE: Upper body DOFS need to be scaled by at least 1.0
+    # MDP configuration - Updated for whole body control
+    observation_space = {
+        "actor_obs": 98,  # root_ang_vel_b(3) + projected_gravity_b(3) + vel_command(3) + dof_pos(29) + dof_vel(29) + actions(29) + sin_phase(1) + cos_phase(1)
+        "critic_obs": 101,  # root_lin_vel_b(3) + root_ang_vel_b(3) + projected_gravity_b(3) + vel_command(3) + dof_pos(29) + dof_vel(29) + actions(29) + sin_phase(1) + cos_phase(1)
+    }
+    action_space = 29  # Lower body (15) + Upper body (14) DOFs
+    lower_body_action_scale = 0.25  # Curriculum: always enabled
+    upper_body_action_scale = 0.0   # Curriculum: start at 0, increase later
     state_space = 0
 
     # obs noise
-    '''observation_noise_model: NoiseModelCfg = NoiseModelCfg(
-        noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)
-    )'''
+    # TODO: update observation noise model for whole body control
     obs_noise_models: dict[str, NoiseModelCfg] = {
         "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
         "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
@@ -174,6 +175,13 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
 
     # robot configuration
     robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+    
+    # NOTE: increase stiffness for upper body to hold the plate at default pose (same as lower body task)
+    robot.actuators['arm_shoulder'].stiffness = 40.0
+    robot.actuators['arm_shoulder'].damping = 10.0
+    robot.actuators['arm_forearm'].stiffness = 40.0
+    robot.actuators['arm_forearm'].damping = 10.0
+    
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
     )
@@ -199,7 +207,10 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
     upper_body_names = arm_names 
     feet_body_name = ".*_ankle_roll_link"
 
-
+    # gait phase (same as lower body task)
+    gait_period = 0.8
+    phase_offset = 0.5
+    stance_phase_threshold = 0.55
 
     # events
     events: EventCfg = EventCfg()
@@ -212,37 +223,69 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
 
     # reward scales
     reward_scales = {
-        "lin_vel_z_l2": -0.2,
-        "flat_orientation_l2": -1.0, 
-        "action_rate_l2": -0.005,
-        "dof_acc_l2": -1.0e-7,
-        "dof_torques_l2": -2.0e-6,
-        "track_ang_vel_z_exp": 1.0,
-        "feet_air_time": 0.75,
-        "joint_deviation_waist": -0.5, # unitree offcial use -1.0
-        "joint_deviation_upper_body": -0.5, # unitree offcial use -1.0
-        "joint_deviation_hips": -0.5, # unitree offcial use -1.0
-        "dof_pos_limits": -1.0,
-        "feet_slide": -0.1,
-        "termination_penalty": -200.0,
-        "track_lin_vel_xy_exp": 1.0,
-        "ang_vel_xy_l2": -0.05,
-        "base_height": -10.0,
+        "track_lin_vel_xy": 1.0,
+        "track_ang_vel_z": 0.5,
+        "alive": 0.15,
+        "penalty_lin_vel_z": -2.0,
+        "penalty_ang_vel_xy": -0.05,
+        "penalty_flat_orientation": -1.0,
+        "penalty_base_height": -10.0,
+        "penalty_lower_body_dof_acc": -2.5e-7,
+        "penalty_lower_body_dof_vel": -1e-3,
+        "penalty_lower_body_action_rate": -0.01,
+        "penalty_lower_body_hip_pos": -1.0,
+        "penalty_lower_body_dof_pos_limits": -5.0,
+        "penalty_lower_body_dof_torques": -1e-5,
+        "penalty_lower_body_termination": -0.0,
+        "penalty_joint_deviation_waist": -0.5,
+        "penalty_negative_knee_joint": -1.0,
+        "penalty_upper_body_deviation": -0.5,
+        "penalty_upper_body_dof_acc": -2.5e-7,
+        "penalty_upper_body_dof_vel": -1e-3,
+        "penalty_upper_body_action_rate": -0.1,   # -0.1 from Falcon, -0.01 from unitree lower body task
+        "penalty_upper_body_dof_pos_limits": -5.0,
+        "penalty_upper_body_dof_torques": -1e-5,
         "gait_phase_reward": 0.18,
         "feet_swing_height": -20.0,
         "feet_slide": -0.2,
-        "plate_flat_orientation_l2": -0.05,
-        "plate_lin_acc_l2": -0.01,
-        "plate_ang_acc_l2": -0.01,
-        "plate_lin_acc_exp": 0,
-        "plate_ang_acc_exp": 0,
+        "feet_air_time": 0.0
+    }
+
+
+
+    # curriculum 
+    # # TODO: update curriculum for whole body control
+    curriculum = {
+        "upper_body_action_scale" : {
+            "enabled": True,
+            "upper_body_motion_initial_scale": 0.0,
+            "upper_body_motion_scale_up_episode_threshold": 210,
+            "upper_body_motion_scale_down_episode_threshold": 200,
+            "upper_body_motion_scale_up_amount": 0.05,
+            "upper_body_motion_scale_down_amount": 0.01,
+            "upper_body_motion_scale_max": 1.0,
+            "upper_body_motion_scale_min": 0.0
+        },
     }
 
     # terminations
     termination_height = 0.5
+
+    # observation scales (same as lower body task)
+    obs_scales = {
+        "root_lin_vel_b": 2.0,
+        "root_ang_vel_b": 0.25,
+        "projected_gravity_b": 1.0,
+        "dof_pos": 1.0,
+        "dof_vel": 0.05,
+    }
+
+    # clips (same as lower body task)
+    clip_action = 100
+    clip_observation = 100
     
 
-    # command
+    # command (same as lower body task)
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
         resampling_time_range=(10.0, 10.0),
@@ -252,8 +295,14 @@ class G1WholeBodyEnvCfg(DirectRLEnvCfg):
         heading_control_stiffness=0.5,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 1.0), lin_vel_y=(-0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-2 * math.pi, 2 * math.pi)
         ),
     )
-    # target base height
-    target_base_height = 0.78
+    # target base height (same as lower body task)
+    target_base_height = 0.75
+
+    # target feet height (same as lower body task)
+    target_feet_height = 0.12
+
+    # knee joint threshold (same as lower body task)
+    knee_joint_threshold = 0.2

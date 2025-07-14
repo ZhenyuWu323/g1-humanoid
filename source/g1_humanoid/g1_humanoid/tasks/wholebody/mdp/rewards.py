@@ -153,6 +153,11 @@ def joint_torque_limits(joint_torque: torch.Tensor, effort_limits: torch.Tensor,
     return out_of_limits * weight
 
 
+def negative_knee_joint(joint_pos: torch.Tensor, joint_idx: Sequence[int], threshold: float, weight: float) -> torch.Tensor:
+    """Penalize negative knee joint angles (lower body only)."""
+    return torch.sum((joint_pos[:, joint_idx] < threshold).float(), dim=1) * weight
+
+
 def termination_penalty(terminated: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize termination."""
 
@@ -232,22 +237,14 @@ def feet_swing_height(body_pos_w: torch.Tensor, contact_sensor: ContactSensor, f
 def gait_phase_reward(
         env: DirectRLEnv, 
         contact_sensor: ContactSensor, 
+        leg_phases: torch.Tensor,
         feet_body_indexes: Sequence[int],
         weight: float, 
-        gait_period: float = 0.8,
-        phase_offset: float = 0.5,
         stance_phase_threshold: float = 0.55
         ) -> torch.Tensor:
     """Reward Gait Phase"""
 
-    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, 2] > 1.0
-
-    # current phase
-    current_time = env.episode_length_buf * env.step_dt
-    base_phase = (current_time % gait_period) / gait_period
-    leg_phases = torch.zeros(env.num_envs, len(feet_body_indexes), device=env.device)
-    leg_phases[:, 0] = base_phase # left leg
-    leg_phases[:, 1] = (base_phase + phase_offset) % 1.0 # right leg
+    contact = contact_sensor.data.net_forces_w[:, feet_body_indexes, :3].norm(dim=-1) > 1.0
 
     # stance phase
     stance_phase = leg_phases < stance_phase_threshold
@@ -262,12 +259,13 @@ def gait_phase_reward(
 
 
 def body_acc_l2(body_acc_w: torch.Tensor, body_idx: int, weight: float) -> torch.Tensor:
-    """Penalize body linear/angular acceleration using L2 squared kernel."""
+    """Penalize body acceleration using L2 squared kernel."""
 
     return torch.sum(torch.square(body_acc_w[:, body_idx, :]), dim=1) * weight
 
 
 def body_acc_exp(body_acc_w: torch.Tensor, body_idx: int, weight: float, lambda_acc: float) -> torch.Tensor:
+    """Penalize body acceleration using exponential kernel."""
 
-    acc_squared_norm = torch.norm(body_acc_w[:, body_idx, :], dim=1)**2
-    return torch.exp(-lambda_acc * acc_squared_norm) * weight
+    acc_norm = torch.norm(body_acc_w[:, body_idx, :], dim=1)
+    return torch.exp(-acc_norm / lambda_acc) * weight

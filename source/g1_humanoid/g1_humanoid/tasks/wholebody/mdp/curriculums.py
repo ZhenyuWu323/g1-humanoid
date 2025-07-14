@@ -20,7 +20,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.terrains import TerrainImporter
 
 if TYPE_CHECKING:
-    from isaaclab.envs import ManagerBasedRLEnv
+    from isaaclab.envs import ManagerBasedRLEnv, DirectRLEnv
 
 
 def terrain_levels_vel(

@@ -58,6 +58,7 @@ def main():
         with torch.inference_mode():
             # compute zero actions
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            print(f"[INFO]: Actions: {actions}")
             # apply actions
             env.step(actions)
 
