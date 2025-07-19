@@ -224,7 +224,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     events.add_plate_mass = None
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
 
     # reward scales
     reward_scales = {
@@ -269,9 +269,9 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         # upper body
         "tracking_upper_body_dof_pos": 0.5,
         "penalty_upper_body_dof_torques": -1e-5,
-        "penalty_upper_body_dof_acc": -1.0e-7,
-        "penalty_upper_body_dof_pos_limits": -1.0,
-        "penalty_upper_body_dof_action_rate": -0.1,
+        "penalty_upper_body_dof_acc": -2.5e-7,
+        "penalty_upper_body_dof_pos_limits": -5.0,
+        "penalty_upper_body_dof_action_rate": -0.05,
         "penalty_upper_body_dof_vel": -1e-3,
         #"penalty_upper_body_termination": -100.0,
     }
@@ -296,7 +296,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # command
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
-        resampling_time_range=(10.0, 10.0),
+        resampling_time_range=(5.0, 5.0),
         rel_standing_envs=0.02,
         rel_heading_envs=1.0,
         heading_command=False,

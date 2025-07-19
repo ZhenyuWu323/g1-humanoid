@@ -141,9 +141,9 @@ def negative_knee_joint(joint_pos: torch.Tensor, joint_idx: Sequence[int], min_t
     return torch.sum((joint_pos[:, joint_idx] < min_threshold).float(), dim=1) * weight
 
 
-def alive_reward(weight: float) -> torch.Tensor:
+def alive_reward(terminated: torch.Tensor, weight: float) -> torch.Tensor:
     """Reward alive."""
-    return weight * 1.0
+    return ~terminated * weight
 
 
 
