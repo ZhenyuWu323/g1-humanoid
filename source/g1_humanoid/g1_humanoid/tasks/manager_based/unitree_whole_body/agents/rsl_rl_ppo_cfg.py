@@ -4,25 +4,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from isaaclab.utils import configclass
-
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
 
 
 @configclass
-class G1DecoupledPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class BasePPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 50000
     save_interval = 100
-    experiment_name = "g1_decoupled_locomanipulation"
+    experiment_name = ""  # same as task name
     empirical_normalization = False
-    upper_body_policy = RslRlPpoActorCriticCfg(
-        init_noise_std=0.6,
-        actor_hidden_dims=[512, 256, 128],
-        critic_hidden_dims=[512, 256, 128],
-        activation="elu",
-    )
-    lower_body_policy = RslRlPpoActorCriticCfg(
-        init_noise_std=0.8,
+    policy = RslRlPpoActorCriticCfg(
+        init_noise_std=1.0,
         actor_hidden_dims=[512, 256, 128],
         critic_hidden_dims=[512, 256, 128],
         activation="elu",
@@ -41,4 +34,3 @@ class G1DecoupledPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
-

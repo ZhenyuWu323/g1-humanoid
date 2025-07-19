@@ -23,11 +23,23 @@ from . import agents
 """ G1 Decoupled Locomanipulation"""
 
 gym.register(
-    id="Template-G1-Decoupled-Plate-Locomanipulation",
+    id="Template-G1-Decoupled-Locomanipulation",
     entry_point=f"{__name__}.g1_decoupled_env:G1DecoupledEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.g1_decoupled_cfg:G1DecoupledEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1DecoupledPPORunnerCfg",
+    },
+)
+
+""" G1 Decoupled Plate Locomanipulation"""
+
+gym.register(
+    id="Template-G1-Decoupled-Plate-Locomanipulation",
+    entry_point=f"{__name__}.g1_decoupled_env:G1DecoupledEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_decoupled_cfg:G1DecoupledPlateEnvCfg",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1DecoupledPPORunnerCfg",
     },
 )

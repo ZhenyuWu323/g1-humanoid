@@ -13,7 +13,7 @@ from isaaclab.utils import configclass
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
-from g1_humanoid.assets import G1_WITH_PLATE
+from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 
 @configclass
@@ -26,8 +26,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.8, 0.8),
-            "dynamic_friction_range": (0.6, 0.6),
+            "static_friction_range": (0.3, 1.0),
+            "dynamic_friction_range": (0.3, 1.0),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -140,7 +140,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
         "actor_obs": 484,
-        "critic_obs": 115,
+        "critic_obs": 499,
     }
     action_dim= {
         "upper_body": 14,
@@ -188,13 +188,12 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
 
     # robot configuration
-    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+    robot: ArticulationCfg = G1_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
     )
     reference_body = "torso_link"
 
-    plate_name = "plate"
     arm_names = [".*_shoulder_pitch_joint",
                 ".*_shoulder_roll_joint",
                 ".*_shoulder_yaw_joint",
@@ -221,7 +220,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
 
     # events
     events: EventCfg = EventCfg()
-    events.push_robot = None
+    #events.push_robot = None
+    events.add_plate_mass = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
@@ -229,35 +229,51 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # reward scales
     reward_scales = {
         # lower body
-        "track_lin_vel_x": 1.0,
-        "track_lin_vel_y": 1.0,
-        "track_ang_vel_z": 1.0,
+        # "track_lin_vel_x": 1.0,
+        # "track_lin_vel_y": 1.0,
+        # "track_ang_vel_z": 1.0,
+        # "penalty_base_height": -10.0,
+        # "penalty_lin_vel_z": -0.2,
+        # "penalty_ang_vel_xy": -0.05,
+        # "penalty_flat_orientation": -1.0, 
+        # "penalty_lower_body_action_rate": -0.005,
+        # "penalty_lower_body_dof_acc": -1.0e-7,
+        # "penalty_lower_body_dof_torques": -2.0e-6,
+        # "penalty_lower_body_dof_pos_limits": -1.0,
+        # "penalty_lower_body_dof_vel": -1e-3,
+        # "feet_air_time": 0.75,
+        # "penalty_dof_pos_waist": -0.5, # unitree offcial use -1.0
+        # "penalty_dof_pos_hips": -0.5, # unitree offcial use -1.0
+        # "penalty_lower_body_termination": -200.0,
+        # "gait_phase_reward": 0.18,
+        # "feet_swing_height": -20.0,
+        # "feet_slide": -0.2,
+        "track_line_vel_xy":1.0,
+        "track_ang_vel_z":0.5,
+        "alive": 0.15,
+        "penalty_lin_vel_z":-2.0,
+        "penalty_ang_vel_xy":-0.05,
+        "penalty_lower_body_dof_vel":-0.001,
+        "penalty_lower_body_dof_acc": -2.5e-7,
+        "penalty_lower_body_action_rate": -0.05,
+        "penalty_lower_body_dof_pos_limits": -5.0,
+        "penalty_dof_pos_waist": -1.0,
+        "penalty_dof_pos_hips": -1.0,
+        "penalty_flat_orientation": -5.0,
         "penalty_base_height": -10.0,
-        "penalty_lin_vel_z": -0.2,
-        "penalty_ang_vel_xy": -0.05,
-        "penalty_flat_orientation": -1.0, 
-        "penalty_lower_body_action_rate": -0.005,
-        "penalty_lower_body_dof_acc": -1.0e-7,
-        "penalty_lower_body_dof_torques": -2.0e-6,
-        "penalty_lower_body_dof_pos_limits": -1.0,
-        "penalty_lower_body_dof_vel": -1e-3,
-        "feet_air_time": 0.75,
-        "penalty_dof_pos_waist": -0.5, # unitree offcial use -1.0
-        "penalty_dof_pos_hips": -0.5, # unitree offcial use -1.0
-        "penalty_lower_body_termination": -200.0,
-        "gait_phase_reward": 0.18,
-        "feet_swing_height": -20.0,
+        "gait_phase_reward": 0.5,
         "feet_slide": -0.2,
-        "penalty_stand_still": -0.1,
+        "feet_clearance": 1.0,
+
 
         # upper body
-        "tracking_upper_body_dof_pos": 4.0,
+        "tracking_upper_body_dof_pos": 0.5,
         "penalty_upper_body_dof_torques": -1e-5,
         "penalty_upper_body_dof_acc": -1.0e-7,
         "penalty_upper_body_dof_pos_limits": -1.0,
         "penalty_upper_body_dof_action_rate": -0.1,
         "penalty_upper_body_dof_vel": -1e-3,
-        "penalty_upper_body_termination": -100.0,
+        #"penalty_upper_body_termination": -100.0,
     }
 
     # observation scales
@@ -283,12 +299,30 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         resampling_time_range=(10.0, 10.0),
         rel_standing_envs=0.02,
         rel_heading_envs=1.0,
-        heading_command=True,
-        heading_control_stiffness=0.5,
+        heading_command=False,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 1.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
         ),
     )
     # target base height
     target_base_height = 0.78
+
+    # target feet height
+    target_feet_height = 0.12
+
+    # knee joint threshold
+    knee_joint_threshold = 0.2
+
+
+@configclass
+class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
+    """ G1 Decoupled Plate Locomanipulation Environment Configuration """
+
+    # robot configuration
+    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+
+    plate_name = "plate"
+
+    events: EventCfg = EventCfg()
+    

@@ -12,64 +12,64 @@ specify the reward function and its parameters.
 from __future__ import annotations
 
 import torch
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, List, Sequence
 
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import ContactSensor
-from isaaclab.utils.math import quat_rotate_inverse, yaw_quat
+from isaaclab.utils.math import quat_apply_inverse, yaw_quat
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv, DirectRLEnv
 
 
 def track_lin_vel_xy_yaw_frame_exp(
-    root_quat_w: torch.Tensor, root_lin_vel_w: torch.Tensor, vel_command: torch.Tensor, std: float, weight: float
+    root_quat_w: torch.Tensor, root_lin_vel_w: torch.Tensor, vel_command: torch.Tensor, sigma: float, weight: float
 ) -> torch.Tensor:
     """Reward tracking of linear velocity commands (xy axes) in the gravity aligned robot frame using exponential kernel."""
     # extract the used quantities (to enable type-hinting)
-    vel_yaw = quat_rotate_inverse(yaw_quat(root_quat_w), root_lin_vel_w[:, :3])
+    vel_yaw = quat_apply_inverse(yaw_quat(root_quat_w), root_lin_vel_w[:, :3])
     lin_vel_error = torch.sum(
         torch.square(vel_command[:, :2] - vel_yaw[:, :2]), dim=1
     )
-    return torch.exp(-lin_vel_error / std**2) * weight
+    return torch.exp(-lin_vel_error / sigma) * weight
 
 
 
 def track_ang_vel_z_world_exp(
-    root_ang_vel_w: torch.Tensor, vel_command: torch.Tensor, std: float, weight: float
+    root_ang_vel_w: torch.Tensor, vel_command: torch.Tensor, sigma: float, weight: float
 ) -> torch.Tensor:
     """Reward tracking of angular velocity commands (yaw) in world frame using exponential kernel."""
     # extract the used quantities (to enable type-hinting)
     ang_vel_error = torch.square(vel_command[:, 2] - root_ang_vel_w[:, 2])
-    return torch.exp(-ang_vel_error / std**2) * weight
+    return torch.exp(-ang_vel_error / sigma) * weight
 
 
-def track_lin_vel_xy_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+def track_lin_vel_xy_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, sigma: float) -> torch.Tensor:
     """Reward tracking of linear velocity commands (xy axes) base frame frame using exponential kernel."""
     
     lin_vel_error = torch.sum(
         torch.square(vel_command[:, :2] - root_lin_vel_b[:, :2]),
         dim=1,
     )
-    return torch.exp(-lin_vel_error / std**2) * weight
+    return torch.exp(-lin_vel_error / sigma) * weight
 
 
-def track_ang_vel_z_base_exp(root_ang_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+def track_ang_vel_z_base_exp(root_ang_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, sigma: float) -> torch.Tensor:
     """Reward tracking of angular velocity commands (yaw) base frame using exponential kernel."""
 
     ang_vel_error = torch.square(vel_command[:, 2] - root_ang_vel_b[:, 2])
-    return torch.exp(-ang_vel_error / std**2) * weight
+    return torch.exp(-ang_vel_error / sigma) * weight
 
 
-def track_lin_vel_x_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+def track_lin_vel_x_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, sigma: float) -> torch.Tensor:
     """Reward tracking of linear velocity commands (x-axis) base frame using exponential kernel."""
     lin_vel_error = torch.square(vel_command[:, 0] - root_lin_vel_b[:, 0])
-    return torch.exp(-lin_vel_error / std**2) * weight
+    return torch.exp(-lin_vel_error / sigma) * weight
 
-def track_lin_vel_y_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+def track_lin_vel_y_base_exp(root_lin_vel_b: torch.Tensor, vel_command: torch.Tensor, weight: float, sigma: float) -> torch.Tensor:
     """Reward tracking of linear velocity commands (y-axis) base frame using exponential kernel."""
     lin_vel_error = torch.square(vel_command[:, 1] - root_lin_vel_b[:, 1])
-    return torch.exp(-lin_vel_error / std**2) * weight
+    return torch.exp(-lin_vel_error / sigma) * weight
 
 
 def lin_vel_z_l2(root_lin_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
@@ -83,10 +83,10 @@ def ang_vel_xy_l2(root_ang_vel_b: torch.Tensor, weight: float) -> torch.Tensor:
 
     return torch.sum(torch.square(root_ang_vel_b[:, :2]), dim=1) * weight
 
-def joint_tracking_exp(joint_pos: torch.Tensor, joint_idx: Sequence[int], joint_pos_command: torch.Tensor, weight: float, std: float) -> torch.Tensor:
+def joint_tracking_exp(joint_pos: torch.Tensor, joint_idx: Sequence[int], joint_pos_command: torch.Tensor, weight: float, sigma: float) -> torch.Tensor:
     """Reward tracking of joint positions using exponential kernel."""
     joint_pos_error = torch.sum(torch.square(joint_pos[:, joint_idx] - joint_pos_command), dim=1)
-    return torch.exp(-joint_pos_error / std**2) * weight
+    return torch.exp(-joint_pos_error / sigma) * weight
 
 def flat_orientation_l2(projected_gravity_b: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize non-flat base orientation using L2 squared kernel.
@@ -119,12 +119,32 @@ def joint_torque_l2(joint_torque: torch.Tensor, joint_idx: Sequence[int], weight
 
     return torch.sum(torch.square(joint_torque[:, joint_idx]), dim=1) * weight
 
+def joint_pos_l2(joint_pos: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize joint positions that deviate from the default one."""
+    return torch.sum(torch.square(joint_pos[:, joint_idx]), dim=1) * weight
 
 def joint_deviation_l1(joint_pos: torch.Tensor, default_joint_pos: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
     """Penalize joint positions that deviate from the default one."""
     # compute out of limits constraints
     angle = joint_pos[:, joint_idx] - default_joint_pos[:, joint_idx]
     return torch.sum(torch.abs(angle), dim=1) * weight
+
+
+def joint_deviation_exp(joint_pos: torch.Tensor, joint_idx: Sequence[int], joint_pos_command: torch.Tensor, weight: float, sigma: float) -> torch.Tensor:
+    """Reward tracking of joint positions using exponential kernel."""
+    joint_pos_error = torch.sum(torch.square(joint_pos[:, joint_idx] - joint_pos_command), dim=1)
+    return torch.exp(-joint_pos_error / sigma) * weight
+
+
+def negative_knee_joint(joint_pos: torch.Tensor, joint_idx: Sequence[int], min_threshold: float, weight: float) -> torch.Tensor:
+    """Penalize negative knee joint angles (lower body only)."""
+    return torch.sum((joint_pos[:, joint_idx] < min_threshold).float(), dim=1) * weight
+
+
+def alive_reward(weight: float) -> torch.Tensor:
+    """Reward alive."""
+    return weight * 1.0
+
 
 
 def joint_pos_limits(joint_pos: torch.Tensor, soft_joint_pos_limits: torch.Tensor, joint_idx: Sequence[int], weight: float) -> torch.Tensor:
@@ -243,6 +263,37 @@ def feet_swing_height(body_pos_w: torch.Tensor, contact_sensor: ContactSensor, f
     return torch.sum(pos_error, dim=1) * weight
 
 
+def feet_orientation(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor, feet_body_indexes: Sequence[int], weight: float) -> torch.Tensor:
+    """Reward Feet Orientation"""
+    # left foot
+    left_quat_w = body_rot_w[:, feet_body_indexes[0], :]
+    left_foot_orientation = quat_apply_inverse(left_quat_w, gravity_vec_w)
+    # right foot
+    right_quat_w = body_rot_w[:, feet_body_indexes[1], :]
+    right_foot_orientation = quat_apply_inverse(right_quat_w, gravity_vec_w)
+    # compute orientation error
+    reward = torch.sum(torch.square(left_foot_orientation[:, :2]), dim=1)**0.5 + torch.sum(torch.square(right_foot_orientation[:, :2]), dim=1)**0.5 
+    # reward
+    return reward * weight
+
+
+def feet_close_xy(body_pos_w: torch.Tensor, feet_body_indexes: Sequence[int], threshold: float, weight: float) -> torch.Tensor:
+    """Reward Feet Close to XY"""
+    # get feet position
+    left_foot_pos_xy = body_pos_w[:, feet_body_indexes[0], :2]
+    right_foot_pos_xy = body_pos_w[:, feet_body_indexes[1], :2]
+    # compute distance
+    distance = torch.norm(left_foot_pos_xy - right_foot_pos_xy, dim=1)
+    return (distance < threshold).float() * weight
+
+
+def feet_pos_l2(joint_pos: torch.Tensor, feet_body_indexes: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize feet position using L2 squared kernel."""
+    left_foot_pos = joint_pos[:, feet_body_indexes[0]]
+    right_foot_pos = joint_pos[:, feet_body_indexes[1]]
+    return (torch.abs(left_foot_pos) + torch.abs(right_foot_pos)) * weight
+
+
 def gait_phase_reward(
         env: DirectRLEnv, 
         contact_sensor: ContactSensor, 
@@ -266,6 +317,52 @@ def gait_phase_reward(
         reward += match.float()
     
     return reward * weight
+
+
+
+def feet_gait(
+    env: DirectRLEnv,
+    contact_sensor: ContactSensor,
+    feet_body_indexes: Sequence[int],
+    period: float,
+    offset: Sequence[float],
+    threshold: float,
+    command: torch.Tensor,
+    weight: float,
+    ) -> torch.Tensor:
+    """Reward Feet Gait"""
+
+    is_contact = contact_sensor.data.current_contact_time[:, feet_body_indexes] > 0.0
+    global_phase = ((env.episode_length_buf * env.step_dt) % period / period).unsqueeze(1)
+    phases = []
+    for offset_ in offset:
+        phase = (global_phase + offset_) % 1.0
+        phases.append(phase)
+    leg_phases = torch.cat(phases, dim=-1)
+
+    reward = torch.zeros(env.num_envs, dtype=torch.float, device=env.device)
+    for i in range(len(feet_body_indexes)):
+        is_stance = leg_phases[:, i] < threshold
+        reward += ~(is_contact[:, i] ^ is_stance)
+    
+    cmd_norm = torch.norm(command, dim=1)
+    reward *= cmd_norm > 0.1
+    return reward * weight
+
+def feet_clearance(
+        body_pos_w: torch.Tensor, 
+        body_lin_vel_w: torch.Tensor, 
+        feet_body_indexes: Sequence[int], 
+        target_feet_height: float,
+        tanh_mult: float,
+        sigma: float,
+        weight: float) -> torch.Tensor:
+    """Reward Feet Clearance"""
+    feet_height_error = torch.square(body_pos_w[:, feet_body_indexes, 2] - target_feet_height)
+    feet_vel_tanh = torch.tanh(tanh_mult * torch.norm(body_lin_vel_w[:, feet_body_indexes, :2], dim=2))
+    reward = feet_height_error * feet_vel_tanh
+    return torch.exp(-torch.sum(reward, dim=1) / sigma) * weight
+
 
 def stand_still(joint_pos: torch.Tensor, joint_idx: Sequence[int], default_joint_pos: torch.Tensor, vel_command: torch.Tensor, weight: float) -> torch.Tensor:
     """Penalize action if zero vel command."""

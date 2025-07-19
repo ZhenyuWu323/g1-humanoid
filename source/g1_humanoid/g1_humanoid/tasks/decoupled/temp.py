@@ -1,3 +1,333 @@
+import math
+import isaaclab.envs.mdp as mdp
+import isaaclab.sim as sim_utils
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.envs import DirectRLEnvCfg
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import ContactSensorCfg, RayCasterCfg, patterns
+from isaaclab.sim import SimulationCfg, PhysxCfg
+from isaaclab.terrains import TerrainImporterCfg
+from isaaclab.utils import configclass
+from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
+from . import mdp
+from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
+from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
+
+@configclass
+class EventCfg:
+    """Configuration for events."""
+
+    # startup
+    physics_material = EventTerm(
+        func=mdp.randomize_rigid_body_material,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "static_friction_range": (0.8, 0.8),
+            "dynamic_friction_range": (0.6, 0.6),
+            "restitution_range": (0.0, 0.0),
+            "num_buckets": 64,
+        },
+    )
+
+    scale_control_gain = EventTerm(
+        func=mdp.randomize_actuator_gains,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "stiffness_distribution_params": (0.9, 1.1),
+            "damping_distribution_params": (0.9, 1.1),
+            "operation": "scale",
+            'distribution': 'uniform',
+        },
+    )
+
+    add_base_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "mass_distribution_params": (-1.0, 3.0),
+            "operation": "add",
+        },
+    )
+
+    add_plate_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+            "mass_distribution_params": (0.0, 5.0),
+            "operation": "add",
+        },
+    )
+
+    # reset
+    base_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "force_range": (0.0, 0.0),
+            "torque_range": (-0.0, 0.0),
+        },
+    )
+
+    reset_base = EventTerm(
+        func=mdp.reset_root_state_uniform,
+        mode="reset",
+        params={
+            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "velocity_range": {
+                "x": (0.0, 0.0),
+                "y": (0.0, 0.0),
+                "z": (0.0, 0.0),
+                "roll": (0.0, 0.0),
+                "pitch": (0.0, 0.0),
+                "yaw": (0.0, 0.0),
+            },
+        },
+    )
+
+    reset_robot_joints = EventTerm(
+        func=mdp.reset_joints_by_scale,
+        mode="reset",
+        params={
+            "position_range": (1.0, 1.0),
+            "velocity_range": (0.0, 0.0),
+        },
+    )
+
+    # interval
+    push_robot = EventTerm(
+        func=mdp.push_by_setting_velocity,
+        mode="interval",
+        interval_range_s=(10.0, 15.0),
+        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
+    )
+
+
+
+
+@configclass
+class G1DecoupledEnvCfg(DirectRLEnvCfg):
+    """ G1 Decoupled Locomanipulation Environment Configuration """
+
+
+    # simulation configuration
+    episode_length_s = 20.0
+    decimation = 4
+    sim: SimulationCfg = SimulationCfg(
+        dt=0.005,
+        render_interval=decimation,
+        physics_material=sim_utils.RigidBodyMaterialCfg(
+            friction_combine_mode="multiply",
+            restitution_combine_mode="multiply",
+            static_friction=1.0,
+            dynamic_friction=1.0,
+        ),
+        physx=PhysxCfg(
+            gpu_max_rigid_patch_count = 10 * 2**15
+        ),
+    )
+    body_keys = ['upper_body', 'lower_body']
+
+
+    # MDP configuration
+    # NOTE: Remember to update these if any updates are made to env
+    observation_space = {
+        "actor_obs": 482,
+        "critic_obs": 113,
+    }
+    action_dim= {
+        "upper_body": 14,
+        "lower_body": 15,
+    }
+    action_space = 29
+    action_scale = 0.25
+    state_space = 0
+    obs_history_length = 5
+
+    # obs noise
+    obs_noise_models: dict[str, NoiseModelCfg] = {
+        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
+        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
+        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
+        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
+    }
+
+
+    # terrain configuration
+    terrain = TerrainImporterCfg(
+        prim_path="/World/ground",
+        terrain_type="plane",
+        terrain_generator=None,
+        max_init_terrain_level=5,
+        collision_group=-1,
+        physics_material=sim_utils.RigidBodyMaterialCfg(
+            friction_combine_mode="multiply",
+            restitution_combine_mode="multiply",
+            static_friction=1.0,
+            dynamic_friction=1.0,
+        ),
+        visual_material=sim_utils.MdlFileCfg(
+            mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+            project_uvw=True,
+            texture_scale=(0.25, 0.25),
+        ),
+        debug_vis=False,
+    )
+
+    # lights
+    sky_light_cfg = sim_utils.DomeLightCfg(
+        intensity=750.0,
+        texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
+
+    # robot configuration
+    robot: ArticulationCfg = G1_CFG.replace(prim_path="/World/envs/env_.*/Robot")
+    contact_sensor: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
+    )
+    reference_body = "torso_link"
+
+    arm_names = [".*_shoulder_pitch_joint",
+                ".*_shoulder_roll_joint",
+                ".*_shoulder_yaw_joint",
+                ".*_elbow_joint",
+                ".*_wrist_roll_joint",
+                ".*_wrist_pitch_joint",
+                ".*_wrist_yaw_joint",]
+    
+    
+    waist_names = ["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"]
+
+    hips_names = [".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", ".*_knee_joint"]
+
+    feet_names = [".*_ankle_pitch_joint", ".*_ankle_roll_joint"]
+
+    lower_body_names = waist_names + hips_names + feet_names
+    upper_body_names = arm_names 
+    feet_body_name = ".*_ankle_roll_link"
+
+    # gait phase
+    gait_period = 0.8
+    phase_offset = 0.5
+    stance_phase_threshold = 0.55
+
+    # events
+    events: EventCfg = EventCfg()
+    events.push_robot = None
+    events.add_plate_mass = None
+
+    # scene
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=2.5, replicate_physics=True)
+
+    # reward scales
+    reward_scales = {
+        # lower body
+        "track_lin_vel_x": 2.0,
+        "track_lin_vel_y": 1.5,
+        "track_ang_vel_z": 4.0,
+        "track_waist_pos": 1.0,
+        "penalty_base_height": -10.0,
+        "penalty_lin_vel_z": -0.2,
+        "penalty_ang_vel_xy": -0.05,
+        "penalty_flat_orientation": -1.5,
+        "penalty_lower_body_action_rate": -0.1,
+        "penalty_lower_body_dof_acc": -2.5e-7,
+        "penalty_lower_body_dof_torques": -1.0e-5,
+        "penalty_lower_body_dof_pos_limits": -5.0,
+        "penalty_lower_body_dof_vel": -1.0e-3,
+        "penalty_lower_body_dof_pos_hips": -2.5,
+        "feet_air_time": 4.0,
+        "penalty_lower_body_termination": -250.0,
+        "gait_phase_reward": 0.0,
+        "feet_swing_height": -20.0,
+        "feet_slide": -0.2,
+        "feet_orientation": -2.0,
+        "feet_close_xy": -10.0,
+        "feet_pos_l2": -2.0,
+        "penalty_negative_knee_joint": -1.0,
+
+        # upper body
+        "tracking_upper_body_dof_pos": 4.0,
+        "penalty_upper_body_dof_torques": -1e-5,
+        "penalty_upper_body_dof_acc": -2.5e-7,
+        "penalty_upper_body_dof_pos_limits": -5.0,
+        "penalty_upper_body_action_rate": -0.1,
+        "penalty_upper_body_dof_vel": -1e-3,
+        "penalty_upper_body_termination": -100.0,
+    }
+
+    # observation scales
+    obs_scales = {
+        "root_lin_vel_b": 2.0,
+        "root_ang_vel_b": 0.25,
+        "projected_gravity_b": 1.0,
+        "dof_pos": 1.0,
+        "dof_vel": 0.05,
+    }
+
+    # clips
+    clip_action = 100
+    clip_observation = 100
+
+    # terminations
+    termination_height = 0.5
+    
+
+    # command
+    base_velocity = mdp.UniformVelocityCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(10.0, 10.0),
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        heading_command=True,
+        heading_control_stiffness=0.5,
+        debug_vis=True,
+        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(0.0, 1.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+        ),
+    )
+    # target base height
+    target_base_height = 0.78
+
+    # target feet height
+    target_feet_height = 0.12
+
+    # knee joint threshold
+    knee_joint_threshold = 0.2
+
+
+@configclass
+class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
+    """ G1 Decoupled Plate Locomanipulation Environment Configuration """
+
+    # robot configuration
+    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+
+    plate_name = "plate"
+
+    events: EventCfg = EventCfg()
+    events.push_robot = None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from __future__ import annotations
 import math
 from typing import List
@@ -87,7 +417,6 @@ class G1DecoupledEnv(DirectRLEnv):
         """Initialize history buffers for observations and actions."""
         
         # proprioceptive observations
-        self.root_lin_vel_b_history = torch.zeros((self.num_envs, self.obs_history_length, 3), device=self.sim.device)
         self.root_ang_vel_b_history = torch.zeros((self.num_envs, self.obs_history_length, 3), device=self.sim.device)
         self.projected_gravity_b_history = torch.zeros((self.num_envs, self.obs_history_length, 3), device=self.sim.device)
         self.dof_pos_history = torch.zeros((self.num_envs, self.obs_history_length, self.cfg.action_space), device=self.sim.device)
@@ -154,16 +483,12 @@ class G1DecoupledEnv(DirectRLEnv):
         dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
         dof_vel = self.robot.data.joint_vel
         root_ang_vel_b = self.robot.data.root_ang_vel_b
-        root_lin_vel_b = self.robot.data.root_lin_vel_b
         projected_gravity_b = self.robot.data.projected_gravity_b
 
         # update history buffers
         self.root_ang_vel_b_history = torch.roll(self.root_ang_vel_b_history, shifts=1, dims=1)
         self.root_ang_vel_b_history[:, 0, :] = root_ang_vel_b
-
-        self.root_lin_vel_b_history = torch.roll(self.root_lin_vel_b_history, shifts=1, dims=1)
-        self.root_lin_vel_b_history[:, 0, :] = root_lin_vel_b
-
+        
         self.projected_gravity_b_history = torch.roll(self.projected_gravity_b_history, shifts=1, dims=1)
         self.projected_gravity_b_history[:, 0, :] = projected_gravity_b
         
@@ -176,7 +501,7 @@ class G1DecoupledEnv(DirectRLEnv):
         mask = self.history_step_counter > 0
         if mask.any():
             self.action_history = torch.roll(self.action_history, shifts=1, dims=1)
-            self.action_history[mask, 0, :] = self.actions[mask]
+            self.action_history[mask, 0, :] = self.prev_actions[mask]
 
 
     def _get_observations(self) -> dict:
@@ -189,7 +514,6 @@ class G1DecoupledEnv(DirectRLEnv):
         projected_gravity_b = self.robot.data.projected_gravity_b
 
         # get history observations
-        root_lin_vel_b_hist_flat = self.root_lin_vel_b_history.flatten(start_dim=1)  # (num_envs, history_length * 3)
         root_ang_vel_b_hist_flat = self.root_ang_vel_b_history.flatten(start_dim=1)  # (num_envs, history_length * 3)
         projected_gravity_b_hist_flat = self.projected_gravity_b_history.flatten(start_dim=1)  # (num_envs, history_length * 3)
         dof_pos_hist_flat = self.dof_pos_history.flatten(start_dim=1)  # (num_envs, history_length * total_dof)
@@ -223,20 +547,20 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_hist_flat, # 145
             'dof_vel': dof_vel_hist_flat, # 145
             'actions': action_hist_flat, # 145
-            'sin_phase': sin_phase, # 1
-            'cos_phase': cos_phase, # 1
+            #'sin_phase': sin_phase, # 1
+            #'cos_phase': cos_phase, # 1
         }
         critic_observations_dict = {
-            'root_lin_vel_b': root_lin_vel_b_hist_flat,
-            'root_ang_vel_b': root_ang_vel_b_hist_flat,
-            'projected_gravity_b': projected_gravity_b_hist_flat,
+            'root_lin_vel_b': root_lin_vel_b,
+            'root_ang_vel_b': root_ang_vel_b,
+            'projected_gravity_b': projected_gravity_b,
             'vel_command': vel_command,
             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
-            'dof_pos': dof_pos_hist_flat,
-            'dof_vel': dof_vel_hist_flat,
-            'actions': action_hist_flat,
-            'sin_phase': sin_phase,
-            'cos_phase': cos_phase,
+            'dof_pos': dof_pos,
+            'dof_vel': dof_vel,
+            'actions': self.actions.clone(),
+            #'sin_phase': sin_phase,
+            #'cos_phase': cos_phase,
         }
         actor_scaled_obs = {}
         critic_scaled_obs = {}
@@ -268,42 +592,20 @@ class G1DecoupledEnv(DirectRLEnv):
         Lower Body Tracking Rewards
         """
         # linear velocity tracking
-        # tracking_lin_vel_x = mdp.track_lin_vel_x_base_exp(
-        #     root_lin_vel_b=self.robot.data.root_lin_vel_b,
-        #     vel_command=self.velocity_command.command,
-        #     sigma=0.25,
-        #     weight=self.cfg.reward_scales["track_lin_vel_x"] if "track_lin_vel_x" in self.cfg.reward_scales else 0,
-        # )
-        # tracking_lin_vel_y = mdp.track_lin_vel_y_base_exp(
-        #     root_lin_vel_b=self.robot.data.root_lin_vel_b,
-        #     vel_command=self.velocity_command.command,
-        #     sigma=0.25,
-        #     weight=self.cfg.reward_scales["track_lin_vel_y"] if "track_lin_vel_y" in self.cfg.reward_scales else 0,
-        # )
-
-        # # angular velocity tracking
-        # tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
-        #     root_ang_vel_b=self.robot.data.root_ang_vel_b,
-        #     vel_command=self.velocity_command.command,
-        #     sigma=0.25,
-        #     weight=self.cfg.reward_scales["track_ang_vel_z"] if "track_ang_vel_z" in self.cfg.reward_scales else 0,
-        # )
-
-        # # waist tracking
-        # tracking_waist_pos = mdp.joint_tracking_exp(
-        #     joint_pos=self.robot.data.joint_pos,
-        #     joint_idx=self.waist_indexes,
-        #     joint_pos_command=self.default_joint_pos[:, self.waist_indexes],
-        #     weight=self.cfg.reward_scales["track_waist_pos"] if "track_waist_pos" in self.cfg.reward_scales else 0,
-        #     sigma=0.05,
-        # )
-        tracking_lin_vel_xy = mdp.track_lin_vel_xy_yaw_frame_exp(
-            root_quat_w=self.robot.data.root_quat_w,
-            root_lin_vel_w=self.robot.data.root_lin_vel_w,
+        tracking_lin_vel_x = mdp.track_lin_vel_x_base_exp(
+            root_lin_vel_b=self.robot.data.root_lin_vel_b,
             vel_command=self.velocity_command.command,
             sigma=0.25,
-            weight=self.cfg.reward_scales["track_lin_vel_xy"] if "track_lin_vel_xy" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["track_lin_vel_x"] if "track_lin_vel_x" in self.cfg.reward_scales else 0,
         )
+        tracking_lin_vel_y = mdp.track_lin_vel_y_base_exp(
+            root_lin_vel_b=self.robot.data.root_lin_vel_b,
+            vel_command=self.velocity_command.command,
+            sigma=0.25,
+            weight=self.cfg.reward_scales["track_lin_vel_y"] if "track_lin_vel_y" in self.cfg.reward_scales else 0,
+        )
+
+        # angular velocity tracking
         tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
             root_ang_vel_b=self.robot.data.root_ang_vel_b,
             vel_command=self.velocity_command.command,
@@ -311,6 +613,14 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["track_ang_vel_z"] if "track_ang_vel_z" in self.cfg.reward_scales else 0,
         )
 
+        # waist tracking
+        tracking_waist_pos = mdp.joint_tracking_exp(
+            joint_pos=self.robot.data.joint_pos,
+            joint_idx=self.waist_indexes,
+            joint_pos_command=self.default_joint_pos[:, self.waist_indexes],
+            weight=self.cfg.reward_scales["track_waist_pos"] if "track_waist_pos" in self.cfg.reward_scales else 0,
+            sigma=0.05,
+        )
 
         """
         Lower Body Penalty Terms
@@ -337,20 +647,12 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["penalty_flat_orientation"] if "penalty_flat_orientation" in self.cfg.reward_scales else 0,
         )
 
-        # joint deviation waist
-        penalty_dof_pos_waist = mdp.joint_deviation_l1(
-            joint_pos=self.robot.data.joint_pos,
-            default_joint_pos=self.robot.data.default_joint_pos,
-            joint_idx=self.waist_indexes,
-            weight=self.cfg.reward_scales["penalty_dof_pos_waist"] if "penalty_dof_pos_waist" in self.cfg.reward_scales else 0,
-        )
-
         # joint deviation hips
         penalty_dof_pos_hips = mdp.joint_deviation_l1(
             joint_pos=self.robot.data.joint_pos,
             default_joint_pos=self.robot.data.default_joint_pos,
             joint_idx=self.hips_yaw_roll_indexes,
-            weight=self.cfg.reward_scales["penalty_dof_pos_hips"] if "penalty_dof_pos_hips" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["penalty_lower_body_dof_pos_hips"] if "penalty_lower_body_dof_pos_hips" in self.cfg.reward_scales else 0,
         )
 
         # joint position limits
@@ -397,6 +699,14 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["penalty_base_height"] if "penalty_base_height" in self.cfg.reward_scales else 0,
         )
 
+        # negative knee joint
+        penalty_negative_knee_joint = mdp.negative_knee_joint(
+            joint_pos=self.robot.data.joint_pos,
+            joint_idx=self.knee_indexes,
+            min_threshold=self.cfg.knee_joint_threshold,
+            weight=self.cfg.reward_scales["penalty_negative_knee_joint"] if "penalty_negative_knee_joint" in self.cfg.reward_scales else 0,
+        )
+
         """
         Lower Body Feet Contact Rewards
         """
@@ -409,11 +719,12 @@ class G1DecoupledEnv(DirectRLEnv):
         )
 
         # feet air time
-        feet_air_time = mdp.feet_air_time_positive_biped(
+        feet_air_time = mdp.feet_air_time(
             vel_command=self.velocity_command.command,
             contact_sensor=self._contact_sensor,
             feet_body_indexes=self.feet_body_indexes,
             threshold=0.5,
+            step_dt=self.step_dt,
             weight=self.cfg.reward_scales["feet_air_time"] if "feet_air_time" in self.cfg.reward_scales else 0,
         )
 
@@ -436,28 +747,29 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=self.cfg.reward_scales["gait_phase_reward"] if "gait_phase_reward" in self.cfg.reward_scales else 0,
         )
 
-        # feet gait
-        feet_gait_reward = mdp.feet_gait(
-            env=self,
-            contact_sensor=self._contact_sensor,
+        # feet orientation
+        feet_orientation = mdp.feet_orientation(
+            body_rot_w=self.robot.data.body_quat_w,
+            gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
             feet_body_indexes=self.feet_body_indexes,
-            period=0.8,
-            offset=[0.0, 0.5],
-            threshold=0.55,
-            command=self.velocity_command.command,
-            weight=self.cfg.reward_scales["feet_gait"] if "feet_gait" in self.cfg.reward_scales else 0,
+            weight=self.cfg.reward_scales["feet_orientation"] if "feet_orientation" in self.cfg.reward_scales else 0,
         )
 
-        # feet clearance
-        feet_clearance_reward = mdp.feet_clearance(
+        # feet close xy
+        feet_close_xy = mdp.feet_close_xy(
             body_pos_w=self.robot.data.body_pos_w,
-            body_lin_vel_w=self.robot.data.body_lin_vel_w,
             feet_body_indexes=self.feet_body_indexes,
-            target_feet_height=self.cfg.target_feet_height,
-            sigma=0.05,
-            tanh_mult=2.0,
-            weight=self.cfg.reward_scales["feet_clearance"] if "feet_clearance" in self.cfg.reward_scales else 0,
+            threshold=0.17,
+            weight=self.cfg.reward_scales["feet_close_xy"] if "feet_close_xy" in self.cfg.reward_scales else 0,
         )
+
+        # feet pos l2
+        feet_pos_l2 = mdp.feet_pos_l2(
+            joint_pos=self.robot.data.joint_pos,
+            feet_body_indexes=self.feet_body_indexes,
+            weight=self.cfg.reward_scales["feet_pos_l2"] if "feet_pos_l2" in self.cfg.reward_scales else 0,
+        )
+
 
         """
         Upper Body Rewards
@@ -517,26 +829,30 @@ class G1DecoupledEnv(DirectRLEnv):
         )
 
 
-        # alive reward
-        alive_reward = mdp.alive_reward(weight=self.cfg.reward_scales["alive"] if "alive" in self.cfg.reward_scales else 0)
-
 		# locomotion reward
-        locomotion_reward = (tracking_lin_vel_xy + 
+        locomotion_reward = (tracking_lin_vel_x + 
+                             tracking_lin_vel_y + 
                              tracking_ang_vel_z + 
+                             tracking_waist_pos + 
+                             penalty_lower_body_termination + 
                              penalty_lin_vel_z + 
                              penalty_ang_vel_xy + 
                              penalty_flat_orientation + 
-                             penalty_dof_pos_waist + 
                              penalty_dof_pos_hips + 
                              penalty_lower_body_dof_pos_limits + 
+                             penalty_lower_body_dof_torques + 
                              penalty_lower_body_dof_acc + 
                              penalty_lower_body_dof_vel + 
                              penalty_lower_body_action_rate + 
                              penalty_feet_slide + 
-                             penalty_base_height +
-                             feet_gait_reward +
-                             feet_clearance_reward +
-                             alive_reward)
+                             feet_air_time + 
+                             penalty_feet_swing_height + 
+                             gait_phase_reward + 
+                             penalty_base_height + 
+                             penalty_negative_knee_joint + 
+                             feet_orientation + 
+                             feet_close_xy + 
+                             feet_pos_l2)
         
 		# upper body reward
         upper_body_reward = (
@@ -546,7 +862,7 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_upper_body_dof_pos_limits + 
             penalty_upper_body_action_rate + 
             penalty_upper_body_dof_vel + 
-            alive_reward
+            penalty_upper_body_termination
         )
 
         # reward 
@@ -574,7 +890,6 @@ class G1DecoupledEnv(DirectRLEnv):
         self.episode_length_buf[env_ids] = 0
         self.history_step_counter[env_ids] = 0
         self.root_ang_vel_b_history[env_ids] = 0.0
-        self.root_lin_vel_b_history[env_ids] = 0.0
         self.projected_gravity_b_history[env_ids] = 0.0
         self.dof_pos_history[env_ids] = 0.0
         self.dof_vel_history[env_ids] = 0.0
@@ -614,9 +929,9 @@ class G1DecoupledEnv(DirectRLEnv):
         if self.cfg.action_noise_model:
             action = self._action_noise_model.apply(action)
 
-        '''# clip actions
+        # clip actions
         clip_actions = self.cfg.clip_action
-        action = torch.clip(action, -clip_actions, clip_actions)'''
+        action = torch.clip(action, -clip_actions, clip_actions)
 
         # process actions
         self._pre_physics_step(action)
@@ -678,10 +993,10 @@ class G1DecoupledEnv(DirectRLEnv):
         #if self.cfg.observation_noise_model:
             #self.obs_buf["policy"] = self._observation_noise_model.apply(self.obs_buf["policy"])
 
-        '''# clip observations
+        # clip observations
         clip_observations = self.cfg.clip_observation
         for key, value in self.obs_buf.items():
-            self.obs_buf[key] = torch.clip(value, -clip_observations, clip_observations)'''
+            self.obs_buf[key] = torch.clip(value, -clip_observations, clip_observations)
 
         # return observations, rewards, resets and extras
         return self.obs_buf, self.reward_buf, self.reset_terminated, self.reset_time_outs, self.extras

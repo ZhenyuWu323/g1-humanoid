@@ -71,15 +71,20 @@ class JointOnPolicyRunner:
     def __setup_policy(self):
         # initialize policies
         self.policies = {}
-        self.upper_body_policy_cfg.pop("class_name")
-        self.lower_body_policy_cfg.pop("class_name")
-        self.policies["upper_body"] = ActorCritic(
+        upper_body_policy_class = eval(self.upper_body_policy_cfg.pop("class_name"))
+        assert upper_body_policy_class in [ActorCritic, ActorCriticRecurrent], "Upper body policy class is expected to be ActorCritic or ActorCriticRecurrent."
+        lower_body_policy_class = eval(self.lower_body_policy_cfg.pop("class_name"))
+        assert lower_body_policy_class in [ActorCritic, ActorCriticRecurrent], "Lower body policy class is expected to be ActorCritic or ActorCriticRecurrent."
+
+        assert upper_body_policy_class == lower_body_policy_class, "Upper and lower body policies must be the same class to share observation."
+        
+        self.policies["upper_body"] = upper_body_policy_class(
             num_actor_obs=self.num_obs["actor_obs"],
             num_critic_obs=self.num_obs["critic_obs"],
             num_actions=self.num_actions["upper_body"],
             **self.upper_body_policy_cfg
         ).to(self.device)
-        self.policies["lower_body"] = ActorCritic(
+        self.policies["lower_body"] = lower_body_policy_class(
             num_actor_obs=self.num_obs["actor_obs"],
             num_critic_obs=self.num_obs["critic_obs"],
             num_actions=self.num_actions["lower_body"],
