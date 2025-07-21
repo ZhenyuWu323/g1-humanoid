@@ -15,6 +15,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
 from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
+from isaaclab.envs.common import ViewerCfg
 
 @configclass
 class EventCfg:
@@ -134,6 +135,13 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
         ),
     )
     body_keys = ['upper_body', 'lower_body']
+
+    viewer: ViewerCfg = ViewerCfg(
+        origin_type="asset_root",
+        asset_name="robot",
+        eye=[2.5, -2.0, 1.8],
+        lookat=[0.0, 0.0, 0.0],
+    )
 
 
     # MDP configuration
@@ -325,4 +333,9 @@ class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
     plate_name = "plate"
 
     events: EventCfg = EventCfg()
+
+    observation_space = {
+        "actor_obs": 484,
+        "critic_obs": 499 + 15,
+    }
     

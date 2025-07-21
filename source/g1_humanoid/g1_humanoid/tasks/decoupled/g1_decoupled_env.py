@@ -20,6 +20,7 @@ from . import mdp
 from .utils import compute_projected_gravity
 from isaaclab.envs.common import VecEnvStepReturn
 from isaaclab.utils.buffers import CircularBuffer
+from isaaclab.utils.math import quat_apply_inverse
 
 class G1DecoupledEnv(DirectRLEnv):
     cfg: G1DecoupledEnvCfg | G1DecoupledPlateEnvCfg
@@ -242,6 +243,25 @@ class G1DecoupledEnv(DirectRLEnv):
             'sin_phase': sin_phase,
             'cos_phase': cos_phase,
         }
+
+        # add plate observations if using plate
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+            # plate observations
+            plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
+            projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
+            plate_lin_vel_w = self.robot.data.body_lin_vel_w[:, self.plate_body_index, :].to(self.sim.device)
+            plate_ang_vel_w = self.robot.data.body_ang_vel_w[:, self.plate_body_index, :].to(self.sim.device)
+            plate_lin_acc_w = self.robot.data.body_lin_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+            plate_ang_acc_w = self.robot.data.body_ang_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+            #plate_mass = self.robot.data._root_physx_view.get_masses()[:, self.plate_body_index].unsqueeze(1).to(self.sim.device)
+
+            critic_observations_dict['projected_gravity_plate'] = projected_gravity_plate
+            critic_observations_dict['plate_lin_vel_w'] = plate_lin_vel_w
+            critic_observations_dict['plate_ang_vel_w'] = plate_ang_vel_w
+            critic_observations_dict['plate_lin_acc_w'] = plate_lin_acc_w
+            critic_observations_dict['plate_ang_acc_w'] = plate_ang_acc_w
+            #critic_observations_dict['plate_mass'] = plate_mass
+
         actor_scaled_obs = {}
         critic_scaled_obs = {}
         for obs_name, obs_value in actor_observations_dict.items():
@@ -474,7 +494,7 @@ class G1DecoupledEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=0.5,
+            weight=1.0,
             sigma=0.1,
         )
 
@@ -523,7 +543,48 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=0.0,
         )'''
 
+        """
+        Upper Body Plate Rewards
+        """
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+            # plate flat orientation
+            penalty_plate_flat_orientation = mdp.body_orientation_l2(
+                body_rot_w=self.robot.data.body_link_quat_w,
+                gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
+                body_idx=self.plate_body_index,
+                weight=-5.0,
+            )
 
+            # plate linear acceleration l2
+            penalty_plate_lin_acc = mdp.body_acc_l2(
+                body_acc_w=self.robot.data.body_lin_acc_w,
+                body_idx=self.plate_body_index,
+                weight=-0.01,
+            )
+
+            # plate angular acceleration l2
+            penalty_plate_ang_acc = mdp.body_acc_l2(
+                body_acc_w=self.robot.data.body_ang_acc_w,
+                body_idx=self.plate_body_index,
+                weight=-0.01,
+            )
+
+            # plate tracking zero linear acceleration
+            tracking_zero_plate_lin_acc = mdp.body_acc_exp(
+                body_acc_w=self.robot.data.body_lin_acc_w,
+                body_idx=self.plate_body_index,
+                weight=2.0,
+                lambda_acc=0.25,
+            )
+
+            # plate tracking zero angular acceleration
+            tracking_zero_plate_ang_acc = mdp.body_acc_exp(
+                body_acc_w=self.robot.data.body_ang_acc_w,
+                body_idx=self.plate_body_index,
+                weight=1.0,
+                lambda_acc=0.05,
+            )
+            
         # alive reward
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
 
@@ -555,6 +616,15 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_upper_body_dof_vel + 
             alive_reward
         )
+        # add plate rewards if using plate
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+            upper_body_reward += (
+                penalty_plate_flat_orientation +
+                penalty_plate_lin_acc +
+                penalty_plate_ang_acc +
+                tracking_zero_plate_lin_acc +
+                tracking_zero_plate_ang_acc
+            )
 
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt

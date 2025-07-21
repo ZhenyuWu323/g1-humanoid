@@ -378,5 +378,12 @@ def body_acc_l2(body_acc_w: torch.Tensor, body_idx: int, weight: float) -> torch
 
 def body_acc_exp(body_acc_w: torch.Tensor, body_idx: int, weight: float, lambda_acc: float) -> torch.Tensor:
 
-    acc_squared_norm = torch.norm(body_acc_w[:, body_idx, :], dim=1)**2
+    acc_squared_norm = torch.sum(torch.square(body_acc_w[:, body_idx, :]), dim=1)
     return torch.exp(-lambda_acc * acc_squared_norm) * weight
+
+
+def body_orientation_l2(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor, body_idx: int, weight: float) -> torch.Tensor:
+    """Penalize body orientation using L2 squared kernel."""
+
+    body_orientation = quat_apply_inverse(body_rot_w[:, body_idx, :], gravity_vec_w)
+    return torch.sum(torch.square(body_orientation[:, :2]), dim=1) * weight
