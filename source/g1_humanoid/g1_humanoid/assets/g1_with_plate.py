@@ -121,5 +121,5 @@ G1_WITH_PLATE = ArticulationCfg(
             armature=0.01
         ),
     },
-)
+)# NOTE: Friction 1.2
 """Configuration for the Unitree G1 29 DoF Humanoid robot with Plate."""

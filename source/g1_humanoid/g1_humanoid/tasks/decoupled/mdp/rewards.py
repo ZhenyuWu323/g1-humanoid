@@ -370,13 +370,13 @@ def stand_still(joint_pos: torch.Tensor, joint_idx: Sequence[int], default_joint
     return torch.sum(torch.abs(joint_pos[:, joint_idx] - default_joint_pos[:, joint_idx]), dim=1) * (torch.norm(vel_command[:, :2], dim=1) < 0.1) * weight
 
 
-def body_acc_l2(body_acc_w: torch.Tensor, body_idx: int, weight: float) -> torch.Tensor:
+def body_acc_l2(body_acc_w: torch.Tensor, body_idx: int, weight: torch.Tensor) -> torch.Tensor:
     """Penalize body linear/angular acceleration using L2 squared kernel."""
 
     return torch.sum(torch.square(body_acc_w[:, body_idx, :]), dim=1) * weight
 
 
-def body_acc_exp(body_acc_w: torch.Tensor, body_idx: int, weight: float, lambda_acc: float) -> torch.Tensor:
+def body_acc_exp(body_acc_w: torch.Tensor, body_idx: int, weight: torch.Tensor, lambda_acc: float) -> torch.Tensor:
 
     acc_squared_norm = torch.sum(torch.square(body_acc_w[:, body_idx, :]), dim=1)
     return torch.exp(-lambda_acc * acc_squared_norm) * weight

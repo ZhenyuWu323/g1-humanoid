@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from isaaclab.assets import Articulation
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.terrains import TerrainImporter
+from isaaclab.envs import DirectRLEnv
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -53,3 +54,17 @@ def terrain_levels_vel(
     terrain.update_env_origins(env_ids, move_up, move_down)
     # return the mean terrain level
     return torch.mean(terrain.terrain_levels.float())
+
+
+def acceleration_reward(
+    env: DirectRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), step_threshold: int = 800
+) -> torch.Tensor:
+    """Curriculum based on the episode length.
+    This term is used to activate the linear/angular acceleration rewards
+    """
+
+    current_steps = env.episode_length_buf[env_ids]
+    activate_acc_reward = current_steps > step_threshold
+    
+    return activate_acc_reward.float()
+    

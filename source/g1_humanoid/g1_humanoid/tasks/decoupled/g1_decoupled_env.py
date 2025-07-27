@@ -81,9 +81,26 @@ class G1DecoupledEnv(DirectRLEnv):
         self.phase = torch.zeros(self.num_envs, device=self.device)
         self.leg_phases = torch.zeros(self.num_envs, len(self.feet_body_indexes), device=self.device)
 
+        # linear/angular acceleration reward
+        self.activate_acc_reward = torch.zeros(self.num_envs, device=self.device)
+
         # history
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
         self._init_history_buffers()
+
+        # logging
+        self._episode_sums = {
+            key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+            for key in [
+                "penalty_plate_flat_orientation",
+                "penalty_plate_lin_acc",
+                "penalty_plate_ang_acc",
+                "tracking_zero_plate_lin_acc",
+                "tracking_zero_plate_ang_acc", 
+                "penalty_torso_ang_acc",
+                "tracking_zero_torso_ang_acc",
+            ]
+        }
 
     def _init_history_buffers(self):
         """Initialize history buffers for observations and actions."""
@@ -581,9 +598,23 @@ class G1DecoupledEnv(DirectRLEnv):
             tracking_zero_plate_ang_acc = mdp.body_acc_exp(
                 body_acc_w=self.robot.data.body_ang_acc_w,
                 body_idx=self.plate_body_index,
-                weight=1.0,
-                lambda_acc=0.05,
+                weight=2.0,
+                lambda_acc=0.25,
             )
+
+            # torso angular acceleration l2
+            penalty_torso_ang_acc = mdp.body_acc_l2(
+                body_acc_w=self.robot.data.body_ang_acc_w,
+                body_idx=self.ref_body_index,
+                weight=-0.01,
+            )
+            tracking_zero_torso_ang_acc = mdp.body_acc_exp(
+                body_acc_w=self.robot.data.body_ang_acc_w,
+                body_idx=self.ref_body_index,
+                weight=2.0,
+                lambda_acc=0.25,
+            )
+            
             
         # alive reward
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
@@ -626,6 +657,19 @@ class G1DecoupledEnv(DirectRLEnv):
                 tracking_zero_plate_ang_acc
             )
 
+            locomotion_reward += (
+                penalty_torso_ang_acc +
+                tracking_zero_torso_ang_acc
+            )
+
+            self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
+            self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
+            self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
+            self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
+            self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
+            self._episode_sums["penalty_torso_ang_acc"] += penalty_torso_ang_acc
+            self._episode_sums["tracking_zero_torso_ang_acc"] += tracking_zero_torso_ang_acc
+
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt
         upper_body_reward = upper_body_reward * self.step_dt
@@ -641,8 +685,19 @@ class G1DecoupledEnv(DirectRLEnv):
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
+
+        # # apply acceleration rewardcurriculum
+        # acc_reward = mdp.acceleration_reward(
+        #     env=self,
+        #     env_ids=env_ids,
+        #     asset_cfg=SceneEntityCfg("robot"),
+        #     step_threshold=900,
+        # )
+        # self.activate_acc_reward[env_ids] = acc_reward
+
         # reset robot
         self.robot.reset(env_ids)
+        super()._reset_idx(env_ids)
         # reset command
         self.velocity_command._resample_command(env_ids)
         # reset actions
@@ -657,8 +712,15 @@ class G1DecoupledEnv(DirectRLEnv):
         self.action_buffer.reset(env_ids)
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
-    
-        super()._reset_idx(env_ids)
+
+        # reset logging
+        extras = dict()
+        for key in self._episode_sums.keys():
+            episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
+            extras["Episode_Reward/" + key] = episodic_sum_avg / self.max_episode_length_s
+            self._episode_sums[key][env_ids] = 0.0
+        self.extras["log"] = dict()
+        self.extras["log"].update(extras)
 
 
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
