@@ -57,14 +57,14 @@ def terrain_levels_vel(
 
 
 def acceleration_reward(
-    env: DirectRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), step_threshold: int = 800
+    env: DirectRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), dist_threshold: int = 2
 ) -> torch.Tensor:
     """Curriculum based on the episode length.
     This term is used to activate the linear/angular acceleration rewards
     """
-
-    current_steps = env.episode_length_buf[env_ids]
-    activate_acc_reward = current_steps > step_threshold
+    asset: Articulation = env.scene[asset_cfg.name]
+    distance = torch.norm(asset.data.root_pos_w[env_ids, :2] - env.scene.env_origins[env_ids, :2], dim=1)
+    activate_acc_reward = distance > dist_threshold
     
     return activate_acc_reward.float()
     

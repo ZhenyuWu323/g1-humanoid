@@ -8,13 +8,13 @@ import gymnasium as gym
 import numpy as np
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import Articulation
+from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import quat_rotate
 from isaaclab.sensors import ContactSensor
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .g1_decoupled_cfg import G1DecoupledEnvCfg, G1DecoupledPlateEnvCfg
+from .g1_decoupled_cfg import G1DecoupledEnvCfg, G1DecoupledPlateEnvCfg, G1DecoupledPlateObjectEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from .utils import compute_projected_gravity
@@ -23,9 +23,9 @@ from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
 
 class G1DecoupledEnv(DirectRLEnv):
-    cfg: G1DecoupledEnvCfg | G1DecoupledPlateEnvCfg
+    cfg: G1DecoupledEnvCfg | G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg
 
-    def __init__(self, cfg: G1DecoupledEnvCfg | G1DecoupledPlateEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1DecoupledEnvCfg | G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         ##########################################################################################
@@ -45,7 +45,7 @@ class G1DecoupledEnv(DirectRLEnv):
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
 
         # plate body index
-        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
             self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
 
 
@@ -97,8 +97,6 @@ class G1DecoupledEnv(DirectRLEnv):
                 "penalty_plate_ang_acc",
                 "tracking_zero_plate_lin_acc",
                 "tracking_zero_plate_ang_acc", 
-                "penalty_torso_ang_acc",
-                "tracking_zero_torso_ang_acc",
             ]
         }
 
@@ -112,6 +110,10 @@ class G1DecoupledEnv(DirectRLEnv):
         self.dof_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.dof_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+            self.plate_projected_gravity_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+            self.plate_lin_acc_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+            self.plate_ang_acc_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self._buffers_initialized = False
 
 
@@ -121,6 +123,12 @@ class G1DecoupledEnv(DirectRLEnv):
         root_ang_vel_b = self.robot.data.root_ang_vel_b
         root_lin_vel_b = self.robot.data.root_lin_vel_b
         projected_gravity_b = self.robot.data.projected_gravity_b
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+            plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
+            projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
+            plate_lin_acc_w = self.robot.data.body_lin_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+            plate_ang_acc_w = self.robot.data.body_ang_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+            
         
         # fill the history length
         for _ in range(self.obs_history_length):
@@ -130,6 +138,10 @@ class G1DecoupledEnv(DirectRLEnv):
             self.dof_pos_buffer.append(dof_pos)
             self.dof_vel_buffer.append(dof_vel)
             self.action_buffer.append(self.actions)
+            if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+                self.plate_projected_gravity_buffer.append(projected_gravity_plate)
+                self.plate_lin_acc_buffer.append(plate_lin_acc_w)
+                self.plate_ang_acc_buffer.append(plate_ang_acc_w)
 
     def _setup_scene(self):
         # robot
@@ -144,6 +156,11 @@ class G1DecoupledEnv(DirectRLEnv):
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+
+        # object
+        if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
+            self._object = RigidObject(self.cfg.obj_cfg)
+            self.scene.rigid_objects["object"] = self._object
         
 
         # clone and replicate
@@ -195,15 +212,16 @@ class G1DecoupledEnv(DirectRLEnv):
         self.dof_pos_buffer.append(dof_pos)
         self.dof_vel_buffer.append(dof_vel)
         self.action_buffer.append(self.actions)
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+            plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
+            projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
+            plate_lin_acc_w = self.robot.data.body_lin_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+            plate_ang_acc_w = self.robot.data.body_ang_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+            self.plate_projected_gravity_buffer.append(projected_gravity_plate)
+            self.plate_lin_acc_buffer.append(plate_lin_acc_w)
+            self.plate_ang_acc_buffer.append(plate_ang_acc_w)
 
     def _get_observations(self) -> dict:
-
-        # get proprioceptive observations
-        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
-        dof_vel = self.robot.data.joint_vel
-        root_lin_vel_b = self.robot.data.root_lin_vel_b
-        root_ang_vel_b = self.robot.data.root_ang_vel_b
-        projected_gravity_b = self.robot.data.projected_gravity_b
 
         if not hasattr(self, '_buffers_initialized') or not self._buffers_initialized:
             self._initialize_buffers_with_current_state()
@@ -245,8 +263,8 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat, # 145
             'dof_vel': dof_vel_buffer_flat, # 145
             'actions': action_buffer_flat, # 145
-            'sin_phase': sin_phase, # 1
-            'cos_phase': cos_phase, # 1
+            #'sin_phase': sin_phase, # 1
+            #'cos_phase': cos_phase, # 1
         }
         critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
@@ -257,27 +275,20 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
             'actions': action_buffer_flat,
-            'sin_phase': sin_phase,
-            'cos_phase': cos_phase,
+            #'sin_phase': sin_phase,
+            #'cos_phase': cos_phase,
         }
 
         # add plate observations if using plate
-        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
             # plate observations
-            plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
-            projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
-            plate_lin_vel_w = self.robot.data.body_lin_vel_w[:, self.plate_body_index, :].to(self.sim.device)
-            plate_ang_vel_w = self.robot.data.body_ang_vel_w[:, self.plate_body_index, :].to(self.sim.device)
-            plate_lin_acc_w = self.robot.data.body_lin_acc_w[:, self.plate_body_index, :].to(self.sim.device)
-            plate_ang_acc_w = self.robot.data.body_ang_acc_w[:, self.plate_body_index, :].to(self.sim.device)
-            #plate_mass = self.robot.data._root_physx_view.get_masses()[:, self.plate_body_index].unsqueeze(1).to(self.sim.device)
-
-            critic_observations_dict['projected_gravity_plate'] = projected_gravity_plate
-            critic_observations_dict['plate_lin_vel_w'] = plate_lin_vel_w
-            critic_observations_dict['plate_ang_vel_w'] = plate_ang_vel_w
-            critic_observations_dict['plate_lin_acc_w'] = plate_lin_acc_w
-            critic_observations_dict['plate_ang_acc_w'] = plate_ang_acc_w
-            #critic_observations_dict['plate_mass'] = plate_mass
+            plate_projected_gravity_buffer_flat = self.plate_projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
+            plate_lin_acc_buffer_flat = self.plate_lin_acc_buffer.buffer.reshape(self.num_envs, -1)
+            plate_ang_acc_buffer_flat = self.plate_ang_acc_buffer.buffer.reshape(self.num_envs, -1)
+            
+            critic_observations_dict['projected_gravity_plate'] = plate_projected_gravity_buffer_flat
+            critic_observations_dict['plate_lin_acc_w'] = plate_lin_acc_buffer_flat
+            critic_observations_dict['plate_ang_acc_w'] = plate_ang_acc_buffer_flat
 
         actor_scaled_obs = {}
         critic_scaled_obs = {}
@@ -563,7 +574,7 @@ class G1DecoupledEnv(DirectRLEnv):
         """
         Upper Body Plate Rewards
         """
-        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
             # plate flat orientation
             penalty_plate_flat_orientation = mdp.body_orientation_l2(
                 body_rot_w=self.robot.data.body_link_quat_w,
@@ -576,21 +587,21 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_plate_lin_acc = mdp.body_acc_l2(
                 body_acc_w=self.robot.data.body_lin_acc_w,
                 body_idx=self.plate_body_index,
-                weight=-0.01,
+                weight=-0.01 * self.activate_acc_reward,
             )
 
             # plate angular acceleration l2
             penalty_plate_ang_acc = mdp.body_acc_l2(
                 body_acc_w=self.robot.data.body_ang_acc_w,
                 body_idx=self.plate_body_index,
-                weight=-0.01,
+                weight=-0.01 * self.activate_acc_reward,
             )
 
             # plate tracking zero linear acceleration
             tracking_zero_plate_lin_acc = mdp.body_acc_exp(
                 body_acc_w=self.robot.data.body_lin_acc_w,
                 body_idx=self.plate_body_index,
-                weight=2.0,
+                weight=2.0 * self.activate_acc_reward,
                 lambda_acc=0.25,
             )
 
@@ -598,23 +609,10 @@ class G1DecoupledEnv(DirectRLEnv):
             tracking_zero_plate_ang_acc = mdp.body_acc_exp(
                 body_acc_w=self.robot.data.body_ang_acc_w,
                 body_idx=self.plate_body_index,
-                weight=2.0,
+                weight=2.0 * self.activate_acc_reward,
                 lambda_acc=0.25,
             )
 
-            # torso angular acceleration l2
-            penalty_torso_ang_acc = mdp.body_acc_l2(
-                body_acc_w=self.robot.data.body_ang_acc_w,
-                body_idx=self.ref_body_index,
-                weight=-0.01,
-            )
-            tracking_zero_torso_ang_acc = mdp.body_acc_exp(
-                body_acc_w=self.robot.data.body_ang_acc_w,
-                body_idx=self.ref_body_index,
-                weight=2.0,
-                lambda_acc=0.25,
-            )
-            
             
         # alive reward
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
@@ -648,7 +646,7 @@ class G1DecoupledEnv(DirectRLEnv):
             alive_reward
         )
         # add plate rewards if using plate
-        if isinstance(self.cfg, G1DecoupledPlateEnvCfg):
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
             upper_body_reward += (
                 penalty_plate_flat_orientation +
                 penalty_plate_lin_acc +
@@ -657,18 +655,11 @@ class G1DecoupledEnv(DirectRLEnv):
                 tracking_zero_plate_ang_acc
             )
 
-            locomotion_reward += (
-                penalty_torso_ang_acc +
-                tracking_zero_torso_ang_acc
-            )
-
             self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
             self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
             self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
             self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
             self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
-            self._episode_sums["penalty_torso_ang_acc"] += penalty_torso_ang_acc
-            self._episode_sums["tracking_zero_torso_ang_acc"] += tracking_zero_torso_ang_acc
 
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt
@@ -686,14 +677,14 @@ class G1DecoupledEnv(DirectRLEnv):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
 
-        # # apply acceleration rewardcurriculum
-        # acc_reward = mdp.acceleration_reward(
-        #     env=self,
-        #     env_ids=env_ids,
-        #     asset_cfg=SceneEntityCfg("robot"),
-        #     step_threshold=900,
-        # )
-        # self.activate_acc_reward[env_ids] = acc_reward
+        # apply acceleration reward curriculum
+        acc_reward = mdp.acceleration_reward(
+            env=self,
+            env_ids=env_ids,
+            asset_cfg=SceneEntityCfg("robot"),
+            dist_threshold=4,
+        )
+        self.activate_acc_reward[env_ids] = torch.max(self.activate_acc_reward[env_ids], acc_reward)
 
         # reset robot
         self.robot.reset(env_ids)
@@ -712,6 +703,17 @@ class G1DecoupledEnv(DirectRLEnv):
         self.action_buffer.reset(env_ids)
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+            self.plate_projected_gravity_buffer.reset(env_ids)
+            self.plate_lin_acc_buffer.reset(env_ids)
+            self.plate_ang_acc_buffer.reset(env_ids)
+
+        # reset object
+        if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
+            plate_pos_w = self.robot.data.body_pos_w[env_ids, self.plate_body_index, :].clone()
+            plate_pos_w[:, 2] += 0.05 # offset the object to the top of the plate
+            object_quat_w = self._object.data.default_root_state[env_ids, 3:7].clone()
+            self._object.write_root_pose_to_sim(torch.cat([plate_pos_w, object_quat_w], dim=-1), env_ids=env_ids)
 
         # reset logging
         extras = dict()

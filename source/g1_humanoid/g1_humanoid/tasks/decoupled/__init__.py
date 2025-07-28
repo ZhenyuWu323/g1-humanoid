@@ -43,3 +43,15 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1DecoupledPPORunnerCfg",
     },
 )
+
+""" G1 Decoupled Plate Object Locomanipulation"""
+
+gym.register(
+    id="Template-G1-Decoupled-Plate-Object-Locomanipulation",
+    entry_point=f"{__name__}.g1_decoupled_env:G1DecoupledEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_decoupled_cfg:G1DecoupledPlateObjectEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1DecoupledPPORunnerCfg",
+    },
+)

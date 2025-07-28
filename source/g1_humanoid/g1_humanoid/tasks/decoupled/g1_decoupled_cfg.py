@@ -1,7 +1,7 @@
 import math
 import isaaclab.envs.mdp as mdp
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
@@ -147,8 +147,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 484,
-        "critic_obs": 499,
+        "actor_obs": 482,
+        "critic_obs": 497,
     }
     action_dim= {
         "upper_body": 14,
@@ -236,26 +236,6 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
 
     # reward scales
     reward_scales = {
-        # lower body
-        # "track_lin_vel_x": 1.0,
-        # "track_lin_vel_y": 1.0,
-        # "track_ang_vel_z": 1.0,
-        # "penalty_base_height": -10.0,
-        # "penalty_lin_vel_z": -0.2,
-        # "penalty_ang_vel_xy": -0.05,
-        # "penalty_flat_orientation": -1.0, 
-        # "penalty_lower_body_action_rate": -0.005,
-        # "penalty_lower_body_dof_acc": -1.0e-7,
-        # "penalty_lower_body_dof_torques": -2.0e-6,
-        # "penalty_lower_body_dof_pos_limits": -1.0,
-        # "penalty_lower_body_dof_vel": -1e-3,
-        # "feet_air_time": 0.75,
-        # "penalty_dof_pos_waist": -0.5, # unitree offcial use -1.0
-        # "penalty_dof_pos_hips": -0.5, # unitree offcial use -1.0
-        # "penalty_lower_body_termination": -200.0,
-        # "gait_phase_reward": 0.18,
-        # "feet_swing_height": -20.0,
-        # "feet_slide": -0.2,
         "track_line_vel_xy":1.0,
         "track_ang_vel_z":0.5,
         "alive": 0.15,
@@ -335,7 +315,31 @@ class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
     events: EventCfg = EventCfg()
 
     observation_space = {
-        "actor_obs": 484,
-        "critic_obs": 499 + 15,
+        "actor_obs": 482,
+        "critic_obs": 497 + 45,
     }
+
+
+@configclass
+class G1DecoupledPlateObjectEnvCfg(G1DecoupledPlateEnvCfg):
+    """ G1 Decoupled Plate Object Locomanipulation Environment Configuration """
+
+    # robot configuration
+    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+
+    events: EventCfg = EventCfg()
+
+    # object configuration
+    obj_cfg = RigidObjectCfg(
+        prim_path="/World/envs/env_.*/Object",
+        spawn=sim_utils.SphereCfg(
+            radius=0.025,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(),
+    )
+    
     
