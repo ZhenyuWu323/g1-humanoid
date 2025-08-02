@@ -84,6 +84,9 @@ class G1DecoupledEnv(DirectRLEnv):
         # linear/angular acceleration reward
         self.activate_acc_reward = torch.zeros(self.num_envs, device=self.device)
 
+        # object/plate relative position
+        self.object_plate_rel_pos = torch.zeros(self.num_envs, 3, device=self.device)
+
         # history
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
         self._init_history_buffers()
@@ -97,6 +100,11 @@ class G1DecoupledEnv(DirectRLEnv):
                 "penalty_plate_ang_acc",
                 "tracking_zero_plate_lin_acc",
                 "tracking_zero_plate_ang_acc", 
+                "penalty_object_pos_deviation",
+                "object_on_plate_reward",
+                "penalty_object_flat_orientation",
+                #"penalty_root_ang_acc",
+                #"tracking_zero_root_ang_acc",
             ]
         }
 
@@ -594,7 +602,7 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_plate_ang_acc = mdp.body_acc_l2(
                 body_acc_w=self.robot.data.body_ang_acc_w,
                 body_idx=self.plate_body_index,
-                weight=-0.01 * self.activate_acc_reward,
+                weight=-0.001 * self.activate_acc_reward,
             )
 
             # plate tracking zero linear acceleration
@@ -612,6 +620,46 @@ class G1DecoupledEnv(DirectRLEnv):
                 weight=2.0 * self.activate_acc_reward,
                 lambda_acc=0.25,
             )
+
+            # root angular acceleration l2
+            # penalty_root_ang_acc = mdp.body_acc_l2(
+            #     body_acc_w=self.robot.data.body_ang_acc_w,
+            #     body_idx=self.ref_body_index,
+            #     weight=-0.01 * self.activate_acc_reward,
+            # )
+            # # root angular acceleration exp
+            # tracking_zero_root_ang_acc = mdp.body_acc_exp(
+            #     body_acc_w=self.robot.data.body_ang_acc_w,
+            #     body_idx=self.ref_body_index,
+            #     weight=2.0 * self.activate_acc_reward,
+            #     lambda_acc=0.25,
+            # )
+
+        # object/plate reward
+        if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
+
+            # penalty object position deviation
+            penalty_object_pos_deviation = mdp.object_pos_deviation(
+                object_pos_w=self._object.data.body_pos_w[:, 0, :],
+                plate_pos_w=self.robot.data.body_pos_w[:, self.plate_body_index, :],
+                default_rel_pos_w=self.object_plate_rel_pos,
+                weight=-0.01 * self.activate_acc_reward,
+            )
+            # object on plate
+            object_off_plate = self._object.data.body_pos_w[:, 0, 2] < self.robot.data.body_pos_w[:, self.plate_body_index, 2]
+            object_on_plate_reward = mdp.alive_reward(
+                terminated=object_off_plate,
+                weight=0.10 * self.activate_acc_reward,
+            )
+            # object flat orientation
+            penalty_object_flat_orientation = mdp.body_orientation_l2(
+                body_rot_w=self._object.data.body_link_quat_w,
+                gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
+                body_idx=0,
+                weight=-0.5 * self.activate_acc_reward,
+            )
+
+
 
             
         # alive reward
@@ -654,12 +702,29 @@ class G1DecoupledEnv(DirectRLEnv):
                 tracking_zero_plate_lin_acc +
                 tracking_zero_plate_ang_acc
             )
+            # locomotion_reward += (
+            #     penalty_root_ang_acc +
+            #     tracking_zero_root_ang_acc
+            # )
 
             self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
             self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
             self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
             self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
             self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
+            # self._episode_sums["penalty_root_ang_acc"] += penalty_root_ang_acc
+            # self._episode_sums["tracking_zero_root_ang_acc"] += tracking_zero_root_ang_acc
+
+        # add object/plate reward if using object/plate
+        if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
+            upper_body_reward += (
+                penalty_object_pos_deviation +
+                object_on_plate_reward +
+                penalty_object_flat_orientation
+            )
+            self._episode_sums["penalty_object_pos_deviation"] += penalty_object_pos_deviation
+            self._episode_sums["object_on_plate_reward"] += object_on_plate_reward
+            self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
 
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt
@@ -711,9 +776,12 @@ class G1DecoupledEnv(DirectRLEnv):
         # reset object
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
             plate_pos_w = self.robot.data.body_pos_w[env_ids, self.plate_body_index, :].clone()
-            plate_pos_w[:, 2] += 0.05 # offset the object to the top of the plate
+            plate_pos_w[:, 2] += 0.1 # offset the object to the top of the plate
             object_quat_w = self._object.data.default_root_state[env_ids, 3:7].clone()
             self._object.write_root_pose_to_sim(torch.cat([plate_pos_w, object_quat_w], dim=-1), env_ids=env_ids)
+            self.object_plate_rel_pos[env_ids] = self._object.data.body_pos_w[env_ids, 0, :] - plate_pos_w
+            object_vel = torch.zeros(env_ids.shape[0], 6, device=self.device)
+            self._object.write_root_velocity_to_sim(object_vel, env_ids=env_ids)
 
         # reset logging
         extras = dict()

@@ -61,7 +61,7 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
-            "mass_distribution_params": (0.0, 5.0),
+            "mass_distribution_params": (0.0, 1.5),
             "operation": "add",
         },
     )
@@ -332,10 +332,11 @@ class G1DecoupledPlateObjectEnvCfg(G1DecoupledPlateEnvCfg):
     # object configuration
     obj_cfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/Object",
-        spawn=sim_utils.SphereCfg(
-            radius=0.025,
+        spawn=sim_utils.CylinderCfg(
+            radius=0.03,
+            height=0.1,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
             collision_props=sim_utils.CollisionPropertiesCfg(),
             #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
         ),

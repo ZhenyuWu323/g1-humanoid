@@ -387,3 +387,10 @@ def body_orientation_l2(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor, b
 
     body_orientation = quat_apply_inverse(body_rot_w[:, body_idx, :], gravity_vec_w)
     return torch.sum(torch.square(body_orientation[:, :2]), dim=1) * weight
+
+
+
+def object_pos_deviation(object_pos_w: torch.Tensor, plate_pos_w: torch.Tensor, default_rel_pos_w: torch.Tensor, weight: float) -> torch.Tensor:
+    """Penalize object position deviation from the default relative position."""
+    rel_pos = object_pos_w - plate_pos_w
+    return torch.sum(torch.square(rel_pos - default_rel_pos_w), dim=1) * weight
