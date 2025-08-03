@@ -47,11 +47,11 @@ class JointOnPolicyRunner:
         # resolve dimensions of observations
         self.num_obs = self.env.num_obs
         self.num_actions = self.env.num_actions
-        self.num_privileged_obs = self.env.num_privileged_obs
+        #self.num_privileged_obs = self.env.num_privileged_obs
 
         # keys
         self.body_keys = ['upper_body', 'lower_body']
-        self.obs_keys = ['actor_obs', 'critic_obs']
+        self.obs_keys = ['lower_body_actor_obs', 'lower_body_critic_obs', 'upper_body_actor_obs', 'upper_body_critic_obs']
         
         # setup policies and algorithms
         self.__setup_policy()
@@ -79,14 +79,14 @@ class JointOnPolicyRunner:
         assert upper_body_policy_class == lower_body_policy_class, "Upper and lower body policies must be the same class to share observation."
         
         self.policies["upper_body"] = upper_body_policy_class(
-            num_actor_obs=self.num_obs["actor_obs"],
-            num_critic_obs=self.num_obs["critic_obs"],
+            num_actor_obs=self.num_obs["upper_body_actor_obs"],
+            num_critic_obs=self.num_obs["upper_body_critic_obs"],
             num_actions=self.num_actions["upper_body"],
             **self.upper_body_policy_cfg
         ).to(self.device)
         self.policies["lower_body"] = lower_body_policy_class(
-            num_actor_obs=self.num_obs["actor_obs"],
-            num_critic_obs=self.num_obs["critic_obs"],
+            num_actor_obs=self.num_obs["lower_body_actor_obs"],
+            num_critic_obs=self.num_obs["lower_body_critic_obs"],
             num_actions=self.num_actions["lower_body"],
             **self.lower_body_policy_cfg
         ).to(self.device)
@@ -117,18 +117,30 @@ class JointOnPolicyRunner:
 
         # init storage and model
         for body_key in self.body_keys:
-            self.algs[body_key].init_storage(
-            self.training_type,
-            self.env.num_envs,
-            self.num_steps_per_env,
-            [self.num_obs["actor_obs"]],
-            [self.num_obs["critic_obs"]],
-            [self.num_actions[body_key]],
-        )
+            if body_key == "upper_body":
+                self.algs[body_key].init_storage(
+                self.training_type,
+                self.env.num_envs,
+                self.num_steps_per_env,
+                [self.num_obs["upper_body_actor_obs"]],
+                [self.num_obs["upper_body_critic_obs"]],
+                [self.num_actions[body_key]],
+            )
+            else:
+                self.algs[body_key].init_storage(
+                self.training_type,
+                self.env.num_envs,
+                self.num_steps_per_env,
+                [self.num_obs["lower_body_actor_obs"]],
+                [self.num_obs["lower_body_critic_obs"]],
+                [self.num_actions[body_key]],
+            )
 
-    def __rollout_step(self, 
-                       actor_obs, 
-                       critic_obs, 
+    def __rollout_step(self,
+                       upper_body_actor_obs,
+                       upper_body_critic_obs,
+                       lower_body_actor_obs,
+                       lower_body_critic_obs,
                        ep_infos, 
                        cur_episode_length, 
                        cur_reward_sum, 
@@ -138,7 +150,10 @@ class JointOnPolicyRunner:
                        lenbuffer):
         action_dict = {}
         for key in self.body_keys:
-            action_dict[key] = self.algs[key].act(actor_obs, critic_obs)
+            if key == "upper_body":
+                action_dict[key] = self.algs[key].act(upper_body_actor_obs, upper_body_critic_obs)
+            else:
+                action_dict[key] = self.algs[key].act(lower_body_actor_obs, lower_body_critic_obs)
         # Step the environment
         #action_dict["upper_body"] = torch.zeros(self.env.num_envs, 14, device=self.device) # TODO: remove this
         action = torch.cat([action_dict["upper_body"], action_dict["lower_body"]], dim=1)
@@ -147,13 +162,18 @@ class JointOnPolicyRunner:
         assert action.shape[1] == 29, "Total actions should be 29"
 
         obs, rewards, dones, infos = self.env.step(action.to(self.env.device))
-        actor_obs, critic_obs = obs["actor_obs"], obs["critic_obs"]
+        upper_body_actor_obs, upper_body_critic_obs = obs["upper_body_actor_obs"], obs["upper_body_critic_obs"]
+        lower_body_actor_obs, lower_body_critic_obs = obs["lower_body_actor_obs"], obs["lower_body_critic_obs"]
         # Move to device
-        actor_obs, critic_obs, dones = (actor_obs.to(self.device), critic_obs.to(self.device), dones.to(self.device))
+        upper_body_actor_obs, upper_body_critic_obs = (upper_body_actor_obs.to(self.device), upper_body_critic_obs.to(self.device))
+        lower_body_actor_obs, lower_body_critic_obs = (lower_body_actor_obs.to(self.device), lower_body_critic_obs.to(self.device))
+        dones = dones.to(self.device)
         rewards = {key: rewards[key].to(self.device) for key in self.body_keys}
         # perform normalization
-        actor_obs = self.actor_obs_normalizer(actor_obs)
-        critic_obs = self.critic_obs_normalizer(critic_obs)
+        upper_body_actor_obs = self.actor_obs_normalizer(upper_body_actor_obs)
+        upper_body_critic_obs = self.critic_obs_normalizer(upper_body_critic_obs)
+        lower_body_actor_obs = self.actor_obs_normalizer(lower_body_actor_obs)
+        lower_body_critic_obs = self.critic_obs_normalizer(lower_body_critic_obs)
         # process the step
         for key in self.body_keys:
             self.algs[key].process_env_step(rewards[key], dones, infos)
@@ -181,7 +201,7 @@ class JointOnPolicyRunner:
             for key in self.body_keys:
                 cur_reward_sum_dict[key][new_ids] = 0
 
-        return actor_obs, critic_obs
+        return upper_body_actor_obs, upper_body_critic_obs, lower_body_actor_obs, lower_body_critic_obs
     
 
 
@@ -217,8 +237,10 @@ class JointOnPolicyRunner:
 
         # start learning
         obs, _ = self.env.get_observations()
-        actor_obs, critic_obs = obs["actor_obs"], obs["critic_obs"]
-        actor_obs, critic_obs = actor_obs.to(self.device), critic_obs.to(self.device)
+        upper_body_actor_obs, upper_body_critic_obs = obs["upper_body_actor_obs"], obs["upper_body_critic_obs"]
+        lower_body_actor_obs, lower_body_critic_obs = obs["lower_body_actor_obs"], obs["lower_body_critic_obs"]
+        upper_body_actor_obs, upper_body_critic_obs = upper_body_actor_obs.to(self.device), upper_body_critic_obs.to(self.device)
+        lower_body_actor_obs, lower_body_critic_obs = lower_body_actor_obs.to(self.device), lower_body_critic_obs.to(self.device)
         self.train_mode()  # switch to train mode (for dropout for example)
 
         # Book keeping
@@ -239,7 +261,7 @@ class JointOnPolicyRunner:
             # Rollout
             with torch.inference_mode():
                 for _ in range(self.num_steps_per_env):
-                    actor_obs, critic_obs = self.__rollout_step(actor_obs, critic_obs, ep_infos, cur_episode_length, cur_reward_sum, cur_reward_sum_dict, rewbuffer, rewbuffer_dict, lenbuffer)
+                    upper_body_actor_obs, upper_body_critic_obs, lower_body_actor_obs, lower_body_critic_obs = self.__rollout_step(upper_body_actor_obs, upper_body_critic_obs, lower_body_actor_obs, lower_body_critic_obs, ep_infos, cur_episode_length, cur_reward_sum, cur_reward_sum_dict, rewbuffer, rewbuffer_dict, lenbuffer)
 
                 stop = time.time()
                 collection_time = stop - start
@@ -248,7 +270,10 @@ class JointOnPolicyRunner:
                 # compute returns
                 if self.training_type == "rl":
                     for key in self.body_keys:
-                        self.algs[key].compute_returns(critic_obs)
+                        if key == "upper_body":
+                            self.algs[key].compute_returns(upper_body_critic_obs)
+                        else:
+                            self.algs[key].compute_returns(lower_body_critic_obs)
 
             # update policy
             loss_dict = {}
@@ -486,16 +511,17 @@ class JointOnPolicyRunner:
             if self.empirical_normalization:
                 self.actor_obs_normalizer.to(device)
         
-        def multi_actor_inference_policy(obs):
+        def multi_actor_inference_policy(upper_body_actor_obs, lower_body_actor_obs):
             # Apply normalization if enabled
             if self.empirical_normalization:
-                obs = self.actor_obs_normalizer(obs)
+                upper_body_actor_obs = self.actor_obs_normalizer(upper_body_actor_obs)
+                lower_body_actor_obs = self.actor_obs_normalizer(lower_body_actor_obs)
             
             # Get actions from each body part
             actions_list = []
             #actions_list.append(torch.zeros(self.env.num_envs, 14, device=self.device)) # TODO: remove this
-            actions_list.append(self.algs["upper_body"].policy.act_inference(obs))
-            actions_list.append(self.algs["lower_body"].policy.act_inference(obs))
+            actions_list.append(self.algs["upper_body"].policy.act_inference(upper_body_actor_obs))
+            actions_list.append(self.algs["lower_body"].policy.act_inference(lower_body_actor_obs))
             
             # Concatenate actions (same order as training)
             combined_actions = torch.cat(actions_list, dim=1)

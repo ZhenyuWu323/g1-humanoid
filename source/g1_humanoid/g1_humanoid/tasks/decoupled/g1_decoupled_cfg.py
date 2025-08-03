@@ -147,8 +147,12 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 482,
-        "critic_obs": 497,
+        # upper body
+        "upper_body_actor_obs": 482,
+        "upper_body_critic_obs": 497,
+        # lower body
+        "lower_body_actor_obs": 482,
+        "lower_body_critic_obs": 497,
     }
     action_dim= {
         "upper_body": 14,
@@ -315,8 +319,12 @@ class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
     events: EventCfg = EventCfg()
 
     observation_space = {
-        "actor_obs": 482,
-        "critic_obs": 497 + 45,
+        # upper body
+        "upper_body_actor_obs": 482,
+        "upper_body_critic_obs": 497 + 45,
+        # lower body
+        "lower_body_actor_obs": 482,
+        "lower_body_critic_obs": 497 + 45,
     }
 
 

@@ -95,11 +95,11 @@ class G1DecoupledEnv(DirectRLEnv):
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for key in [
-                "penalty_plate_flat_orientation",
-                "penalty_plate_lin_acc",
-                "penalty_plate_ang_acc",
-                "tracking_zero_plate_lin_acc",
-                "tracking_zero_plate_ang_acc", 
+                # "penalty_plate_flat_orientation",
+                # "penalty_plate_lin_acc",
+                # "penalty_plate_ang_acc",
+                # "tracking_zero_plate_lin_acc",
+                # "tracking_zero_plate_ang_acc", 
                 "penalty_object_pos_deviation",
                 "object_on_plate_reward",
                 "penalty_object_flat_orientation",
@@ -307,7 +307,7 @@ class G1DecoupledEnv(DirectRLEnv):
         actor_obs = compute_obs(actor_obs_list)
         critic_obs = compute_obs(critic_obs_list)
 
-        observations = {"actor_obs": actor_obs, "critic_obs": critic_obs}
+        observations = {"upper_body_actor_obs": actor_obs, "upper_body_critic_obs": critic_obs, "lower_body_actor_obs": actor_obs, "lower_body_critic_obs": critic_obs}
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
@@ -499,44 +499,44 @@ class G1DecoupledEnv(DirectRLEnv):
         """
         Upper Body Plate Rewards
         """
-        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
-            # plate flat orientation
-            penalty_plate_flat_orientation = mdp.body_orientation_l2(
-                body_rot_w=self.robot.data.body_link_quat_w,
-                gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
-                body_idx=self.plate_body_index,
-                weight=-5.0,
-            )
+        # if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+        #     # plate flat orientation
+        #     penalty_plate_flat_orientation = mdp.body_orientation_l2(
+        #         body_rot_w=self.robot.data.body_link_quat_w,
+        #         gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
+        #         body_idx=self.plate_body_index,
+        #         weight=-5.0,
+        #     )
 
-            # plate linear acceleration l2
-            penalty_plate_lin_acc = mdp.body_acc_l2(
-                body_acc_w=self.robot.data.body_lin_acc_w,
-                body_idx=self.plate_body_index,
-                weight=-0.01 * self.activate_acc_reward,
-            )
+        #     # plate linear acceleration l2
+        #     penalty_plate_lin_acc = mdp.body_acc_l2(
+        #         body_acc_w=self.robot.data.body_lin_acc_w,
+        #         body_idx=self.plate_body_index,
+        #         weight=-0.01 * self.activate_acc_reward,
+        #     )
 
-            # plate angular acceleration l2
-            penalty_plate_ang_acc = mdp.body_acc_l2(
-                body_acc_w=self.robot.data.body_ang_acc_w,
-                body_idx=self.plate_body_index,
-                weight=-0.001 * self.activate_acc_reward,
-            )
+        #     # plate angular acceleration l2
+        #     penalty_plate_ang_acc = mdp.body_acc_l2(
+        #         body_acc_w=self.robot.data.body_ang_acc_w,
+        #         body_idx=self.plate_body_index,
+        #         weight=-0.001 * self.activate_acc_reward,
+        #     )
 
-            # plate tracking zero linear acceleration
-            tracking_zero_plate_lin_acc = mdp.body_acc_exp(
-                body_acc_w=self.robot.data.body_lin_acc_w,
-                body_idx=self.plate_body_index,
-                weight=2.0 * self.activate_acc_reward,
-                lambda_acc=0.25,
-            )
+        #     # plate tracking zero linear acceleration
+        #     tracking_zero_plate_lin_acc = mdp.body_acc_exp(
+        #         body_acc_w=self.robot.data.body_lin_acc_w,
+        #         body_idx=self.plate_body_index,
+        #         weight=2.0 * self.activate_acc_reward,
+        #         lambda_acc=0.25,
+        #     )
 
-            # plate tracking zero angular acceleration
-            tracking_zero_plate_ang_acc = mdp.body_acc_exp(
-                body_acc_w=self.robot.data.body_ang_acc_w,
-                body_idx=self.plate_body_index,
-                weight=2.0 * self.activate_acc_reward,
-                lambda_acc=0.25,
-            )
+        #     # plate tracking zero angular acceleration
+        #     tracking_zero_plate_ang_acc = mdp.body_acc_exp(
+        #         body_acc_w=self.robot.data.body_ang_acc_w,
+        #         body_idx=self.plate_body_index,
+        #         weight=2.0 * self.activate_acc_reward,
+        #         lambda_acc=0.25,
+        #     )
 
         # object/plate reward
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
@@ -552,7 +552,7 @@ class G1DecoupledEnv(DirectRLEnv):
             object_off_plate = self._object.data.body_pos_w[:, 0, 2] < 0.5
             object_on_plate_reward = mdp.alive_reward(
                 terminated=object_off_plate,
-                weight=0.10 * self.activate_acc_reward,
+                weight=0.5 * self.activate_acc_reward,
             )
             # object flat orientation
             penalty_object_flat_orientation = mdp.body_orientation_l2(
@@ -603,22 +603,22 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_upper_body_dof_vel + 
             alive_reward
         )
-        # add plate rewards if using plate
-        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
-            upper_body_reward += (
-                penalty_plate_flat_orientation +
-                penalty_plate_lin_acc +
-                penalty_plate_ang_acc +
-                tracking_zero_plate_lin_acc +
-                tracking_zero_plate_ang_acc
-            )
+        # # add plate rewards if using plate
+        # if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+        #     upper_body_reward += (
+        #         penalty_plate_flat_orientation +
+        #         penalty_plate_lin_acc +
+        #         penalty_plate_ang_acc +
+        #         tracking_zero_plate_lin_acc +
+        #         tracking_zero_plate_ang_acc
+        #     )
             
 
-            self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
-            self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
-            self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
-            self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
-            self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
+        #     self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
+        #     self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
+        #     self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
+        #     self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
+        #     self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
             
 
         # add object/plate reward if using object/plate
