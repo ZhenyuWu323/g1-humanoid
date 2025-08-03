@@ -17,10 +17,10 @@ class G1DecoupledPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     empirical_normalization = False
     upper_body_policy = RslRlPpoActorCriticRecurrentCfg(
         init_noise_std=0.6,
-        actor_hidden_dims=[32],
-        critic_hidden_dims=[32],
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        rnn_hidden_dim=256,
         activation="elu",
-        rnn_hidden_dim=64,
         rnn_num_layers=1,
         rnn_type='lstm',
     )

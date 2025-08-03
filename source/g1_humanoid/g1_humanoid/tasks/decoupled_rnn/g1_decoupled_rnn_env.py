@@ -116,9 +116,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.dof_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.dof_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.plate_projected_gravity_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.plate_lin_acc_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.plate_ang_acc_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self._buffers_initialized = False
 
 
@@ -142,9 +139,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             self.dof_pos_buffer.append(dof_pos)
             self.dof_vel_buffer.append(dof_vel)
             self.action_buffer.append(self.actions)
-            self.plate_projected_gravity_buffer.append(projected_gravity_plate)
-            self.plate_lin_acc_buffer.append(plate_lin_acc_w)
-            self.plate_ang_acc_buffer.append(plate_ang_acc_w)
 
     def _setup_scene(self):
         # robot
@@ -213,13 +207,16 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.dof_vel_buffer.append(dof_vel)
         self.action_buffer.append(self.actions)
         
-        plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
-        projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
-        plate_lin_acc_w = self.robot.data.body_lin_acc_w[:, self.plate_body_index, :].to(self.sim.device)
-        plate_ang_acc_w = self.robot.data.body_ang_acc_w[:, self.plate_body_index, :].to(self.sim.device)
-        self.plate_projected_gravity_buffer.append(projected_gravity_plate)
-        self.plate_lin_acc_buffer.append(plate_lin_acc_w)
-        self.plate_ang_acc_buffer.append(plate_ang_acc_w)
+
+    def _scale_observations(self, observations_dict: dict) -> dict:
+        scaled_observations_dict = {}
+        for obs_name, obs_value in observations_dict.items():
+            if hasattr(self.cfg.obs_scales, obs_name):
+                scale = getattr(self.cfg.obs_scales, obs_name)
+                scaled_observations_dict[obs_name] = obs_value * scale
+            else:
+                scaled_observations_dict[obs_name] = obs_value
+        return list(scaled_observations_dict.values())
 
     def _get_observations(self) -> dict:
 
@@ -241,13 +238,60 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         # get command
         vel_command = self.velocity_command.command
 
-        # phase
-        sin_phase = torch.sin(2 * np.pi * self.phase ).unsqueeze(1)
-        cos_phase = torch.cos(2 * np.pi * self.phase ).unsqueeze(1)
+        # obs for upper body
+        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
+        dof_vel = self.robot.data.joint_vel
+        root_ang_vel_b = self.robot.data.root_ang_vel_b
+        root_lin_vel_b = self.robot.data.root_lin_vel_b
+        projected_gravity_b = self.robot.data.projected_gravity_b
+        plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
+        projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
+        plate_lin_acc_w = self.robot.data.body_lin_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+        plate_ang_acc_w = self.robot.data.body_ang_acc_w[:, self.plate_body_index, :].to(self.sim.device)
+        object_plate_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
+        projected_gravity_object = quat_apply_inverse(self._object.data.root_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
+        object_lin_acc_w = self._object.data.body_lin_acc_w[:, 0, :].to(self.sim.device)
+        object_ang_acc_w = self._object.data.body_ang_acc_w[:, 0, :].to(self.sim.device)
 
 
         # scale observations
-        actor_observations_dict = {
+        upper_body_actor_observations_dict = {
+            'root_lin_vel_b': root_lin_vel_b, # 3
+            'root_ang_vel_b': root_ang_vel_b, # 15
+            'projected_gravity_b': projected_gravity_b, # 15
+            'vel_command': vel_command, # 3
+            'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
+            'dof_pos': dof_pos, 
+            'dof_vel': dof_vel, 
+            'actions': self.actions, 
+            'projected_gravity_plate': projected_gravity_plate,
+            'plate_lin_acc_w': plate_lin_acc_w,
+            'plate_ang_acc_w': plate_ang_acc_w,
+            'object_plate_rel_pos': object_plate_rel_pos,
+            'projected_gravity_object': projected_gravity_object,
+            'object_lin_acc_w': object_lin_acc_w,
+            'object_ang_acc_w': object_ang_acc_w,
+        }
+        upper_body_critic_observations_dict = {
+            'root_lin_vel_b': root_lin_vel_b, # 3
+            'root_ang_vel_b': root_ang_vel_b, # 15
+            'projected_gravity_b': projected_gravity_b, # 15
+            'vel_command': vel_command, # 3
+            'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
+            'dof_pos': dof_pos, 
+            'dof_vel': dof_vel, 
+            'actions': self.actions, 
+            'projected_gravity_plate': projected_gravity_plate,
+            'plate_lin_acc_w': plate_lin_acc_w,
+            'plate_ang_acc_w': plate_ang_acc_w,
+            'object_plate_rel_pos': object_plate_rel_pos,
+            'projected_gravity_object': projected_gravity_object,
+            'object_lin_acc_w': object_lin_acc_w,
+            'object_ang_acc_w': object_ang_acc_w,
+        }
+
+
+        lower_body_actor_observations_dict = {
             'root_ang_vel_b': ang_vel_buffer_flat, # 15
             'projected_gravity_b': projected_gravity_buffer_flat, # 15
             'vel_command': vel_command, # 3
@@ -257,7 +301,7 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             'actions': action_buffer_flat, # 145
             
         }
-        critic_observations_dict = {
+        lower_body_critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
             'root_ang_vel_b': ang_vel_buffer_flat,
             'projected_gravity_b': projected_gravity_buffer_flat,
@@ -269,38 +313,26 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             
         }
 
-    
-        # plate observations
-        plate_projected_gravity_buffer_flat = self.plate_projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
-        plate_lin_acc_buffer_flat = self.plate_lin_acc_buffer.buffer.reshape(self.num_envs, -1)
-        plate_ang_acc_buffer_flat = self.plate_ang_acc_buffer.buffer.reshape(self.num_envs, -1)
+        upper_body_actor_scaled_obs = self._scale_observations(upper_body_actor_observations_dict)
+        upper_body_critic_scaled_obs = self._scale_observations(upper_body_critic_observations_dict)
+        lower_body_actor_scaled_obs = self._scale_observations(lower_body_actor_observations_dict)
+        lower_body_critic_scaled_obs = self._scale_observations(lower_body_critic_observations_dict)
         
-        critic_observations_dict['projected_gravity_plate'] = plate_projected_gravity_buffer_flat
-        critic_observations_dict['plate_lin_acc_w'] = plate_lin_acc_buffer_flat
-        critic_observations_dict['plate_ang_acc_w'] = plate_ang_acc_buffer_flat
-
-        actor_scaled_obs = {}
-        critic_scaled_obs = {}
-        for obs_name, obs_value in actor_observations_dict.items():
-            if hasattr(self.cfg.obs_scales, obs_name):
-                scale = getattr(self.cfg.obs_scales, obs_name)
-                actor_scaled_obs[obs_name] = obs_value * scale
-            else:
-                actor_scaled_obs[obs_name] = obs_value
-        for obs_name, obs_value in critic_observations_dict.items():
-            if hasattr(self.cfg.obs_scales, obs_name):
-                scale = getattr(self.cfg.obs_scales, obs_name)
-                critic_scaled_obs[obs_name] = obs_value * scale
-            else:
-                critic_scaled_obs[obs_name] = obs_value
-        actor_obs_list = list(actor_scaled_obs.values())
-        critic_obs_list = list(critic_scaled_obs.values())
 
         # build task observation
-        actor_obs = compute_obs(actor_obs_list)
-        critic_obs = compute_obs(critic_obs_list)
+        upper_body_actor_obs = compute_obs(upper_body_actor_scaled_obs)
+        upper_body_critic_obs = compute_obs(upper_body_critic_scaled_obs)
+        lower_body_actor_obs = compute_obs(lower_body_actor_scaled_obs)
+        lower_body_critic_obs = compute_obs(lower_body_critic_scaled_obs)
 
-        observations = {"actor_obs": actor_obs, "critic_obs": critic_obs}
+        observations = {
+            "upper_body_actor_obs": upper_body_actor_obs, 
+            "upper_body_critic_obs": upper_body_critic_obs, 
+            "lower_body_actor_obs": lower_body_actor_obs, 
+            "lower_body_critic_obs": lower_body_critic_obs
+        }
+
+
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
@@ -497,7 +529,7 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             body_rot_w=self.robot.data.body_link_quat_w,
             gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
             body_idx=self.plate_body_index,
-            weight=-5.0,
+            weight=-5.0 * self.activate_acc_reward,
         )
 
         # plate linear acceleration l2

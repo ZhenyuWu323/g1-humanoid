@@ -147,8 +147,12 @@ class G1DecoupledRNNEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        "actor_obs": 482,
-        "critic_obs": 497 + 45,
+        # upper body
+        "upper_body_actor_obs": 134,
+        "upper_body_critic_obs": 134,
+        # lower body
+        "lower_body_actor_obs": 482,
+        "lower_body_critic_obs": 482 + 15,
     }
     action_dim= {
         "upper_body": 14,
