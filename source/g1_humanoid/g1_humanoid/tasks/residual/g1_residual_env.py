@@ -98,6 +98,7 @@ class G1ResidualEnv(DirectRLEnv):
                 "penalty_object_pos_deviation",
                 "object_on_plate_reward",
                 "penalty_object_flat_orientation",
+                "object_upright_bonus",
             ]
         }
 
@@ -449,7 +450,7 @@ class G1ResidualEnv(DirectRLEnv):
             weight=-0.01,
         )
         # object on plate
-        object_off_plate = self._object.data.body_pos_w[:, 0, 2] < self.robot.data.body_pos_w[:, self.plate_body_index, 2]
+        object_off_plate = self._object.data.body_pos_w[:, 0, 2] < 0.5
         object_on_plate_reward = mdp.alive_reward(
             terminated=object_off_plate,
             weight=0.10,
@@ -460,6 +461,13 @@ class G1ResidualEnv(DirectRLEnv):
             gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
             body_idx=0,
             weight=-0.5,
+        )
+        # object upright bonus
+        object_upright_bonus = mdp.cup_upright_bonus_smooth(
+            body_rot_w=self._object.data.body_link_quat_w,
+            gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
+            body_idx=0,
+            weight=1.0,
         )
 
         # alive reward
@@ -494,12 +502,13 @@ class G1ResidualEnv(DirectRLEnv):
         residual_upper_body_reward += (
             penalty_object_pos_deviation +
             object_on_plate_reward +
-            penalty_object_flat_orientation
+            penalty_object_flat_orientation +
+            object_upright_bonus
         )
         self._episode_sums["penalty_object_pos_deviation"] += penalty_object_pos_deviation
         self._episode_sums["object_on_plate_reward"] += object_on_plate_reward
         self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
-
+        self._episode_sums["object_upright_bonus"] += object_upright_bonus
         # reward 
         residual_upper_body_reward = residual_upper_body_reward * self.step_dt
         lower_body_reward = torch.zeros(self.num_envs, device=self.device)
