@@ -103,8 +103,8 @@ class G1DecoupledEnv(DirectRLEnv):
                 "penalty_object_pos_deviation",
                 "object_on_plate_reward",
                 "penalty_object_flat_orientation",
-                #"penalty_root_ang_acc",
-                #"tracking_zero_root_ang_acc",
+                "object_upright_bonus",
+                "tracking_upper_body_dof_pos",
             ]
         }
 
@@ -202,8 +202,6 @@ class G1DecoupledEnv(DirectRLEnv):
         self.leg_phases[:, 0] = self.phase # left leg
         self.leg_phases[:, 1] = (self.phase + self.cfg.phase_offset) % 1.0 # right leg
 
-        # update history buffers
-        self._update_history_buffers()
 
     def _update_history_buffers(self):
         """Update history buffers for observations and actions."""
@@ -235,6 +233,8 @@ class G1DecoupledEnv(DirectRLEnv):
             self._initialize_buffers_with_current_state()
             self._buffers_initialized = True
 
+        # update history buffers
+        self._update_history_buffers()
 
         # get history observations
         lin_vel_buffer_flat = self.root_lin_vel_buffer.buffer.reshape(self.num_envs, -1)
@@ -243,16 +243,6 @@ class G1DecoupledEnv(DirectRLEnv):
         dof_pos_buffer_flat = self.dof_pos_buffer.buffer.reshape(self.num_envs, -1)
         dof_vel_buffer_flat = self.dof_vel_buffer.buffer.reshape(self.num_envs, -1)
         action_buffer_flat = self.action_buffer.buffer.reshape(self.num_envs, -1)
-
-
-
-        # apply noise models
-        '''if self.obs_noise_models:
-            root_lin_vel_b = self.obs_noise_models["root_lin_vel_b"].apply(root_lin_vel_b)
-            root_ang_vel_b = self.obs_noise_models["root_ang_vel_b"].apply(root_ang_vel_b)
-            projected_gravity_b = self.obs_noise_models["projected_gravity_b"].apply(projected_gravity_b)
-            joint_pos_rel = self.obs_noise_models["joint_pos_rel"].apply(joint_pos_rel)
-            joint_vel_rel = self.obs_noise_models["joint_vel_rel"].apply(joint_vel_rel)'''
 
         # get command
         vel_command = self.velocity_command.command
@@ -271,8 +261,7 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat, # 145
             'dof_vel': dof_vel_buffer_flat, # 145
             'actions': action_buffer_flat, # 145
-            #'sin_phase': sin_phase, # 1
-            #'cos_phase': cos_phase, # 1
+            
         }
         critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
@@ -283,8 +272,7 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
             'actions': action_buffer_flat,
-            #'sin_phase': sin_phase,
-            #'cos_phase': cos_phase,
+            
         }
 
         # add plate observations if using plate
@@ -327,36 +315,7 @@ class G1DecoupledEnv(DirectRLEnv):
         """
         Lower Body Tracking Rewards
         """
-        # linear velocity tracking
-        # tracking_lin_vel_x = mdp.track_lin_vel_x_base_exp(
-        #     root_lin_vel_b=self.robot.data.root_lin_vel_b,
-        #     vel_command=self.velocity_command.command,
-        #     sigma=0.25,
-        #     weight=self.cfg.reward_scales["track_lin_vel_x"] if "track_lin_vel_x" in self.cfg.reward_scales else 0,
-        # )
-        # tracking_lin_vel_y = mdp.track_lin_vel_y_base_exp(
-        #     root_lin_vel_b=self.robot.data.root_lin_vel_b,
-        #     vel_command=self.velocity_command.command,
-        #     sigma=0.25,
-        #     weight=self.cfg.reward_scales["track_lin_vel_y"] if "track_lin_vel_y" in self.cfg.reward_scales else 0,
-        # )
-
-        # # angular velocity tracking
-        # tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
-        #     root_ang_vel_b=self.robot.data.root_ang_vel_b,
-        #     vel_command=self.velocity_command.command,
-        #     sigma=0.25,
-        #     weight=self.cfg.reward_scales["track_ang_vel_z"] if "track_ang_vel_z" in self.cfg.reward_scales else 0,
-        # )
-
-        # # waist tracking
-        # tracking_waist_pos = mdp.joint_tracking_exp(
-        #     joint_pos=self.robot.data.joint_pos,
-        #     joint_idx=self.waist_indexes,
-        #     joint_pos_command=self.default_joint_pos[:, self.waist_indexes],
-        #     weight=self.cfg.reward_scales["track_waist_pos"] if "track_waist_pos" in self.cfg.reward_scales else 0,
-        #     sigma=0.05,
-        # )
+        
         tracking_lin_vel_xy = mdp.track_lin_vel_xy_yaw_frame_exp(
             root_quat_w=self.robot.data.root_quat_w,
             root_lin_vel_w=self.robot.data.root_lin_vel_w,
@@ -377,10 +336,7 @@ class G1DecoupledEnv(DirectRLEnv):
         """
         # terminate when the robot falls
         died, _ = self._get_dones()
-        '''penalty_lower_body_termination = mdp.termination_penalty(
-            terminated=died, 
-            weight=0.0
-        )'''
+      
 
         # linear velocity z
         penalty_lin_vel_z = mdp.lin_vel_z_l2(
@@ -424,12 +380,6 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=-5.0,
         )
 
-        '''# joint torques
-        penalty_lower_body_dof_torques = mdp.joint_torque_l2(
-            joint_torque=self.robot.data.applied_torque,
-            joint_idx=self.lower_body_indexes,
-            weight=0.0,
-        )'''
 
         # joint accelerations
         penalty_lower_body_dof_acc = mdp.joint_accel_l2(
@@ -471,33 +421,6 @@ class G1DecoupledEnv(DirectRLEnv):
             weight=-0.2,
         )
 
-        '''# feet air time
-        feet_air_time = mdp.feet_air_time_positive_biped(
-            vel_command=self.velocity_command.command,
-            contact_sensor=self._contact_sensor,
-            feet_body_indexes=self.feet_body_indexes,
-            threshold=0.5,
-            weight=0.0,
-        )
-
-        # feet swing height
-        penalty_feet_swing_height = mdp.feet_swing_height(
-            body_pos_w=self.robot.data.body_pos_w,
-            contact_sensor=self._contact_sensor,
-            feet_body_indexes=self.feet_body_indexes,
-            weight=0.0,
-            target_height=self.cfg.target_feet_height,
-        )
-
-        # gait phase reward
-        gait_phase_reward = mdp.gait_phase_reward(
-            env=self,
-            contact_sensor=self._contact_sensor,
-            leg_phases=self.leg_phases,
-            feet_body_indexes=self.feet_body_indexes,
-            stance_phase_threshold=self.cfg.stance_phase_threshold,
-            weight=0.0,
-        )'''
 
         # feet gait
         feet_gait_reward = mdp.feet_gait(
@@ -530,7 +453,7 @@ class G1DecoupledEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=1.0,
+            weight=1.0 * (1.0 - self.activate_acc_reward),
             sigma=0.1,
         )
 
@@ -572,12 +495,6 @@ class G1DecoupledEnv(DirectRLEnv):
             joint_idx=self.upper_body_indexes,
             weight=-0.001,
         )
-
-        '''# upper body termination
-        penalty_upper_body_termination = mdp.termination_penalty(
-            terminated=died,
-            weight=0.0,
-        )'''
 
         """
         Upper Body Plate Rewards
@@ -621,20 +538,6 @@ class G1DecoupledEnv(DirectRLEnv):
                 lambda_acc=0.25,
             )
 
-            # root angular acceleration l2
-            # penalty_root_ang_acc = mdp.body_acc_l2(
-            #     body_acc_w=self.robot.data.body_ang_acc_w,
-            #     body_idx=self.ref_body_index,
-            #     weight=-0.01 * self.activate_acc_reward,
-            # )
-            # # root angular acceleration exp
-            # tracking_zero_root_ang_acc = mdp.body_acc_exp(
-            #     body_acc_w=self.robot.data.body_ang_acc_w,
-            #     body_idx=self.ref_body_index,
-            #     weight=2.0 * self.activate_acc_reward,
-            #     lambda_acc=0.25,
-            # )
-
         # object/plate reward
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
 
@@ -646,7 +549,7 @@ class G1DecoupledEnv(DirectRLEnv):
                 weight=-0.01 * self.activate_acc_reward,
             )
             # object on plate
-            object_off_plate = self._object.data.body_pos_w[:, 0, 2] < self.robot.data.body_pos_w[:, self.plate_body_index, 2]
+            object_off_plate = self._object.data.body_pos_w[:, 0, 2] < 0.5
             object_on_plate_reward = mdp.alive_reward(
                 terminated=object_off_plate,
                 weight=0.10 * self.activate_acc_reward,
@@ -657,6 +560,13 @@ class G1DecoupledEnv(DirectRLEnv):
                 gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
                 body_idx=0,
                 weight=-0.5 * self.activate_acc_reward,
+            )
+            # object upright bonus
+            object_upright_bonus = mdp.cup_upright_bonus(
+                body_rot_w=self._object.data.body_link_quat_w,
+                gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
+                body_idx=0,
+                weight=1.0 * self.activate_acc_reward,
             )
 
 
@@ -702,29 +612,28 @@ class G1DecoupledEnv(DirectRLEnv):
                 tracking_zero_plate_lin_acc +
                 tracking_zero_plate_ang_acc
             )
-            # locomotion_reward += (
-            #     penalty_root_ang_acc +
-            #     tracking_zero_root_ang_acc
-            # )
+            
 
             self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
             self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
             self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
             self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
             self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
-            # self._episode_sums["penalty_root_ang_acc"] += penalty_root_ang_acc
-            # self._episode_sums["tracking_zero_root_ang_acc"] += tracking_zero_root_ang_acc
+            
 
         # add object/plate reward if using object/plate
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
             upper_body_reward += (
                 penalty_object_pos_deviation +
                 object_on_plate_reward +
-                penalty_object_flat_orientation
+                penalty_object_flat_orientation +
+                object_upright_bonus
             )
             self._episode_sums["penalty_object_pos_deviation"] += penalty_object_pos_deviation
             self._episode_sums["object_on_plate_reward"] += object_on_plate_reward
             self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
+            self._episode_sums["object_upright_bonus"] += object_upright_bonus
+            self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
 
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt
