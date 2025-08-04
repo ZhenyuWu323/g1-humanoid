@@ -412,3 +412,13 @@ def cup_upright_bonus(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor, bod
     okay_upright = ((tilt_magnitude >= 0.1) & (tilt_magnitude < 0.15)).float() * 0.5
     
     return (perfect_upright + good_upright + okay_upright) * weight
+
+
+
+def cup_upright_bonus_exp(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor, body_idx: int, weight: float, sigma: float):
+    """Reward Cup Upright Bonus Smooth"""
+    body_orientation = quat_apply_inverse(body_rot_w[:, body_idx, :], gravity_vec_w)
+    
+    tilt_magnitude = torch.norm(body_orientation[:, :2], dim=1)
+    
+    return torch.exp(-tilt_magnitude / sigma) * weight
