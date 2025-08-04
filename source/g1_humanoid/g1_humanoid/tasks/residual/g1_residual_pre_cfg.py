@@ -66,17 +66,17 @@ class EventCfg:
         },
     )
 
-    # reset
-    # base_external_force_torque = EventTerm(
-    #     func=mdp.apply_external_force_torque,
-    #     mode="reset",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-    #         "force_range": (-0.05, 0.05),
-    #         "torque_range": (-0.0, 0.0),
-    #     },
-    # )
+    add_wrist_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_wrist_.*"),
+            "mass_distribution_params": (0.0, 2.0),
+            "operation": "add",
+        },
+    )
 
+    # reset
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -108,6 +108,17 @@ class EventCfg:
         mode="interval",
         interval_range_s=(10.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
+    )
+
+    external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "force_range": (-2.0, 2.0),
+            "torque_range": (-0.0, 0.0),
+        },
     )
 
 
