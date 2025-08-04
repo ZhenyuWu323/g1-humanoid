@@ -67,15 +67,15 @@ class EventCfg:
     )
 
     # reset
-    base_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "force_range": (0.0, 0.0),
-            "torque_range": (-0.0, 0.0),
-        },
-    )
+    # base_external_force_torque = EventTerm(
+    #     func=mdp.apply_external_force_torque,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+    #         "force_range": (-0.05, 0.05),
+    #         "torque_range": (-0.0, 0.0),
+    #     },
+    # )
 
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
@@ -114,7 +114,7 @@ class EventCfg:
 
 
 @configclass
-class G1DecoupledRNNEnvCfg(DirectRLEnvCfg):
+class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     """ G1 Decoupled Locomanipulation Environment Configuration """
 
 
@@ -148,11 +148,11 @@ class G1DecoupledRNNEnvCfg(DirectRLEnvCfg):
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
         # upper body
-        "upper_body_actor_obs": 135,
-        "upper_body_critic_obs": 135,
+        "upper_body_actor_obs": 482,
+        "upper_body_critic_obs": 497,
         # lower body
-        "lower_body_actor_obs": 483,
-        "lower_body_critic_obs": 483 + 15,
+        "lower_body_actor_obs": 482,
+        "lower_body_critic_obs": 497,
     }
     action_dim= {
         "upper_body": 14,
@@ -233,7 +233,6 @@ class G1DecoupledRNNEnvCfg(DirectRLEnvCfg):
 
     # events
     events: EventCfg = EventCfg()
-    
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
@@ -306,19 +305,3 @@ class G1DecoupledRNNEnvCfg(DirectRLEnvCfg):
     # knee joint threshold
     knee_joint_threshold = 0.2
 
-    # object configuration
-    obj_cfg = RigidObjectCfg(
-        prim_path="/World/envs/env_.*/Object",
-        spawn=sim_utils.CylinderCfg(
-            radius=0.03,
-            height=0.1,
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
-            collision_props=sim_utils.CollisionPropertiesCfg(),
-            #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
-        ),
-        init_state=RigidObjectCfg.InitialStateCfg(),
-    )
-
-
-    

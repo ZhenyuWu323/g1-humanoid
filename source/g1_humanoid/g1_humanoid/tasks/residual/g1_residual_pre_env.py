@@ -14,17 +14,17 @@ from isaaclab.utils.math import quat_rotate
 from isaaclab.sensors import ContactSensor
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .g1_decoupled_rnn_cfg import G1DecoupledRNNEnvCfg
+from .g1_residual_pre_cfg import G1ResidualPreEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
 from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
 
-class G1DecoupledRNNEnv(DirectRLEnv):
-    cfg: G1DecoupledRNNEnvCfg
+class G1ResidualPreEnv(DirectRLEnv):
+    cfg: G1ResidualPreEnvCfg
 
-    def __init__(self, cfg: G1DecoupledRNNEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1ResidualPreEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         ##########################################################################################
@@ -43,7 +43,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
 
-        # plate body index
         self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
 
 
@@ -79,11 +78,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.phase = torch.zeros(self.num_envs, device=self.device)
         self.leg_phases = torch.zeros(self.num_envs, len(self.feet_body_indexes), device=self.device)
 
-        # enable/disable stable command
-        self.stable_cmd = torch.zeros(self.num_envs, device=self.device)
-
-        # object/plate relative position
-        self.object_plate_rel_pos = torch.zeros(self.num_envs, 3, device=self.device)
 
         # history
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
@@ -93,9 +87,10 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for key in [
-                "penalty_object_pos_deviation",
-                "penalty_object_flat_orientation",
-                "object_upright_bonus",
+                "tracking_lin_vel_xy",
+                "tracking_ang_vel_z",
+                "gait_phase_reward",
+                "feet_clearance_reward",
                 "tracking_upper_body_dof_pos",
             ]
         }
@@ -119,6 +114,7 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         root_ang_vel_b = self.robot.data.root_ang_vel_b
         root_lin_vel_b = self.robot.data.root_lin_vel_b
         projected_gravity_b = self.robot.data.projected_gravity_b
+        
             
         # fill the history length
         for _ in range(self.obs_history_length):
@@ -128,6 +124,7 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             self.dof_pos_buffer.append(dof_pos)
             self.dof_vel_buffer.append(dof_vel)
             self.action_buffer.append(self.actions)
+           
 
     def _setup_scene(self):
         # robot
@@ -143,11 +140,7 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
-        # object
-        self._object = RigidObject(self.cfg.obj_cfg)
-        self.scene.rigid_objects["object"] = self._object
         
-
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
         self.cfg.sky_light_cfg.func("/World/Light", self.cfg.sky_light_cfg)
@@ -197,16 +190,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.action_buffer.append(self.actions)
         
 
-    def _scale_observations(self, observations_dict: dict) -> dict:
-        scaled_observations_dict = {}
-        for obs_name, obs_value in observations_dict.items():
-            if hasattr(self.cfg.obs_scales, obs_name):
-                scale = getattr(self.cfg.obs_scales, obs_name)
-                scaled_observations_dict[obs_name] = obs_value * scale
-            else:
-                scaled_observations_dict[obs_name] = obs_value
-        return list(scaled_observations_dict.values())
-
     def _get_observations(self) -> dict:
 
         if not hasattr(self, '_buffers_initialized') or not self._buffers_initialized:
@@ -226,77 +209,28 @@ class G1DecoupledRNNEnv(DirectRLEnv):
 
         # get command
         vel_command = self.velocity_command.command
-        command = torch.cat([vel_command, self.stable_cmd.unsqueeze(-1)], dim=1)
 
-        # obs for upper body
-        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
-        dof_vel = self.robot.data.joint_vel
-        root_ang_vel_b = self.robot.data.root_ang_vel_b
-        root_lin_vel_b = self.robot.data.root_lin_vel_b
-        projected_gravity_b = self.robot.data.projected_gravity_b
-        # plate observations
-        plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
-        projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
-        plate_lin_vel_w = self.robot.data.body_lin_vel_w[:, self.plate_body_index, :].to(self.sim.device)
-        plate_ang_vel_w = self.robot.data.body_ang_vel_w[:, self.plate_body_index, :].to(self.sim.device)
-        object_plate_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
-        projected_gravity_object = quat_apply_inverse(self._object.data.root_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
-        object_lin_vel_w = self._object.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
-        object_ang_vel_w = self._object.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
+        # phase
+        sin_phase = torch.sin(2 * np.pi * self.phase ).unsqueeze(1)
+        cos_phase = torch.cos(2 * np.pi * self.phase ).unsqueeze(1)
 
 
         # scale observations
-        upper_body_actor_observations_dict = {
-            'root_lin_vel_b': root_lin_vel_b, # 3
-            'root_ang_vel_b': root_ang_vel_b, # 15
-            'projected_gravity_b': projected_gravity_b, # 15
-            'command': command, # 4
-            'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
-            'dof_pos': dof_pos, 
-            'dof_vel': dof_vel, 
-            'actions': self.actions, 
-            'projected_gravity_plate': projected_gravity_plate,
-            'plate_lin_vel_w': plate_lin_vel_w,
-            'plate_ang_vel_w': plate_ang_vel_w,
-            'object_plate_rel_pos': object_plate_rel_pos,
-            'projected_gravity_object': projected_gravity_object,
-            'object_lin_vel_w': object_lin_vel_w,
-            'object_ang_vel_w': object_ang_vel_w,
-        }
-        upper_body_critic_observations_dict = {
-            'root_lin_vel_b': root_lin_vel_b, # 3
-            'root_ang_vel_b': root_ang_vel_b, # 15
-            'projected_gravity_b': projected_gravity_b, # 15
-            'command': command, # 4
-            'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
-            'dof_pos': dof_pos, 
-            'dof_vel': dof_vel, 
-            'actions': self.actions, 
-            'projected_gravity_plate': projected_gravity_plate,
-            'plate_lin_vel_w': plate_lin_vel_w,
-            'plate_ang_vel_w': plate_ang_vel_w,
-            'object_plate_rel_pos': object_plate_rel_pos,
-            'projected_gravity_object': projected_gravity_object,
-            'object_lin_vel_w': object_lin_vel_w,
-            'object_ang_vel_w': object_ang_vel_w,
-        }
-
-
-        lower_body_actor_observations_dict = {
+        actor_observations_dict = {
             'root_ang_vel_b': ang_vel_buffer_flat, # 15
             'projected_gravity_b': projected_gravity_buffer_flat, # 15
-            'command': command, # 4
+            'vel_command': vel_command, # 3
             'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
             'dof_pos': dof_pos_buffer_flat, # 145
             'dof_vel': dof_vel_buffer_flat, # 145
             'actions': action_buffer_flat, # 145
             
         }
-        lower_body_critic_observations_dict = {
+        critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
             'root_ang_vel_b': ang_vel_buffer_flat,
             'projected_gravity_b': projected_gravity_buffer_flat,
-            'command': command, # 4
+            'vel_command': vel_command,
             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
@@ -304,26 +238,28 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             
         }
 
-        upper_body_actor_scaled_obs = self._scale_observations(upper_body_actor_observations_dict)
-        upper_body_critic_scaled_obs = self._scale_observations(upper_body_critic_observations_dict)
-        lower_body_actor_scaled_obs = self._scale_observations(lower_body_actor_observations_dict)
-        lower_body_critic_scaled_obs = self._scale_observations(lower_body_critic_observations_dict)
-        
+        actor_scaled_obs = {}
+        critic_scaled_obs = {}
+        for obs_name, obs_value in actor_observations_dict.items():
+            if hasattr(self.cfg.obs_scales, obs_name):
+                scale = getattr(self.cfg.obs_scales, obs_name)
+                actor_scaled_obs[obs_name] = obs_value * scale
+            else:
+                actor_scaled_obs[obs_name] = obs_value
+        for obs_name, obs_value in critic_observations_dict.items():
+            if hasattr(self.cfg.obs_scales, obs_name):
+                scale = getattr(self.cfg.obs_scales, obs_name)
+                critic_scaled_obs[obs_name] = obs_value * scale
+            else:
+                critic_scaled_obs[obs_name] = obs_value
+        actor_obs_list = list(actor_scaled_obs.values())
+        critic_obs_list = list(critic_scaled_obs.values())
 
         # build task observation
-        upper_body_actor_obs = compute_obs(upper_body_actor_scaled_obs)
-        upper_body_critic_obs = compute_obs(upper_body_critic_scaled_obs)
-        lower_body_actor_obs = compute_obs(lower_body_actor_scaled_obs)
-        lower_body_critic_obs = compute_obs(lower_body_critic_scaled_obs)
+        actor_obs = compute_obs(actor_obs_list)
+        critic_obs = compute_obs(critic_obs_list)
 
-        observations = {
-            "upper_body_actor_obs": upper_body_actor_obs, 
-            "upper_body_critic_obs": upper_body_critic_obs, 
-            "lower_body_actor_obs": lower_body_actor_obs, 
-            "lower_body_critic_obs": lower_body_critic_obs
-        }
-
-
+        observations = {"upper_body_actor_obs": actor_obs, "upper_body_critic_obs": critic_obs, "lower_body_actor_obs": actor_obs, "lower_body_critic_obs": critic_obs}
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
@@ -469,7 +405,7 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=(1.0 - self.stable_cmd) * 1.0 + self.stable_cmd * 0.2,
+            weight=1.0,
             sigma=0.1,
         )
 
@@ -512,32 +448,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             weight=-0.001,
         )
 
-        # penalty object position deviation
-        penalty_object_pos_deviation = mdp.object_pos_deviation(
-            object_pos_w=self._object.data.body_pos_w[:, 0, :],
-            plate_pos_w=self.robot.data.body_pos_w[:, self.plate_body_index, :],
-            default_rel_pos_w=self.object_plate_rel_pos,
-            weight=-0.01 * self.stable_cmd,
-        )
-        
-        # object flat orientation
-        penalty_object_flat_orientation = mdp.body_orientation_l2(
-            body_rot_w=self._object.data.body_link_quat_w,
-            gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
-            body_idx=0,
-            weight=-0.5 * self.stable_cmd,
-        )
-        # object upright bonus
-        object_upright_bonus = mdp.cup_upright_bonus_exp(
-            body_rot_w=self._object.data.body_link_quat_w,
-            gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
-            body_idx=0,
-            weight=1.0 * self.stable_cmd,
-            sigma=0.1,
-        )
-
-
-
             
         # alive reward
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
@@ -570,17 +480,11 @@ class G1DecoupledRNNEnv(DirectRLEnv):
             penalty_upper_body_dof_vel + 
             alive_reward
         )
-            
-
-        # add object/plate reward if using object/plate
-        upper_body_reward += (
-            penalty_object_pos_deviation +
-            penalty_object_flat_orientation +
-            object_upright_bonus
-        )
-        self._episode_sums["penalty_object_pos_deviation"] += penalty_object_pos_deviation
-        self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
-        self._episode_sums["object_upright_bonus"] += object_upright_bonus
+        
+        self._episode_sums["tracking_lin_vel_xy"] += tracking_lin_vel_xy
+        self._episode_sums["tracking_ang_vel_z"] += tracking_ang_vel_z
+        self._episode_sums["gait_phase_reward"] += feet_gait_reward
+        self._episode_sums["feet_clearance_reward"] += feet_clearance_reward
         self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
 
         # reward 
@@ -599,14 +503,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
 
-        # apply acceleration reward curriculum
-        enable_stable_cmd = mdp.acceleration_reward(
-            env=self,
-            env_ids=env_ids,
-            asset_cfg=SceneEntityCfg("robot"),
-            dist_threshold=4,
-        )
-        self.stable_cmd[env_ids] = torch.max(self.stable_cmd[env_ids], enable_stable_cmd)
 
         # reset robot
         self.robot.reset(env_ids)
@@ -626,15 +522,6 @@ class G1DecoupledRNNEnv(DirectRLEnv):
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
         
-
-        # reset object
-        plate_pos_w = self.robot.data.body_pos_w[env_ids, self.plate_body_index, :].clone()
-        plate_pos_w[:, 2] += 0.1 # offset the object to the top of the plate
-        object_quat_w = self._object.data.default_root_state[env_ids, 3:7].clone()
-        self._object.write_root_pose_to_sim(torch.cat([plate_pos_w, object_quat_w], dim=-1), env_ids=env_ids)
-        self.object_plate_rel_pos[env_ids] = self._object.data.body_pos_w[env_ids, 0, :] - plate_pos_w
-        object_vel = torch.zeros(env_ids.shape[0], 6, device=self.device)
-        self._object.write_root_velocity_to_sim(object_vel, env_ids=env_ids)
 
         # reset logging
         extras = dict()

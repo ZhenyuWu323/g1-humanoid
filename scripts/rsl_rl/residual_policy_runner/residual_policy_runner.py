@@ -79,7 +79,6 @@ class ResidualOnPolicyRunner:
         lower_body_policy_class = eval(self.lower_body_policy_cfg.pop("class_name"))
         assert lower_body_policy_class in [ActorCritic, ActorCriticRecurrent], "Lower body policy class is expected to be ActorCritic or ActorCriticRecurrent."
 
-        assert upper_body_policy_class == lower_body_policy_class, "Upper and lower body policies must be the same class to share observation."
         
         residual_policy_class = eval(self.residual_policy_cfg.pop("class_name"))
         assert residual_policy_class in [ActorCritic, ActorCriticRecurrent], "Residual policy class is expected to be ActorCritic or ActorCriticRecurrent."

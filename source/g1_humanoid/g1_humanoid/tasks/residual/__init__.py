@@ -31,3 +31,16 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualPPORunnerCfg",
     },
 )
+
+
+""" G1 Residual Locomanipulation Pretrain"""
+
+gym.register(
+    id="G1-Residual-Locomanipulation-Pretrain",
+    entry_point=f"{__name__}.g1_residual_pre_env:G1ResidualPreEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_residual_pre_cfg:G1ResidualPreEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualPPORunnerCfg",
+    },
+)
