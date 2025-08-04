@@ -104,7 +104,7 @@ class ResidualOnPolicyRunner:
         ).to(self.device)
         # NOTE: disable gradient for lower and upper body policies
         for body_key in self.body_keys:
-            if body_key != "residual_upper_body":
+            if body_key == "upper_body":
                 for param in self.policies[body_key].parameters():
                     param.requires_grad = False
         
@@ -170,6 +170,8 @@ class ResidualOnPolicyRunner:
         for key in self.body_keys:
             if key == "residual_upper_body":
                 action_dict[key] = self.algs[key].act(residual_actor_obs, residual_critic_obs)
+            elif key == "lower_body":
+                action_dict[key] = self.algs[key].act(actor_obs, critic_obs)
             else:
                 action_dict[key] = self.algs[key].policy.act_inference(actor_obs) # NOTE: inference for lower and upper body
         # Step the environment
@@ -193,7 +195,7 @@ class ResidualOnPolicyRunner:
         residual_critic_obs = self.critic_obs_normalizer(residual_critic_obs)
         # process the step
         for key in self.body_keys:
-            if key == "residual_upper_body":
+            if key == "residual_upper_body" or key == "lower_body":
                 self.algs[key].process_env_step(rewards[key], dones, infos) # NOTE: residual upper body is trained
         
         # book keeping
@@ -288,11 +290,15 @@ class ResidualOnPolicyRunner:
                     for key in self.body_keys:
                         if key == "residual_upper_body":
                             self.algs[key].compute_returns(residual_critic_obs)
+                        elif key == "lower_body":
+                            self.algs[key].compute_returns(critic_obs)
 
             # update policy
             loss_dict = {}
             for key in self.body_keys:
                 if key == "residual_upper_body":
+                    loss_dict[key] = self.algs[key].update()
+                elif key == "lower_body":
                     loss_dict[key] = self.algs[key].update()
                
             stop = time.time()
@@ -572,7 +578,7 @@ class ResidualOnPolicyRunner:
     def train_mode(self):
         # -- PPO
         for body_key in self.body_keys:
-            if body_key == "residual_upper_body":
+            if body_key == "residual_upper_body" or body_key == "lower_body":
                 self.algs[body_key].policy.train()
             else:
                 self.algs[body_key].policy.eval()

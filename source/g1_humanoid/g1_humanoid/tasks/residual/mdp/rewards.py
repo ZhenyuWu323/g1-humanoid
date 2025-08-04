@@ -411,3 +411,11 @@ def object_pos_deviation(object_pos_w: torch.Tensor, plate_pos_w: torch.Tensor, 
     """Penalize object position deviation from the default relative position."""
     rel_pos = object_pos_w - plate_pos_w
     return torch.sum(torch.square(rel_pos - default_rel_pos_w), dim=1) * weight
+
+def cup_upright_bonus_exp(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor, body_idx: int, weight: float, sigma: float):
+    """Reward Cup Upright Bonus Exponential"""
+    body_orientation = quat_apply_inverse(body_rot_w[:, body_idx, :], gravity_vec_w)
+    
+    tilt_magnitude = torch.norm(body_orientation[:, :2], dim=1)
+    
+    return torch.exp(-tilt_magnitude / sigma) * weight

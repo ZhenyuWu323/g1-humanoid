@@ -66,6 +66,16 @@ class EventCfg:
         },
     )
 
+    add_wrist_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_wrist_.*"),
+            "mass_distribution_params": (0.0, 2.0),
+            "operation": "add",
+        },
+    )
+
     # reset
     base_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
@@ -148,9 +158,9 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
         "actor_obs": 482,
-        "critic_obs": 497 + 45,
-        "residual_actor_obs": 497 + 45 + 30,
-        "residual_critic_obs": 497 + 45 + 30,
+        "critic_obs": 497,
+        "residual_actor_obs": 497 + 45 + 60,
+        "residual_critic_obs": 497 + 45 + 60,
     }
     action_dim= {
         "upper_body": 14,
