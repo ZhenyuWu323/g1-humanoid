@@ -20,6 +20,7 @@ from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
 from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
+from .utils import compute_dof_pos_tracking_weight
 
 class G1ResidualEnv(DirectRLEnv):
     cfg: G1ResidualEnvCfg
@@ -510,7 +511,7 @@ class G1ResidualEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=0.5,
+            weight=compute_dof_pos_tracking_weight(self._object.data.body_link_quat_w[:, 0, :], self.robot.data.GRAVITY_VEC_W),
             sigma=0.1,
         )
 
