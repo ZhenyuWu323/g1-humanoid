@@ -20,10 +20,23 @@ from . import agents
 # Register Gym environments.
 ##
 
-""" G1 Residual Locomanipulation"""
+""" G1 Residual Locomanipulation Whole Body"""
 
 gym.register(
-    id="G1-Residual-Locomanipulation",
+    id="G1-Residual-Locomanipulation-Whole",
+    entry_point=f"{__name__}.g1_residual_whole_env:G1ResidualWholeBodyEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_residual_whole_cfg:G1ResidualWholeBodyEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualWholeBodyPPORunnerCfg",
+    },
+)
+
+
+""" G1 Residual Locomanipulation Upper Body"""
+
+gym.register(
+    id="G1-Residual-Locomanipulation-Upper",
     entry_point=f"{__name__}.g1_residual_env:G1ResidualEnv",
     disable_env_checker=True,
     kwargs={

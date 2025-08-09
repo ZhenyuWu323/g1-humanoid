@@ -77,6 +77,16 @@ class EventCfg:
     )
 
     # reset
+    base_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "force_range": (0.0, 0.0),
+            "torque_range": (-0.0, 0.0),
+        },
+    )
+
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -109,7 +119,6 @@ class EventCfg:
         interval_range_s=(10.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
-
     external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
         mode="interval",
@@ -125,8 +134,8 @@ class EventCfg:
 
 
 @configclass
-class G1ResidualPreEnvCfg(DirectRLEnvCfg):
-    """ G1 Decoupled Locomanipulation Environment Configuration """
+class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
+    """ G1 Residual Locomanipulation Environment Configuration """
 
 
     # simulation configuration
@@ -158,12 +167,10 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        # upper body
-        "upper_body_actor_obs": 482,
-        "upper_body_critic_obs": 497,
-        # lower body
-        "lower_body_actor_obs": 482,
-        "lower_body_critic_obs": 497,
+        "actor_obs": 482,
+        "critic_obs": 497,
+        "residual_actor_obs": 497 + 45 + 60,
+        "residual_critic_obs": 497 + 45 + 60,
     }
     action_dim= {
         "upper_body": 14,
@@ -209,7 +216,7 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     sky_light_cfg = sim_utils.DomeLightCfg(
         intensity=750.0,
         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
-
+    
     # robot configuration
     robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
@@ -316,3 +323,20 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     # knee joint threshold
     knee_joint_threshold = 0.2
 
+
+    # object configuration
+    obj_cfg = RigidObjectCfg(
+        prim_path="/World/envs/env_.*/Object",
+        spawn=sim_utils.CylinderCfg(
+            radius=0.03,
+            height=0.1,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(),
+    )
+
+    
+    

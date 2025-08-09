@@ -42,6 +42,7 @@ parser.add_argument(
     help="Number of samples per pixel per frame.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument("--whole_body", action="store_true", default=False, help="Play the whole body policy.", required=True)
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -75,7 +76,7 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 import g1_humanoid.tasks  # noqa: F401
-from residual_policy_runner import ResidualOnPolicyRunner, ResidualRslRlVecEnvWrapper
+from residual_policy_runner import ResidualOnPolicyRunner, ResidualRslRlVecEnvWrapper, ResidualWholeBodyOnPolicyRunner
 from isaaclab.utils.math import quat_apply_inverse
 
 
@@ -135,7 +136,10 @@ def main():
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
-    ppo_runner = ResidualOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    if args_cli.whole_body:
+        ppo_runner = ResidualWholeBodyOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    else:
+        ppo_runner = ResidualOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
     ppo_runner.load(resume_path)
 
     # obtain the trained policy for inference
