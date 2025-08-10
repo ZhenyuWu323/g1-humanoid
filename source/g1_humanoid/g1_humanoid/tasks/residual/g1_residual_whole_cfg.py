@@ -22,11 +22,23 @@ class EventCfg:
     """Configuration for events."""
 
     # startup
-    physics_material = EventTerm(
+    robot_physics_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "static_friction_range": (0.3, 1.0),
+            "dynamic_friction_range": (0.3, 1.0),
+            "restitution_range": (0.0, 0.0),
+            "num_buckets": 64,
+        },
+    )
+
+    object_physics_material = EventTerm(
+        func=mdp.randomize_rigid_body_material,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
             "static_friction_range": (0.3, 1.0),
             "dynamic_friction_range": (0.3, 1.0),
             "restitution_range": (0.0, 0.0),
@@ -75,6 +87,26 @@ class EventCfg:
             "operation": "add",
         },
     )
+
+    add_object_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "mass_distribution_params": (0.0, 0.4),
+            "operation": "add",
+        },
+    )
+
+    # scale_object_size = EventTerm(
+    #     func=mdp.randomize_cylinder_scale,
+    #     mode="prestartup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+    #         "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
+    #         "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
+    #     },
+    # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
 
     # reset
     base_external_force_torque = EventTerm(

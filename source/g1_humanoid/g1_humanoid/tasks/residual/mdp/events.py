@@ -1,188 +1,123 @@
-
-
 import torch
 import isaaclab.utils.math as math_utils
 from isaaclab.assets import RigidObject, Articulation
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+from isaaclab.envs import DirectRLEnv
+from pxr import Gf, Sdf, UsdGeom, Vt
+import omni
+import isaaclab.sim as sim_utils
 
-def push_by_setting_velocity_with_vis(
-    env,
-    env_ids: torch.Tensor,
-    velocity_range: dict[str, tuple[float, float]],
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    debug_vis: bool = False,
-    vis_duration: float = 2.0,
+
+
+def randomize_cylinder_scale(
+    env: DirectRLEnv,
+    env_ids: torch.Tensor | None,
+    radius_scale_range: tuple[float, float],
+    height_scale_range: tuple[float, float],
+    asset_cfg: SceneEntityCfg,
+    relative_child_path: str | None = None,
 ):
-    """Push the asset by setting velocity with visualization following velocity command pattern.
-    
-    Args:
-        env: The environment instance
-        env_ids: Environment IDs to apply push
-        velocity_range: Velocity ranges for each axis
-        asset_cfg: Asset configuration
-        debug_vis: Whether to show visualization (creates markers like velocity command)
-        vis_duration: How long to show visualization (seconds)
+    """Randomize the scale of a rigid body asset in the USD stage.
+
+    This function modifies the "xformOp:scale" property of all the prims corresponding to the asset.
+
+    It takes a tuple or dictionary for the scale ranges. If it is a tuple, then the scaling along
+    individual axis is performed equally. If it is a dictionary, the scaling is independent across each dimension.
+    The keys of the dictionary are ``x``, ``y``, and ``z``. The values are tuples of the form ``(min, max)``.
+
+    If the dictionary does not contain a key, the range is set to one for that axis.
+
+    Relative child path can be used to randomize the scale of a specific child prim of the asset.
+    For example, if the asset at prim path expression "/World/envs/env_.*/Object" has a child
+    with the path "/World/envs/env_.*/Object/mesh", then the relative child path should be "mesh" or
+    "/mesh".
+
+    .. attention::
+        Since this function modifies USD properties that are parsed by the physics engine once the simulation
+        starts, the term should only be used before the simulation starts playing. This corresponds to the
+        event mode named "usd". Using it at simulation time, may lead to unpredictable behaviors.
+
+    .. note::
+        When randomizing the scale of individual assets, please make sure to set
+        :attr:`isaaclab.scene.InteractiveSceneCfg.replicate_physics` to False. This ensures that physics
+        parser will parse the individual asset properties separately.
     """
-    
-    asset: RigidObject | Articulation = env.scene[asset_cfg.name]
-    
-    # get current velocities
-    vel_w = asset.data.root_vel_w[env_ids]
-    
-    # sample random velocities
-    range_list = [velocity_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z", "roll", "pitch", "yaw"]]
-    ranges = torch.tensor(range_list, device=asset.device)
-    sampled_vel = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], vel_w.shape, device=asset.device)
-    
-    # apply velocities
-    vel_w += sampled_vel
-    asset.write_root_velocity_to_sim(vel_w, env_ids=env_ids)
-    
-    
-    if debug_vis:
-        _setup_push_visualization_like_velocity_command(env, env_ids, sampled_vel, asset, vis_duration)
+    # check if sim is running
+    if env.sim.is_playing():
+        raise RuntimeError(
+            "Randomizing scale while simulation is running leads to unpredictable behaviors."
+            " Please ensure that the event term is called before the simulation starts by using the 'usd' mode."
+        )
+
+    # extract the used quantities (to enable type-hinting)
+    asset: RigidObject = env.scene[asset_cfg.name]
+
+    if isinstance(asset, Articulation):
+        raise ValueError(
+            "Scaling an articulation randomly is not supported, as it affects joint attributes and can cause"
+            " unexpected behavior. To achieve different scales, we recommend generating separate USD files for"
+            " each version of the articulation and using multi-asset spawning. For more details, refer to:"
+            " https://isaac-sim.github.io/IsaacLab/main/source/how-to/multi_asset_spawning.html"
+        )
+
+    # resolve environment ids
+    if env_ids is None:
+        env_ids = torch.arange(env.scene.num_envs, device="cpu")
+    else:
+        env_ids = env_ids.cpu()
+
+    # acquire stage
+    stage = omni.usd.get_context().get_stage()
+    # resolve prim paths for spawning and cloning
+    prim_paths = sim_utils.find_matching_prim_paths(asset.cfg.prim_path)
 
 
-def _setup_push_visualization_like_velocity_command(env, env_ids: torch.Tensor, applied_vel: torch.Tensor, asset, duration: float):
-    """仿照velocity command的方式设置push可视化"""
-    
-    
-    if not hasattr(env, 'push_visualizer'):
-        _create_push_visualizer_like_velocity_command(env)
-    
-    
-    if not hasattr(env, '_push_data'):
-        env._push_data = {
-            'active_pushes': torch.zeros(env.num_envs, 3, device=env.device),  
-            'push_timers': torch.zeros(env.num_envs, device=env.device),       
-            'push_active_mask': torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)  
-        }
-    
-    
-    linear_vel = applied_vel[:, :3]  
-    env._push_data['active_pushes'][env_ids] = linear_vel
-    env._push_data['push_timers'][env_ids] = duration
-    env._push_data['push_active_mask'][env_ids] = torch.norm(linear_vel, dim=1) > 0.05  
-    
-    
-    if not hasattr(env, '_push_vis_callback_registered'):
-        _register_push_debug_callback(env, asset)
-
-
-def _create_push_visualizer_like_velocity_command(env):
-
-
-    
-    push_arrow_cfg = VisualizationMarkersCfg(
-        prim_path="/Visuals/PushCommand",  
-        markers={
-            "arrow": {
-                "func": "arrow",
-                "scale": [1.0, 1.0, 1.0], 
-                "color": (1.0, 0.2, 0.2),  
-            }
-        }
+    # sample scale values
+    radius_samples = math_utils.sample_uniform(
+        radius_scale_range[0], radius_scale_range[1], (len(env_ids),), device="cpu"
     )
-    
-    push_point_cfg = VisualizationMarkersCfg(
-        prim_path="/Visuals/PushPoint",
-        markers={
-            "sphere": {
-                "func": "sphere", 
-                "radius": 0.08,
-                "color": (1.0, 0.5, 0.0),  
-            }
-        }
+    height_samples = math_utils.sample_uniform(
+        height_scale_range[0], height_scale_range[1], (len(env_ids),), device="cpu"
     )
-    
-    
-    try:
-        env.push_visualizer = VisualizationMarkers(push_arrow_cfg)
-        env.push_point_visualizer = VisualizationMarkers(push_point_cfg)
-        
-        
-        env.push_visualizer.set_visibility(True)
-        env.push_point_visualizer.set_visibility(True)
-        
-        print("[INFO] Created push visualizers following velocity command pattern")
-        
-    except Exception as e:
-        print(f"[WARNING] Could not create push visualizers: {e}")
-        env.push_visualizer = None
-        env.push_point_visualizer = None
+    # convert to list for the for loop
+    rand_samples = torch.stack([radius_samples, radius_samples, height_samples], dim=1)
+    # convert to list for the for loop
+    rand_samples = rand_samples.tolist()
 
+    # apply the randomization to the parent if no relative child path is provided
+    # this might be useful if user wants to randomize a particular mesh in the prim hierarchy
+    if relative_child_path is None:
+        relative_child_path = ""
+    elif not relative_child_path.startswith("/"):
+        relative_child_path = "/" + relative_child_path
 
-def _register_push_debug_callback(env, asset):
-    """注册push可视化回调,完全仿照velocity command的_debug_vis_callback"""
-    
-    
-    def _push_debug_vis_callback(event):
-       
-        if not asset.is_initialized:
-            return
-            
-        
-        if not hasattr(env, 'push_visualizer') or env.push_visualizer is None:
-            return
-            
-        
-        active_mask = env._push_data['push_active_mask']
-        if not active_mask.any():
-            return
-            
-        active_env_ids = torch.where(active_mask)[0]
-        
-        
-        base_pos_w = asset.data.root_pos_w.clone()
-        base_pos_w[:, 2] += 0.8  
-        
-       
-        active_positions = base_pos_w[active_env_ids]
-        active_push_vels = env._push_data['active_pushes'][active_env_ids, :2]  
-        
-        
-        arrow_scale, arrow_quat = _resolve_push_velocity_to_arrow(env, active_push_vels, asset, active_env_ids)
-        
-        
-        env.push_visualizer.visualize(active_positions, arrow_quat, arrow_scale)
-        env.push_point_visualizer.visualize(active_positions)
-        
-        
-        env._push_data['push_timers'] -= env.step_dt
-        expired_mask = env._push_data['push_timers'] <= 0.0
-        env._push_data['push_active_mask'][expired_mask] = False
-    
-    
-    import omni.kit.app
-    app_interface = omni.kit.app.get_app_interface()
-    env._push_debug_vis_handle = app_interface.get_post_update_event_stream().create_subscription_to_pop(
-        _push_debug_vis_callback
-    )
-    
-    env._push_vis_callback_registered = True
-    print("[INFO] Registered push debug visualization callback")
+    # use sdf changeblock for faster processing of USD properties
+    with Sdf.ChangeBlock():
+        for i, env_id in enumerate(env_ids):
+            # path to prim to randomize
+            prim_path = prim_paths[env_id] + relative_child_path
+            # spawn single instance
+            prim_spec = Sdf.CreatePrimInLayer(stage.GetRootLayer(), prim_path)
 
+            # get the attribute to randomize
+            scale_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:scale")
+            # if the scale attribute does not exist, create it
+            has_scale_attr = scale_spec is not None
+            if not has_scale_attr:
+                scale_spec = Sdf.AttributeSpec(prim_spec, prim_path + ".xformOp:scale", Sdf.ValueTypeNames.Double3)
 
-def _resolve_push_velocity_to_arrow(env, xy_velocity: torch.Tensor, asset, env_ids: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """完全仿照velocity command的_resolve_xy_velocity_to_arrow方法"""
-    
-   
-    default_scale = env.push_visualizer.cfg.markers["arrow"].scale
-    
-    
-    arrow_scale = torch.tensor(default_scale, device=env.device).repeat(xy_velocity.shape[0], 1)
-    arrow_scale[:, 0] *= torch.linalg.norm(xy_velocity, dim=1) * 2.0  # push的scale稍微小一点
-    
-    
-    heading_angle = torch.atan2(xy_velocity[:, 1], xy_velocity[:, 0])
-    zeros = torch.zeros_like(heading_angle)
-    arrow_quat = math_utils.quat_from_euler_xyz(zeros, zeros, heading_angle)
-    
-    
-    base_quat_w = asset.data.root_quat_w[env_ids]
-    arrow_quat = math_utils.quat_mul(base_quat_w, arrow_quat)
-    
-    return arrow_scale, arrow_quat
+            # set the new scale
+            scale_spec.default = Gf.Vec3f(*rand_samples[i])
 
-
+            # ensure the operation is done in the right ordering if we created the scale attribute.
+            # otherwise, we assume the scale attribute is already in the right order.
+            # note: by default isaac sim follows this ordering for the transform stack so any asset
+            #   created through it will have the correct ordering
+            if not has_scale_attr:
+                op_order_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOpOrder")
+                if op_order_spec is None:
+                    op_order_spec = Sdf.AttributeSpec(
+                        prim_spec, UsdGeom.Tokens.xformOpOrder, Sdf.ValueTypeNames.TokenArray
+                    )
+                op_order_spec.default = Vt.TokenArray(["xformOp:translate", "xformOp:orient", "xformOp:scale"])
