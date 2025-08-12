@@ -11,7 +11,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import quat_rotate
-from isaaclab.sensors import ContactSensor
+from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_residual_whole_cfg import G1ResidualWholeBodyEnvCfg
@@ -73,8 +73,10 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
 
         # actions and previous actions
-        self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
-        self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.residual_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_residual_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
         # gait phase
         self.phase = torch.zeros(self.num_envs, device=self.device)
@@ -111,7 +113,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self.projected_gravity_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.dof_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.dof_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+        self.base_action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+        self.residual_action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         # plate observations
         self.plate_projected_gravity_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.plate_lin_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
@@ -140,8 +143,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         # object observations
         object_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
         object_projected_gravity = quat_apply_inverse(self._object.data.body_link_quat_w[:, 0, :], self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
-        object_lin_vel_w = self.robot.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
-        object_ang_vel_w = self.robot.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
+        object_lin_vel_w = self._object.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
+        object_ang_vel_w = self._object.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
         
         # fill the history length
         for _ in range(self.obs_history_length):
@@ -151,7 +154,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             self.projected_gravity_buffer.append(projected_gravity_b)
             self.dof_pos_buffer.append(dof_pos)
             self.dof_vel_buffer.append(dof_vel)
-            self.action_buffer.append(self.actions)
+            self.base_action_buffer.append(self.base_actions)
+            self.residual_action_buffer.append(self.residual_actions)
             # plate observations
             self.plate_projected_gravity_buffer.append(projected_gravity_plate)
             self.plate_lin_vel_buffer.append(plate_lin_vel_w)
@@ -171,10 +175,14 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
 
+        # height scanner
+        self._height_scanner = RayCaster(self.cfg.height_scanner)
+        self.scene.sensors["height_scanner"] = self._height_scanner
+
         # number of envs
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+        self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
         # object
         self._object = RigidObject(self.cfg.obj_cfg)
@@ -186,14 +194,17 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self.cfg.sky_light_cfg.func("/World/Light", self.cfg.sky_light_cfg)
 
 
-    def _pre_physics_step(self, actions: torch.Tensor):
+    def _pre_physics_step(self, base_action: torch.Tensor, residual_action: torch.Tensor):
         # update previous actions
-        self.prev_actions = self.actions.clone()
-        self.actions = actions.clone()
+        self.prev_base_actions = self.base_actions.clone()
+        self.prev_residual_actions = self.residual_actions.clone()
+        self.base_actions = base_action.clone()
+        self.residual_actions = residual_action.clone()
 
     def _apply_action(self):
-        upper_actions = self.actions[:, :self.cfg.action_dim["upper_body"]]
-        lower_actions = self.actions[:, self.cfg.action_dim["upper_body"]:]
+        actions = self.base_actions + self.residual_actions
+        upper_actions = actions[:, :self.cfg.action_dim["upper_body"]]
+        lower_actions = actions[:, self.cfg.action_dim["upper_body"]:]
 
         upper_body_target = self.default_upper_joint_pos + self.action_scale * upper_actions
         lower_body_target = self.default_lower_joint_pos + self.action_scale * lower_actions
@@ -227,7 +238,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self.projected_gravity_buffer.append(projected_gravity_b)
         self.dof_pos_buffer.append(dof_pos)
         self.dof_vel_buffer.append(dof_vel)
-        self.action_buffer.append(self.actions)
+        self.base_action_buffer.append(self.base_actions)
+        self.residual_action_buffer.append(self.residual_actions)
         # plate observations
         plate_quat_w = self.robot.data.body_link_quat_w[:, self.plate_body_index, :]
         projected_gravity_plate = quat_apply_inverse(plate_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
@@ -239,8 +251,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         # object observations
         object_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
         object_projected_gravity = quat_apply_inverse(self._object.data.body_link_quat_w[:, 0, :], self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
-        object_lin_vel_w = self.robot.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
-        object_ang_vel_w = self.robot.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
+        object_lin_vel_w = self._object.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
+        object_ang_vel_w = self._object.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
         self.object_projected_gravity_buffer.append(object_projected_gravity)
         self.object_rel_pos_buffer.append(object_rel_pos)
         self.object_lin_vel_buffer.append(object_lin_vel_w)
@@ -274,7 +286,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         projected_gravity_buffer_flat = self.projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
         dof_pos_buffer_flat = self.dof_pos_buffer.buffer.reshape(self.num_envs, -1)
         dof_vel_buffer_flat = self.dof_vel_buffer.buffer.reshape(self.num_envs, -1)
-        action_buffer_flat = self.action_buffer.buffer.reshape(self.num_envs, -1)
+        base_action_buffer_flat = self.base_action_buffer.buffer.reshape(self.num_envs, -1)
+        residual_action_buffer_flat = self.residual_action_buffer.buffer.reshape(self.num_envs, -1)
 
         # plate observations
         plate_projected_gravity_buffer_flat = self.plate_projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
@@ -303,7 +316,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
             'dof_pos': dof_pos_buffer_flat, # 145
             'dof_vel': dof_vel_buffer_flat, # 145
-            'actions': action_buffer_flat, # 145
+            'actions': base_action_buffer_flat, # 145
         }
         critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
@@ -313,7 +326,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
-            'actions': action_buffer_flat,
+            'actions': base_action_buffer_flat,
         }
 
         residual_actor_observations_dict = {
@@ -324,7 +337,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
-            'actions': action_buffer_flat,
+            'base_actions': base_action_buffer_flat,
+            'residual_actions': residual_action_buffer_flat,
             'projected_gravity_plate': plate_projected_gravity_buffer_flat,
             'plate_lin_vel_w': plate_lin_vel_buffer_flat,
             'plate_ang_vel_w': plate_ang_vel_buffer_flat,
@@ -341,7 +355,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
-            'actions': action_buffer_flat,
+            'base_actions': base_action_buffer_flat,
+            'residual_actions': residual_action_buffer_flat,
             'projected_gravity_plate': plate_projected_gravity_buffer_flat,
             'plate_lin_vel_w': plate_lin_vel_buffer_flat,
             'plate_ang_vel_w': plate_ang_vel_buffer_flat,
@@ -368,7 +383,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             "residual_critic_obs": residual_critic_obs}
         return observations
 
-    def _get_rewards(self) -> torch.Tensor:
+    def _get_rewards(self) -> dict:
 
         """
         Lower Body Tracking Rewards
@@ -455,8 +470,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
 
         # action rate
         penalty_lower_body_action_rate = mdp.action_rate_l2(
-            action=self.actions[:, self.cfg.action_dim["upper_body"]:],
-            prev_action=self.prev_actions[:, self.cfg.action_dim["upper_body"]:],
+            action=self.residual_actions[:, self.cfg.action_dim["upper_body"]:],
+            prev_action=self.prev_residual_actions[:, self.cfg.action_dim["upper_body"]:],
             weight=-0.05,
         )
 
@@ -464,6 +479,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         penalty_base_height = mdp.base_height(
             body_pos_w=self.robot.data.body_pos_w,
             body_idx=self.ref_body_index,
+            height_scanner=self._height_scanner,
             target_height=self.cfg.target_base_height,
             weight=-10,
         )
@@ -518,8 +534,6 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         """
         Upper Body Penalty Terms
         """
-
-
         # upper body torques
         penalty_upper_body_dof_torques = mdp.joint_torque_l2(
             joint_torque=self.robot.data.applied_torque,
@@ -544,8 +558,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
 
         # upper body action rate
         penalty_upper_body_action_rate = mdp.action_rate_l2(
-            action=self.actions[:, :self.cfg.action_dim["upper_body"]],
-            prev_action=self.prev_actions[:, :self.cfg.action_dim["upper_body"]],
+            action=self.residual_actions[:, :self.cfg.action_dim["upper_body"]],
+            prev_action=self.prev_residual_actions[:, :self.cfg.action_dim["upper_body"]],
             weight=-0.05,
         )
 
@@ -600,33 +614,22 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
                              penalty_feet_slide + 
                              penalty_base_height +
                              feet_gait_reward +
-                             feet_clearance_reward +
-                             alive_reward)
+                             feet_clearance_reward)
         
-		# upper body reward
+        # upper body reward
         residual_upper_body_reward = (
-            penalty_upper_body_dof_torques + 
-            penalty_upper_body_dof_acc + 
-            penalty_upper_body_dof_pos_limits + 
-            penalty_upper_body_action_rate + 
-            penalty_upper_body_dof_vel + 
-            alive_reward
-        )
-        # add plate rewards
-        residual_upper_body_reward += (
             tracking_upper_body_dof_pos + 
             penalty_upper_body_dof_torques + 
             penalty_upper_body_dof_acc + 
             penalty_upper_body_dof_pos_limits + 
             penalty_upper_body_action_rate + 
             penalty_upper_body_dof_vel + 
-            alive_reward +
             penalty_object_pos_deviation +
             penalty_object_flat_orientation +
             object_upright_bonus
         )
 
-        residual_whole_body_reward = residual_upper_body_reward + residual_lower_body_reward
+        residual_whole_body_reward = residual_upper_body_reward + residual_lower_body_reward + alive_reward
 
         self._episode_sums["tracking_lin_vel_xy"] += tracking_lin_vel_xy
         self._episode_sums["tracking_ang_vel_z"] += tracking_ang_vel_z
@@ -652,9 +655,14 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         return died, time_out
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
+        extras = dict()
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
 
+        # apply terrain curriculum
+        if self.cfg.terrain_generator_cfg.curriculum:
+            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
+            extras["Curriculum/terrain_level"] = avg_terrain_level.item()
 
         # reset robot
         self.robot.reset(env_ids)
@@ -662,15 +670,18 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         # reset command
         self.velocity_command._resample_command(env_ids)
         # reset proprioceptive observations
-        self.actions[env_ids] = 0.0
-        self.prev_actions[env_ids] = 0.0
+        self.base_actions[env_ids] = 0.0
+        self.prev_base_actions[env_ids] = 0.0
+        self.residual_actions[env_ids] = 0.0
+        self.prev_residual_actions[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
         self.root_ang_vel_buffer.reset(env_ids)
         self.root_lin_vel_buffer.reset(env_ids)
         self.projected_gravity_buffer.reset(env_ids)
         self.dof_pos_buffer.reset(env_ids)
         self.dof_vel_buffer.reset(env_ids)
-        self.action_buffer.reset(env_ids)
+        self.base_action_buffer.reset(env_ids)
+        self.residual_action_buffer.reset(env_ids)
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
 
@@ -694,7 +705,6 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self._object.write_root_velocity_to_sim(object_vel, env_ids=env_ids)
 
         # reset logging
-        extras = dict()
         for key in self._episode_sums.keys():
             episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
             extras["Episode_Reward/" + key] = episodic_sum_avg / self.max_episode_length_s
@@ -703,7 +713,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self.extras["log"].update(extras)
 
 
-    def step(self, action: torch.Tensor) -> VecEnvStepReturn:
+    def step(self, action: dict) -> VecEnvStepReturn:
         """Execute one time-step of the environment's dynamics.
 
         The environment steps forward at a fixed time-step, while the physics simulation is decimated at a
@@ -727,17 +737,20 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         Returns:
             A tuple containing the observations, rewards, resets (terminated and truncated) and extras.
         """
-        action = action.to(self.device)
+        base_action = action['base_action'].to(self.device)
+        residual_action = action['residual_action'].to(self.device)
         # add action noise
         if self.cfg.action_noise_model:
-            action = self._action_noise_model.apply(action)
+            base_action = self._action_noise_model.apply(base_action)
+            residual_action = self._action_noise_model.apply(residual_action)
 
         # clip actions
         clip_actions = self.cfg.clip_action
-        action = torch.clip(action, -clip_actions, clip_actions)
+        base_action = torch.clip(base_action, -clip_actions, clip_actions)
+        residual_action = torch.clip(residual_action, -clip_actions, clip_actions)
 
         # process actions
-        self._pre_physics_step(action)
+        self._pre_physics_step(base_action, residual_action)
 
         # check if we need to do rendering within the physics loop
         # note: checked here once to avoid multiple checks within the loop

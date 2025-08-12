@@ -15,7 +15,7 @@ import torch
 from typing import TYPE_CHECKING, List, Sequence
 
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import ContactSensor
+from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.math import quat_apply_inverse, yaw_quat
 
 if TYPE_CHECKING:
@@ -192,10 +192,14 @@ def termination_penalty(terminated: torch.Tensor, weight: float) -> torch.Tensor
 
     return terminated * weight
 
-def base_height(body_pos_w: torch.Tensor, body_idx: int, target_height: float, weight: float) -> torch.Tensor:
+def base_height(body_pos_w: torch.Tensor, body_idx: int, height_scanner: RayCaster | None, target_height: float, weight: float) -> torch.Tensor:
     """Penalize base height."""
+    if height_scanner is not None:
+        adjusted_target_height = target_height + torch.mean(height_scanner.data.ray_hits_w[..., 2], dim=1)
+    else:
+        adjusted_target_height = target_height
     base_height = body_pos_w[:, body_idx, 2]
-    height_error = torch.square(base_height - target_height)
+    height_error = torch.square(base_height - adjusted_target_height)
     return height_error * weight
 
 
@@ -419,3 +423,16 @@ def cup_upright_bonus_exp(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor,
     tilt_magnitude = torch.norm(body_orientation[:, :2], dim=1)
     
     return torch.exp(-tilt_magnitude / sigma) * weight
+
+
+def body_ang_vel_l2(body_ang_vel_w: torch.Tensor, body_idx: int, weight: float) -> torch.Tensor:
+    """Penalize body angular velocity using L2 squared kernel."""
+    return torch.sum(torch.square(body_ang_vel_w[:, body_idx, :]), dim=1) * weight
+
+
+def penalty_residual_action(residual_actions: torch.Tensor, action_dim: dict, weight: float, lambda_delta_upper: float, lambda_delta_lower: float) -> torch.Tensor:
+    """Penalize residual action."""
+    upper = residual_actions[:, :action_dim["upper_body"]]
+    lower = residual_actions[:, action_dim["upper_body"]:]
+    cost = lambda_delta_upper * (upper**2).sum(dim=1) + lambda_delta_lower * (lower**2).sum(dim=1)
+    return cost * weight

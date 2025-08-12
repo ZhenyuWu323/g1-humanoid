@@ -157,10 +157,11 @@ class ResidualRslRlVecEnvWrapper(VecEnv):
         # return observations
         return obs_dict, {"observations": obs_dict}
 
-    def step(self, actions: torch.Tensor) -> tuple[dict, dict, torch.Tensor, dict]:
+    def step(self, actions: dict) -> tuple[dict, dict, torch.Tensor, dict]:
         # clip actions
         if self.clip_actions is not None:
-            actions = torch.clamp(actions, -self.clip_actions, self.clip_actions)
+            actions['base_action'] = torch.clamp(actions['base_action'], -self.clip_actions, self.clip_actions)
+            actions['residual_action'] = torch.clamp(actions['residual_action'], -self.clip_actions, self.clip_actions)
         # record step information
         obs_dict, rew, terminated, truncated, extras = self.env.step(actions)
         # compute dones for compatibility with RSL-RL

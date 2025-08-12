@@ -174,12 +174,17 @@ class ResidualWholeBodyOnPolicyRunner:
                 action_dict[key] = self.algs[key].policy.act_inference(actor_obs) # NOTE: inference for lower and upper body
         # Step the environment
         action = torch.cat([action_dict["upper_body"], action_dict["lower_body"]], dim=1)
-        action += action_dict["residual_whole_body"] # NOTE: RESIDUAL ACTIONS ARE ADDED TO THE WHOLE BODY ACTIONS
+        #action += action_dict["residual_whole_body"] # NOTE: RESIDUAL ACTIONS ARE ADDED TO THE WHOLE BODY ACTIONS
         assert action_dict["upper_body"].shape[1] == 14, "Upper body should have 14 actions"
         assert action_dict["lower_body"].shape[1] == 15, "Lower body should have 15 actions"
         assert action.shape[1] == 29, "Total actions should be 29"
+        action_dict['base_action'] = action
+        action_dict['residual_action'] = action_dict["residual_whole_body"]
+        action_dict.pop("residual_whole_body", None)
+        action_dict.pop("upper_body", None)
+        action_dict.pop("lower_body", None)
 
-        obs, rewards, dones, infos = self.env.step(action.to(self.env.device))
+        obs, rewards, dones, infos = self.env.step(action_dict)
         actor_obs, critic_obs = obs["actor_obs"], obs["critic_obs"]
         residual_actor_obs, residual_critic_obs = obs["residual_actor_obs"], obs["residual_critic_obs"]
         # Move to device
@@ -558,8 +563,7 @@ class ResidualWholeBodyOnPolicyRunner:
             # Get actions from each body part
             actions_list = []
             #actions_list.append(torch.zeros(self.env.num_envs, 14, device=self.device)) # TODO: remove this
-            upper_body_actions = self.algs["upper_body"].policy.act_inference(obs)
-            actions_list.append(upper_body_actions)
+            actions_list.append(self.algs["upper_body"].policy.act_inference(obs))
             actions_list.append(self.algs["lower_body"].policy.act_inference(obs))
             
             # Concatenate actions (same order as training)
@@ -567,8 +571,11 @@ class ResidualWholeBodyOnPolicyRunner:
 
             # residual actions
             residual_actions = self.algs["residual_whole_body"].policy.act_inference(residual_obs)
-            combined_actions += residual_actions
-            return combined_actions
+            action_dict = {
+                "base_action": combined_actions,
+                "residual_action": residual_actions
+            }
+            return action_dict
         
         return multi_actor_inference_policy
 

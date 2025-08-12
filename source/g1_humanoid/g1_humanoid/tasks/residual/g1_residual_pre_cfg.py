@@ -16,6 +16,7 @@ from . import mdp
 from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.envs.common import ViewerCfg
+import isaaclab.terrains as terrain_gen
 
 @configclass
 class EventCfg:
@@ -185,11 +186,28 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
 
 
     # terrain configuration
+    terrain_generator_cfg = terrain_gen.TerrainGeneratorCfg(
+        size=(8.0, 8.0),
+        border_width=20.0,
+        num_rows=9,
+        num_cols=21,
+        horizontal_scale=0.1,
+        vertical_scale=0.005,
+        slope_threshold=0.75,
+        difficulty_range=(0.0, 1.0),
+        use_cache=False,
+        sub_terrains={
+            "flat": terrain_gen.MeshPlaneTerrainCfg(proportion=0.5),
+        },
+        curriculum=True,
+    )
+
+
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
-        terrain_type="plane",
-        terrain_generator=None,
-        max_init_terrain_level=5,
+        terrain_type="generator",
+        terrain_generator=terrain_generator_cfg,
+        max_init_terrain_level=terrain_generator_cfg.num_rows - 1,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
@@ -214,6 +232,14 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
+    )
+    height_scanner: RayCasterCfg = RayCasterCfg(
+        prim_path="/World/envs/env_.*/Robot/torso_link",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
+        attach_yaw_only=True,
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
+        debug_vis=False,
+        mesh_prim_paths=["/World/ground"],
     )
     reference_body = "torso_link"
 

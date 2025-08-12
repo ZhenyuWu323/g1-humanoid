@@ -11,7 +11,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import quat_rotate
-from isaaclab.sensors import ContactSensor
+from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_residual_pre_cfg import G1ResidualPreEnvCfg
@@ -135,10 +135,14 @@ class G1ResidualPreEnv(DirectRLEnv):
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
 
+        # height scanner
+        self._height_scanner = RayCaster(self.cfg.height_scanner)
+        self.scene.sensors["height_scanner"] = self._height_scanner
+
         # number of envs
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+        self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
         
         # clone and replicate
@@ -358,6 +362,7 @@ class G1ResidualPreEnv(DirectRLEnv):
         penalty_base_height = mdp.base_height(
             body_pos_w=self.robot.data.body_pos_w,
             body_idx=self.ref_body_index,
+            height_scanner=self._height_scanner,
             target_height=self.cfg.target_base_height,
             weight=-10,
         )
@@ -500,9 +505,14 @@ class G1ResidualPreEnv(DirectRLEnv):
         return died, time_out
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
+        extras = dict()
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
 
+        # apply terrain curriculum
+        if self.cfg.terrain_generator_cfg.curriculum:
+            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
+            extras["Curriculum/terrain_level"] = avg_terrain_level.item()
 
         # reset robot
         self.robot.reset(env_ids)
@@ -524,7 +534,6 @@ class G1ResidualPreEnv(DirectRLEnv):
         
 
         # reset logging
-        extras = dict()
         for key in self._episode_sums.keys():
             episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
             extras["Episode_Reward/" + key] = episodic_sum_avg / self.max_episode_length_s
