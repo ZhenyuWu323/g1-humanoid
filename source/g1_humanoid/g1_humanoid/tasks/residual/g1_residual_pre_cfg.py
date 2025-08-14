@@ -231,7 +231,7 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     # robot configuration
     robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
-        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
+        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True, update_period=sim.dt
     )
     height_scanner: RayCasterCfg = RayCasterCfg(
         prim_path="/World/envs/env_.*/Robot/torso_link",
@@ -240,6 +240,7 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
+        update_period=sim.dt * decimation,
     )
     reference_body = "torso_link"
 

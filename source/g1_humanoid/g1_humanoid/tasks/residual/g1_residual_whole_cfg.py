@@ -202,8 +202,8 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
     observation_space = {
         "actor_obs": 482,
         "critic_obs": 497,
-        "residual_actor_obs": 497 + 45 + 60 + 145,
-        "residual_critic_obs": 497 + 45 + 60 + 145,
+        "residual_actor_obs": 497 + 45 + 60,
+        "residual_critic_obs": 497 + 45 + 60,
     }
     action_dim= {
         "upper_body": 14,
@@ -213,16 +213,6 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
     action_scale = 0.25
     state_space = 0
     obs_history_length = 5
-
-    # obs noise
-    obs_noise_models: dict[str, NoiseModelCfg] = {
-        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
-        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
-        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
-        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
-        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
-    }
-
 
     # terrain configuration
     terrain_generator_cfg = terrain_gen.TerrainGeneratorCfg(
@@ -348,6 +338,15 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
         "projected_gravity_b": 1.0,
         "dof_pos": 1.0,
         "dof_vel": 0.05,
+    }
+
+    # obs noise
+    obs_noise_models: dict[str, NoiseModelCfg] = {
+        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
+        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
+        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
+        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
     }
 
     # clips

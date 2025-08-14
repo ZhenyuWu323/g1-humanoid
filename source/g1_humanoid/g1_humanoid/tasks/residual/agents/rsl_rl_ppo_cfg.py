@@ -63,9 +63,9 @@ class G1ResidualWholeBodyPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     empirical_normalization = False
     # residual upper bodypolicy
     residual_whole_body_policy = RslRlPpoActorCriticCfg(
-        init_noise_std=1.0,
-        actor_hidden_dims=[1024, 512, 256, 128],
-        critic_hidden_dims=[1024, 512, 256, 128],
+        init_noise_std=0.6,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
         activation="elu",
     )
     # upper body policy

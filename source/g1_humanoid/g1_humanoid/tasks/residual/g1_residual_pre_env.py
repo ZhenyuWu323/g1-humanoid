@@ -83,6 +83,12 @@ class G1ResidualPreEnv(DirectRLEnv):
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
         self._init_history_buffers()
 
+        # observation noise models
+        if self.cfg.obs_noise_models:
+            self.obs_noise_models = {}
+            for key, value in self.cfg.obs_noise_models.items():
+                self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
+
         # logging
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
@@ -192,6 +198,16 @@ class G1ResidualPreEnv(DirectRLEnv):
         self.dof_pos_buffer.append(dof_pos)
         self.dof_vel_buffer.append(dof_vel)
         self.action_buffer.append(self.actions)
+
+
+    def _apply_observation_noise(self, observations_dict: dict) -> dict:
+        noisy_observations_dict = {}
+        for obs_name, obs_value in observations_dict.items():
+            if obs_name in self.cfg.obs_noise_models:
+                noisy_observations_dict[obs_name] = self.obs_noise_models[obs_name].apply(obs_value)
+            else:
+                noisy_observations_dict[obs_name] = obs_value
+        return noisy_observations_dict
         
 
     def _get_observations(self) -> dict:
@@ -241,7 +257,7 @@ class G1ResidualPreEnv(DirectRLEnv):
             'actions': action_buffer_flat,
             
         }
-
+        # scale observations
         actor_scaled_obs = {}
         critic_scaled_obs = {}
         for obs_name, obs_value in actor_observations_dict.items():
@@ -256,7 +272,12 @@ class G1ResidualPreEnv(DirectRLEnv):
                 critic_scaled_obs[obs_name] = obs_value * scale
             else:
                 critic_scaled_obs[obs_name] = obs_value
-        actor_obs_list = list(actor_scaled_obs.values())
+
+        # apply observation noise
+        actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs)
+
+        # compute observations
+        actor_obs_list = list(actor_noisy_obs.values())
         critic_obs_list = list(critic_scaled_obs.values())
 
         # build task observation
