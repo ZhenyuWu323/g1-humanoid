@@ -1,3 +1,4 @@
 from .residual_env_wrapper import ResidualRslRlVecEnvWrapper
 from .residual_policy_runner import ResidualOnPolicyRunner
 from .residual_policy_whole_runner import ResidualWholeBodyOnPolicyRunner
+from .residual_distill_whole import ResidualWholeBodyDistillationRunner

@@ -33,6 +33,21 @@ gym.register(
 )
 
 
+""" G1 Residual Locomanipulation Whole Body Distillation"""
+
+gym.register(
+    id="G1-Residual-Locomanipulation-Whole-Distillation",
+    entry_point=f"{__name__}.g1_residual_whole_distill_env:G1ResidualWholeBodyDistillEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_residual_whole_distill_cfg:G1ResidualWholeBodyDistillEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualWholeBodyDistillationCfg",
+    },
+)
+
+
+
+
 """ G1 Residual Locomanipulation Upper Body"""
 
 gym.register(

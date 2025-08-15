@@ -29,10 +29,11 @@ class ResidualWholeBodyDistillationRunner:
 
     def __init__(self, env: ResidualRslRlVecEnvWrapper, train_cfg: dict, log_dir: str | None = None, device="cpu"):
         self.cfg = train_cfg
-        self.alg_cfg = train_cfg["algorithm"]
+        self.ppo_alg_cfg = train_cfg["ppo_algorithm"]
+        self.distillation_alg_cfg = train_cfg["distillation_algorithm"]
         self.upper_body_policy_cfg = train_cfg["upper_body_policy"]
         self.lower_body_policy_cfg = train_cfg["lower_body_policy"]
-        self.distillation_cfg = train_cfg["distillation"]
+        self.residual_whole_body_policy_cfg = train_cfg["residual_whole_body_policy"]
         self.device = device
         self.env = env
 
@@ -40,10 +41,10 @@ class ResidualWholeBodyDistillationRunner:
         self._configure_multi_gpu()
 
         # resolve training type depending on the algorithm
-        if self.alg_cfg["class_name"] == "Distillation":
+        if self.distillation_alg_cfg["class_name"] == "Distillation":
             self.training_type = "distillation"
         else:
-            raise ValueError(f"Training type not found for algorithm {self.alg_cfg['class_name']}.")
+            raise ValueError(f"Training type not found for algorithm {self.distillation_alg_cfg['class_name']}.")
 
         # resolve dimensions of observations
         self.num_obs = self.env.num_obs
@@ -83,7 +84,7 @@ class ResidualWholeBodyDistillationRunner:
         assert lower_body_policy_class in [ActorCritic, ActorCriticRecurrent], "Lower body policy class is expected to be ActorCritic or ActorCriticRecurrent."
 
         
-        distillation_policy_class = eval(self.distillation_cfg.pop("class_name"))
+        distillation_policy_class = eval(self.residual_whole_body_policy_cfg.pop("class_name"))
         assert distillation_policy_class in [StudentTeacher, StudentTeacherRecurrent], "Distillation policy class is expected to be StudentTeacher or StudentTeacherRecurrent."
 
 
@@ -104,7 +105,7 @@ class ResidualWholeBodyDistillationRunner:
             num_student_obs=self.num_obs["residual_actor_obs_student"],
             num_teacher_obs=self.num_obs["residual_actor_obs_teacher"],
             num_actions=self.num_actions["upper_body"] + self.num_actions["lower_body"],
-            **self.distillation_cfg
+            **self.residual_whole_body_policy_cfg
         ).to(self.device)
         
         # NOTE: disable gradient for lower and upper body policies
@@ -115,19 +116,20 @@ class ResidualWholeBodyDistillationRunner:
         
         # initialize algorithm
         self.algs = {}
-        self.alg_cfg.pop("class_name")
+        self.ppo_alg_cfg.pop("class_name")
         for body_key in self.body_keys:
             if body_key != "residual_whole_body":
                 self.algs[body_key] = PPO(
                     policy=self.policies[body_key],
                     device=self.device,
-                    **self.alg_cfg,
+                    **self.ppo_alg_cfg,
                     multi_gpu_cfg=self.multi_gpu_cfg
                 )
+        self.distillation_alg_cfg.pop("class_name")
         self.distillation_alg = Distillation(
             policy=self.teacher_student,
             device=self.device,
-            **self.alg_cfg,
+            **self.distillation_alg_cfg,
             multi_gpu_cfg=self.multi_gpu_cfg
         )
         # initialize storage

@@ -22,6 +22,7 @@ if not os.path.exists(ASSETS_DATA_DIR):
 try:
     from .g1_inspire import *  # Replace with actual submodules if needed
     from .g1_with_plate import *
+    from .g1_with_tray import *
     from .g1_humanoid import *
 except ImportError:
     pass  # If no submodules exist, this can be safely ignored
