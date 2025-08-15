@@ -1,0 +1,252 @@
+--- git status ---
+On branch zhenyu
+Your branch is ahead of 'origin/zhenyu' by 3 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_env.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_env.py
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
+index b92b0d3..19a08c3 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
+@@ -63,9 +63,9 @@ class G1ResidualWholeBodyPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+     empirical_normalization = False
+     # residual upper bodypolicy
+     residual_whole_body_policy = RslRlPpoActorCriticCfg(
+-        init_noise_std=1.0,
+-        actor_hidden_dims=[1024, 512, 256, 128],
+-        critic_hidden_dims=[1024, 512, 256, 128],
++        init_noise_std=0.6,
++        actor_hidden_dims=[512, 256, 128],
++        critic_hidden_dims=[512, 256, 128],
+         activation="elu",
+     )
+     # upper body policy
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_cfg.py
+index 213c979..7fadc24 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_cfg.py
+@@ -231,7 +231,7 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
+     # robot configuration
+     robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+     contact_sensor: ContactSensorCfg = ContactSensorCfg(
+-        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
++        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True, update_period=sim.dt
+     )
+     height_scanner: RayCasterCfg = RayCasterCfg(
+         prim_path="/World/envs/env_.*/Robot/torso_link",
+@@ -240,6 +240,7 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
+         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
+         debug_vis=False,
+         mesh_prim_paths=["/World/ground"],
++        update_period=sim.dt * decimation,
+     )
+     reference_body = "torso_link"
+ 
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_env.py b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_env.py
+index ade4786..e855c45 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_pre_env.py
+@@ -83,6 +83,12 @@ class G1ResidualPreEnv(DirectRLEnv):
+         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
+         self._init_history_buffers()
+ 
++        # observation noise models
++        if self.cfg.obs_noise_models:
++            self.obs_noise_models = {}
++            for key, value in self.cfg.obs_noise_models.items():
++                self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
++
+         # logging
+         self._episode_sums = {
+             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+@@ -192,6 +198,16 @@ class G1ResidualPreEnv(DirectRLEnv):
+         self.dof_pos_buffer.append(dof_pos)
+         self.dof_vel_buffer.append(dof_vel)
+         self.action_buffer.append(self.actions)
++
++
++    def _apply_observation_noise(self, observations_dict: dict) -> dict:
++        noisy_observations_dict = {}
++        for obs_name, obs_value in observations_dict.items():
++            if obs_name in self.cfg.obs_noise_models:
++                noisy_observations_dict[obs_name] = self.obs_noise_models[obs_name].apply(obs_value)
++            else:
++                noisy_observations_dict[obs_name] = obs_value
++        return noisy_observations_dict
+         
+ 
+     def _get_observations(self) -> dict:
+@@ -241,7 +257,7 @@ class G1ResidualPreEnv(DirectRLEnv):
+             'actions': action_buffer_flat,
+             
+         }
+-
++        # scale observations
+         actor_scaled_obs = {}
+         critic_scaled_obs = {}
+         for obs_name, obs_value in actor_observations_dict.items():
+@@ -256,7 +272,12 @@ class G1ResidualPreEnv(DirectRLEnv):
+                 critic_scaled_obs[obs_name] = obs_value * scale
+             else:
+                 critic_scaled_obs[obs_name] = obs_value
+-        actor_obs_list = list(actor_scaled_obs.values())
++
++        # apply observation noise
++        actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs)
++
++        # compute observations
++        actor_obs_list = list(actor_noisy_obs.values())
+         critic_obs_list = list(critic_scaled_obs.values())
+ 
+         # build task observation
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
+index c3d9af3..5838a7a 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
+@@ -202,8 +202,8 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
+     observation_space = {
+         "actor_obs": 482,
+         "critic_obs": 497,
+-        "residual_actor_obs": 497 + 45 + 60 + 145,
+-        "residual_critic_obs": 497 + 45 + 60 + 145,
++        "residual_actor_obs": 497 + 45 + 60,
++        "residual_critic_obs": 497 + 45 + 60,
+     }
+     action_dim= {
+         "upper_body": 14,
+@@ -214,16 +214,6 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
+     state_space = 0
+     obs_history_length = 5
+ 
+-    # obs noise
+-    obs_noise_models: dict[str, NoiseModelCfg] = {
+-        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
+-        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
+-        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
+-        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
+-        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
+-    }
+-
+-
+     # terrain configuration
+     terrain_generator_cfg = terrain_gen.TerrainGeneratorCfg(
+         size=(8.0, 8.0),
+@@ -350,6 +340,15 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
+         "dof_vel": 0.05,
+     }
+ 
++    # obs noise
++    obs_noise_models: dict[str, NoiseModelCfg] = {
++        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
++        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
++        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
++        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
++        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
++    }
++
+     # clips
+     clip_action = 100
+     clip_observation = 100
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_env.py b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_env.py
+index 9518fbc..f65eac0 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_env.py
+@@ -89,6 +89,12 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
+         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
+         self._init_history_buffers()
+ 
++        # observation noise models
++        if self.cfg.obs_noise_models:
++            self.obs_noise_models = {}
++            for key, value in self.cfg.obs_noise_models.items():
++                self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
++
+         # logging
+         self._episode_sums = {
+             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+@@ -267,9 +273,17 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
+                 scaled_observations_dict[obs_name] = obs_value * scale
+             else:
+                 scaled_observations_dict[obs_name] = obs_value
+-        return list(scaled_observations_dict.values())
+-    
++        return scaled_observations_dict
+     
++
++    def _apply_observation_noise(self, observations_dict: dict) -> dict:
++        noisy_observations_dict = {}
++        for obs_name, obs_value in observations_dict.items():
++            if obs_name in self.cfg.obs_noise_models:
++                noisy_observations_dict[obs_name] = self.obs_noise_models[obs_name].apply(obs_value)
++            else:
++                noisy_observations_dict[obs_name] = obs_value
++        return noisy_observations_dict
+     
+     def _get_observations(self) -> dict:
+ 
+@@ -337,7 +351,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
+             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
+             'dof_pos': dof_pos_buffer_flat,
+             'dof_vel': dof_vel_buffer_flat,
+-            'base_actions': base_action_buffer_flat,
++            #'base_actions': base_action_buffer_flat,
+             'residual_actions': residual_action_buffer_flat,
+             'projected_gravity_plate': plate_projected_gravity_buffer_flat,
+             'plate_lin_vel_w': plate_lin_vel_buffer_flat,
+@@ -355,7 +369,7 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
+             'ref_upper_body_dof_pos': self.default_upper_joint_pos,
+             'dof_pos': dof_pos_buffer_flat,
+             'dof_vel': dof_vel_buffer_flat,
+-            'base_actions': base_action_buffer_flat,
++            #'base_actions': base_action_buffer_flat,
+             'residual_actions': residual_action_buffer_flat,
+             'projected_gravity_plate': plate_projected_gravity_buffer_flat,
+             'plate_lin_vel_w': plate_lin_vel_buffer_flat,
+@@ -365,16 +379,19 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
+             'object_lin_vel_w': object_lin_vel_buffer_flat,
+             'object_ang_vel_w': object_ang_vel_buffer_flat,
+         }
+-
++        # scale obs
+         actor_scaled_obs = self._scale_observations(actor_observations_dict)
+         critic_scaled_obs = self._scale_observations(critic_observations_dict)
+         residual_actor_scaled_obs = self._scale_observations(residual_actor_observations_dict)
+         residual_critic_scaled_obs = self._scale_observations(residual_critic_observations_dict)
+ 
+-        actor_obs = compute_obs(actor_scaled_obs)
+-        critic_obs = compute_obs(critic_scaled_obs)
+-        residual_actor_obs = compute_obs(residual_actor_scaled_obs)
+-        residual_critic_obs = compute_obs(residual_critic_scaled_obs)
++        # apply obs noise on pretain model
++        actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs) # NOTE: ONLY APPLY NOISE ON PRETAIN ACTOR OBS
++
++        actor_obs = compute_obs(list(actor_noisy_obs.values()))
++        critic_obs = compute_obs(list(critic_scaled_obs.values()))
++        residual_actor_obs = compute_obs(list(residual_actor_scaled_obs.values()))
++        residual_critic_obs = compute_obs(list(residual_critic_scaled_obs.values()))
+ 
+         observations = {
+             "actor_obs": actor_obs, 
+@@ -806,8 +823,8 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
+ 
+         # add observation noise
+         # note: we apply no noise to the state space (since it is used for critic networks)
+-        #if self.cfg.observation_noise_model:
+-            #self.obs_buf["policy"] = self._observation_noise_model.apply(self.obs_buf["policy"])
++        # if self.cfg.observation_noise_model:
++        #     self.obs_buf["policy"] = self._observation_noise_model.apply(self.obs_buf["policy"])
+ 
+         # clip observations
+         clip_observations = self.cfg.clip_observation

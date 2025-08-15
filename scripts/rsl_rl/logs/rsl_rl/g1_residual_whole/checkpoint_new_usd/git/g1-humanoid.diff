@@ -1,0 +1,201 @@
+--- git status ---
+On branch zhenyu
+Your branch is ahead of 'origin/zhenyu' by 4 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   scripts/rsl_rl/residual_policy_runner/residual_distill_whole.py
+	modified:   source/g1_humanoid/g1_humanoid/assets/__init__.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	source/g1_humanoid/g1_humanoid/assets/data/g1_with_tray/
+	source/g1_humanoid/g1_humanoid/assets/g1_with_tray.py
+	source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_distill_cfg.py
+	source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_distill_env.py
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/scripts/rsl_rl/residual_policy_runner/residual_distill_whole.py b/scripts/rsl_rl/residual_policy_runner/residual_distill_whole.py
+index 8682067..f18bf27 100644
+--- a/scripts/rsl_rl/residual_policy_runner/residual_distill_whole.py
++++ b/scripts/rsl_rl/residual_policy_runner/residual_distill_whole.py
+@@ -29,10 +29,11 @@ class ResidualWholeBodyDistillationRunner:
+ 
+     def __init__(self, env: ResidualRslRlVecEnvWrapper, train_cfg: dict, log_dir: str | None = None, device="cpu"):
+         self.cfg = train_cfg
+-        self.alg_cfg = train_cfg["algorithm"]
++        self.ppo_alg_cfg = train_cfg["ppo_algorithm"]
++        self.distillation_alg_cfg = train_cfg["distillation_algorithm"]
+         self.upper_body_policy_cfg = train_cfg["upper_body_policy"]
+         self.lower_body_policy_cfg = train_cfg["lower_body_policy"]
+-        self.distillation_cfg = train_cfg["distillation"]
++        self.residual_whole_body_policy_cfg = train_cfg["residual_whole_body_policy"]
+         self.device = device
+         self.env = env
+ 
+@@ -40,10 +41,10 @@ class ResidualWholeBodyDistillationRunner:
+         self._configure_multi_gpu()
+ 
+         # resolve training type depending on the algorithm
+-        if self.alg_cfg["class_name"] == "Distillation":
++        if self.distillation_alg_cfg["class_name"] == "Distillation":
+             self.training_type = "distillation"
+         else:
+-            raise ValueError(f"Training type not found for algorithm {self.alg_cfg['class_name']}.")
++            raise ValueError(f"Training type not found for algorithm {self.distillation_alg_cfg['class_name']}.")
+ 
+         # resolve dimensions of observations
+         self.num_obs = self.env.num_obs
+@@ -83,7 +84,7 @@ class ResidualWholeBodyDistillationRunner:
+         assert lower_body_policy_class in [ActorCritic, ActorCriticRecurrent], "Lower body policy class is expected to be ActorCritic or ActorCriticRecurrent."
+ 
+         
+-        distillation_policy_class = eval(self.distillation_cfg.pop("class_name"))
++        distillation_policy_class = eval(self.residual_whole_body_policy_cfg.pop("class_name"))
+         assert distillation_policy_class in [StudentTeacher, StudentTeacherRecurrent], "Distillation policy class is expected to be StudentTeacher or StudentTeacherRecurrent."
+ 
+ 
+@@ -104,7 +105,7 @@ class ResidualWholeBodyDistillationRunner:
+             num_student_obs=self.num_obs["residual_actor_obs_student"],
+             num_teacher_obs=self.num_obs["residual_actor_obs_teacher"],
+             num_actions=self.num_actions["upper_body"] + self.num_actions["lower_body"],
+-            **self.distillation_cfg
++            **self.residual_whole_body_policy_cfg
+         ).to(self.device)
+         
+         # NOTE: disable gradient for lower and upper body policies
+@@ -115,19 +116,20 @@ class ResidualWholeBodyDistillationRunner:
+         
+         # initialize algorithm
+         self.algs = {}
+-        self.alg_cfg.pop("class_name")
++        self.ppo_alg_cfg.pop("class_name")
+         for body_key in self.body_keys:
+             if body_key != "residual_whole_body":
+                 self.algs[body_key] = PPO(
+                     policy=self.policies[body_key],
+                     device=self.device,
+-                    **self.alg_cfg,
++                    **self.ppo_alg_cfg,
+                     multi_gpu_cfg=self.multi_gpu_cfg
+                 )
++        self.distillation_alg_cfg.pop("class_name")
+         self.distillation_alg = Distillation(
+             policy=self.teacher_student,
+             device=self.device,
+-            **self.alg_cfg,
++            **self.distillation_alg_cfg,
+             multi_gpu_cfg=self.multi_gpu_cfg
+         )
+         # initialize storage
+diff --git a/source/g1_humanoid/g1_humanoid/assets/__init__.py b/source/g1_humanoid/g1_humanoid/assets/__init__.py
+index 0c88e77..dc4d12e 100644
+--- a/source/g1_humanoid/g1_humanoid/assets/__init__.py
++++ b/source/g1_humanoid/g1_humanoid/assets/__init__.py
+@@ -22,6 +22,7 @@ if not os.path.exists(ASSETS_DATA_DIR):
+ try:
+     from .g1_inspire import *  # Replace with actual submodules if needed
+     from .g1_with_plate import *
++    from .g1_with_tray import *
+     from .g1_humanoid import *
+ except ImportError:
+     pass  # If no submodules exist, this can be safely ignored
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
+index 19a08c3..edf64c8 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/agents/rsl_rl_ppo_cfg.py
+@@ -5,7 +5,7 @@
+ 
+ from isaaclab.utils import configclass
+ 
+-from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
++from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg, RslRlDistillationStudentTeacherCfg, RslRlDistillationAlgorithmCfg
+ 
+ 
+ @configclass
+@@ -98,3 +98,56 @@ class G1ResidualWholeBodyPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+         max_grad_norm=1.0,
+     )
+ 
++
++
++@configclass
++class G1ResidualWholeBodyDistillationCfg(RslRlOnPolicyRunnerCfg):
++    num_steps_per_env = 24
++    max_iterations = 50000
++    save_interval = 100
++    experiment_name = "g1_residual_whole_distillation"
++    empirical_normalization = False
++    # residual upper bodypolicy
++    residual_whole_body_policy = RslRlDistillationStudentTeacherCfg(
++        init_noise_std=0.6,
++        student_hidden_dims=[512, 256, 128],
++        teacher_hidden_dims=[512, 256, 128],
++        activation="elu",
++    )
++    # upper body policy
++    upper_body_policy = RslRlPpoActorCriticCfg(
++        init_noise_std=0.6,
++        actor_hidden_dims=[512, 256, 128],
++        critic_hidden_dims=[512, 256, 128],
++        activation="elu",
++    )
++    # lower body policy
++    lower_body_policy = RslRlPpoActorCriticCfg(
++        init_noise_std=0.8,
++        actor_hidden_dims=[512, 256, 128],
++        critic_hidden_dims=[512, 256, 128],
++        activation="elu",
++    )
++
++
++    ppo_algorithm = RslRlPpoAlgorithmCfg(
++        value_loss_coef=1.0,
++        use_clipped_value_loss=True,
++        clip_param=0.2,
++        entropy_coef=0.01,
++        num_learning_epochs=5,
++        num_mini_batches=4,
++        learning_rate=1.0e-3,
++        schedule="adaptive",
++        gamma=0.99,
++        lam=0.95,
++        desired_kl=0.01,
++        max_grad_norm=1.0,
++    )
++
++    distillation_algorithm = RslRlDistillationAlgorithmCfg(
++        num_learning_epochs=5,
++        learning_rate=1.0e-3,
++        gradient_length=4,
++    )
++
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
+index 5838a7a..f8db402 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual/g1_residual_whole_cfg.py
+@@ -13,7 +13,7 @@ from isaaclab.utils import configclass
+ from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
+ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
+ from . import mdp
+-from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
++from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG, G1_WITH_TRAY
+ from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
+ from isaaclab.envs.common import ViewerCfg
+ import isaaclab.terrains as terrain_gen
+@@ -256,7 +256,7 @@ class G1ResidualWholeBodyEnvCfg(DirectRLEnvCfg):
+         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
+     
+     # robot configuration
+-    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
++    robot: ArticulationCfg = G1_WITH_TRAY.replace(prim_path="/World/envs/env_.*/Robot")
+     contact_sensor: ContactSensorCfg = ContactSensorCfg(
+         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
+     )

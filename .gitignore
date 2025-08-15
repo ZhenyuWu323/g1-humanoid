@@ -9,4 +9,16 @@ __pycache__/
 *.pyzwz
 
 outputs/
-logs/
+!scripts/rsl_rl/logs/
+scripts/rsl_rl/logs/*
+
+!scripts/rsl_rl/logs/rsl_rl/
+scripts/rsl_rl/logs/rsl_rl/*
+
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/
+scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/*
+
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_new_usd/
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_new_usd/**
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_old_usd/
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_old_usd/**
