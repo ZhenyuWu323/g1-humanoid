@@ -29,22 +29,16 @@ class ResidualWholeBodyDistillationRunner:
 
     def __init__(self, env: ResidualRslRlVecEnvWrapper, train_cfg: dict, log_dir: str | None = None, device="cpu"):
         self.cfg = train_cfg
-        self.ppo_alg_cfg = train_cfg["ppo_algorithm"]
-        self.distillation_alg_cfg = train_cfg["distillation_algorithm"]
+        self.ppo_cfg = train_cfg['ppo_algorithm']
+        self.distillation_cfg = train_cfg['distillation_algorithm']
         self.upper_body_policy_cfg = train_cfg["upper_body_policy"]
         self.lower_body_policy_cfg = train_cfg["lower_body_policy"]
-        self.residual_whole_body_policy_cfg = train_cfg["residual_whole_body_policy"]
+        self.residual_policy_cfg = train_cfg["residual_whole_body_policy"]
         self.device = device
         self.env = env
 
         # check if multi-gpu is enabled
         self._configure_multi_gpu()
-
-        # resolve training type depending on the algorithm
-        if self.distillation_alg_cfg["class_name"] == "Distillation":
-            self.training_type = "distillation"
-        else:
-            raise ValueError(f"Training type not found for algorithm {self.distillation_alg_cfg['class_name']}.")
 
         # resolve dimensions of observations
         self.num_obs = self.env.num_obs
@@ -53,10 +47,7 @@ class ResidualWholeBodyDistillationRunner:
 
         # keys
         self.body_keys = ['upper_body', 'lower_body', 'residual_whole_body']
-        self.obs_keys = ['actor_obs', 
-                         'critic_obs', 
-                         'residual_actor_obs_teacher', 
-                         'residual_actor_obs_student']
+        self.obs_keys = ['actor_obs', 'critic_obs', 'residual_teacher_obs', 'residual_student_obs']
         
         # setup policies and algorithms
         self.__setup_policy()
@@ -83,10 +74,6 @@ class ResidualWholeBodyDistillationRunner:
         lower_body_policy_class = eval(self.lower_body_policy_cfg.pop("class_name"))
         assert lower_body_policy_class in [ActorCritic, ActorCriticRecurrent], "Lower body policy class is expected to be ActorCritic or ActorCriticRecurrent."
 
-        
-        distillation_policy_class = eval(self.residual_whole_body_policy_cfg.pop("class_name"))
-        assert distillation_policy_class in [StudentTeacher, StudentTeacherRecurrent], "Distillation policy class is expected to be StudentTeacher or StudentTeacherRecurrent."
-
 
         self.policies["upper_body"] = upper_body_policy_class(
             num_actor_obs=self.num_obs["actor_obs"],
@@ -100,38 +87,38 @@ class ResidualWholeBodyDistillationRunner:
             num_actions=self.num_actions["lower_body"],
             **self.lower_body_policy_cfg
         ).to(self.device)
-        
-        self.teacher_student = distillation_policy_class(
-            num_student_obs=self.num_obs["residual_actor_obs_student"],
-            num_teacher_obs=self.num_obs["residual_actor_obs_teacher"],
+        self.policies["residual_whole_body"] = StudentTeacher(
+            num_teacher_obs=self.num_obs["residual_teacher_obs"],
+            num_student_obs=self.num_obs["residual_student_obs"],
             num_actions=self.num_actions["upper_body"] + self.num_actions["lower_body"],
-            **self.residual_whole_body_policy_cfg
+            **self.residual_policy_cfg
         ).to(self.device)
-        
         # NOTE: disable gradient for lower and upper body policies
         for body_key in self.body_keys:
-            if body_key != "residual_whole_body":
+            if body_key == "upper_body" or body_key == "lower_body":
                 for param in self.policies[body_key].parameters():
                     param.requires_grad = False
         
         # initialize algorithm
         self.algs = {}
-        self.ppo_alg_cfg.pop("class_name")
+        self.ppo_cfg.pop("class_name")
+        self.distillation_cfg.pop("class_name")
         for body_key in self.body_keys:
-            if body_key != "residual_whole_body":
+            if body_key == 'residual_whole_body':
+                self.algs[body_key] = Distillation(
+                    policy=self.policies[body_key],
+                    device=self.device,
+                    **self.distillation_cfg,
+                    multi_gpu_cfg=self.multi_gpu_cfg
+                )
+            else:
                 self.algs[body_key] = PPO(
                     policy=self.policies[body_key],
                     device=self.device,
-                    **self.ppo_alg_cfg,
+                    **self.ppo_cfg,
                     multi_gpu_cfg=self.multi_gpu_cfg
                 )
-        self.distillation_alg_cfg.pop("class_name")
-        self.distillation_alg = Distillation(
-            policy=self.teacher_student,
-            device=self.device,
-            **self.distillation_alg_cfg,
-            multi_gpu_cfg=self.multi_gpu_cfg
-        )
+
         # initialize storage
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
         self.save_interval = self.cfg["save_interval"]
@@ -147,7 +134,16 @@ class ResidualWholeBodyDistillationRunner:
 
         # init storage and model
         for body_key in self.body_keys:
-            if body_key != "residual_whole_body":
+            if body_key == "residual_whole_body":
+                self.algs[body_key].init_storage(
+                   "distillation",
+                    self.env.num_envs,
+                    self.num_steps_per_env,
+                    [self.num_obs["residual_student_obs"]],
+                    [self.num_obs["residual_teacher_obs"]],
+                    [self.num_actions["upper_body"] + self.num_actions["lower_body"]],
+                )
+            else:
                 self.algs[body_key].init_storage(
                     "rl",
                     self.env.num_envs,
@@ -156,21 +152,13 @@ class ResidualWholeBodyDistillationRunner:
                     [self.num_obs["critic_obs"]],
                     [self.num_actions[body_key]],
                 )
-        self.distillation_alg.init_storage(
-            "distillation",
-            self.env.num_envs,
-            self.num_steps_per_env,
-            [self.num_obs["residual_actor_obs_student"]],
-            [self.num_obs["residual_actor_obs_teacher"]],
-            [self.num_actions["upper_body"] + self.num_actions["lower_body"]],
-        )
        
 
     def __rollout_step(self, 
                        actor_obs, 
                        critic_obs,
-                       residual_actor_obs_teacher,
-                       residual_actor_obs_student,
+                       residual_student_obs,
+                       residual_teacher_obs,
                        ep_infos, 
                        cur_episode_length, 
                        cur_reward_sum, 
@@ -180,10 +168,10 @@ class ResidualWholeBodyDistillationRunner:
                        lenbuffer):
         action_dict = {}
         for key in self.body_keys:
-            if key != "residual_whole_body":
+            if key == "residual_whole_body":
+                action_dict[key] = self.algs[key].act(residual_student_obs, residual_teacher_obs)
+            else:
                 action_dict[key] = self.algs[key].policy.act_inference(actor_obs) # NOTE: inference for lower and upper body
-        
-        residual_action = self.distillation_alg.act(residual_actor_obs_student, residual_actor_obs_teacher)
         # Step the environment
         action = torch.cat([action_dict["upper_body"], action_dict["lower_body"]], dim=1)
         #action += action_dict["residual_whole_body"] # NOTE: RESIDUAL ACTIONS ARE ADDED TO THE WHOLE BODY ACTIONS
@@ -191,27 +179,27 @@ class ResidualWholeBodyDistillationRunner:
         assert action_dict["lower_body"].shape[1] == 15, "Lower body should have 15 actions"
         assert action.shape[1] == 29, "Total actions should be 29"
         action_dict['base_action'] = action
-        action_dict['residual_action'] = residual_action
+        action_dict['residual_action'] = action_dict["residual_whole_body"]
+        action_dict.pop("residual_whole_body", None)
         action_dict.pop("upper_body", None)
         action_dict.pop("lower_body", None)
 
         obs, rewards, dones, infos = self.env.step(action_dict)
         actor_obs, critic_obs = obs["actor_obs"], obs["critic_obs"]
-        residual_actor_obs_student, residual_actor_obs_teacher = obs["residual_actor_obs_student"], obs["residual_actor_obs_teacher"]
+        residual_student_obs, residual_teacher_obs = obs["residual_student_obs"], obs["residual_teacher_obs"]
         # Move to device
         actor_obs, critic_obs, dones = (actor_obs.to(self.device), critic_obs.to(self.device), dones.to(self.device))
-        residual_actor_obs_student, residual_actor_obs_teacher = residual_actor_obs_student.to(self.device), residual_actor_obs_teacher.to(self.device)
+        residual_student_obs, residual_teacher_obs = residual_student_obs.to(self.device), residual_teacher_obs.to(self.device)
         rewards = {key: rewards[key].to(self.device) for key in self.body_keys}
         # perform normalization
         actor_obs = self.actor_obs_normalizer(actor_obs)
         critic_obs = self.critic_obs_normalizer(critic_obs)
-        residual_actor_obs_student = self.actor_obs_normalizer(residual_actor_obs_student)
-        residual_actor_obs_teacher = self.actor_obs_normalizer(residual_actor_obs_teacher)
-
+        residual_student_obs = self.actor_obs_normalizer(residual_student_obs)
+        residual_teacher_obs = self.actor_obs_normalizer(residual_teacher_obs)
         # process the step
         for key in self.body_keys:
             if key == "residual_whole_body":
-                self.distillation_alg.process_env_step(rewards[key], dones, infos) # NOTE: residual whole body is trained
+                self.algs[key].process_env_step(rewards[key], dones, infos) # NOTE: residual whole body is trained
         
         # book keeping
         if self.log_dir is not None:
@@ -236,7 +224,7 @@ class ResidualWholeBodyDistillationRunner:
             for key in self.body_keys:
                 cur_reward_sum_dict[key][new_ids] = 0
 
-        return actor_obs, critic_obs, residual_actor_obs_teacher, residual_actor_obs_student
+        return actor_obs, critic_obs, residual_student_obs, residual_teacher_obs
     
 
 
@@ -272,8 +260,8 @@ class ResidualWholeBodyDistillationRunner:
 
         # start learning
         obs, _ = self.env.get_observations()
-        actor_obs, critic_obs, residual_actor_obs_student, residual_actor_obs_teacher = obs["actor_obs"], obs["critic_obs"], obs["residual_actor_obs_student"], obs["residual_actor_obs_teacher"]
-        actor_obs, critic_obs, residual_actor_obs_student, residual_actor_obs_teacher = actor_obs.to(self.device), critic_obs.to(self.device), residual_actor_obs_student.to(self.device), residual_actor_obs_teacher.to(self.device)
+        actor_obs, critic_obs, residual_student_obs, residual_teacher_obs = obs["actor_obs"], obs["critic_obs"], obs["residual_student_obs"], obs["residual_teacher_obs"]
+        actor_obs, critic_obs, residual_student_obs, residual_teacher_obs = actor_obs.to(self.device), critic_obs.to(self.device), residual_student_obs.to(self.device), residual_teacher_obs.to(self.device)
         self.train_mode()  # switch to train mode (for dropout for example)
 
         # Book keeping
@@ -294,7 +282,7 @@ class ResidualWholeBodyDistillationRunner:
             # Rollout
             with torch.inference_mode():
                 for _ in range(self.num_steps_per_env):
-                    actor_obs, critic_obs, residual_actor_obs_teacher, residual_actor_obs_student = self.__rollout_step(actor_obs, critic_obs, residual_actor_obs_teacher, residual_actor_obs_student, ep_infos, cur_episode_length, cur_reward_sum, cur_reward_sum_dict, rewbuffer, rewbuffer_dict, lenbuffer)
+                    actor_obs, critic_obs, residual_student_obs, residual_teacher_obs = self.__rollout_step(actor_obs, critic_obs, residual_student_obs, residual_teacher_obs, ep_infos, cur_episode_length, cur_reward_sum, cur_reward_sum_dict, rewbuffer, rewbuffer_dict, lenbuffer)
 
                 stop = time.time()
                 collection_time = stop - start
@@ -304,7 +292,7 @@ class ResidualWholeBodyDistillationRunner:
             loss_dict = {}
             for key in self.body_keys:
                 if key == "residual_whole_body":
-                    loss_dict[key] = self.distillation_alg.update()
+                    loss_dict[key] = self.algs[key].update()
                
             stop = time.time()
             learn_time = stop - start
@@ -372,12 +360,12 @@ class ResidualWholeBodyDistillationRunner:
                 for loss_name, loss_value in body_loss_dict.items():
                     self.writer.add_scalar(f"Loss/{loss_name}_{body_key}", loss_value, locs["it"])
                 # Learning rate for each body part
-                self.writer.add_scalar(f"Loss/learning_rate_{body_key}", self.distillation_alg.learning_rate, locs["it"])
+                self.writer.add_scalar(f"Loss/learning_rate_{body_key}", self.algs[body_key].learning_rate, locs["it"])
 
         # -- Policy (Multi-Actor-Critic)
         for body_key in self.body_keys:
             if body_key == "residual_whole_body":
-                mean_std = self.distillation_alg.policy.action_std.mean()
+                mean_std = self.policies[body_key].action_std.mean()
                 self.writer.add_scalar(f"Policy/mean_noise_std_{body_key}", mean_std.item(), locs["it"])
 
         # -- Performance
@@ -417,7 +405,7 @@ class ResidualWholeBodyDistillationRunner:
             # -- Action noise std for each body part
             for body_key in self.body_keys:
                 if body_key == "residual_whole_body":
-                    mean_std = self.teacher_student.action_std.mean()
+                    mean_std = self.policies[body_key].action_std.mean()
                     log_string += f"""{'Mean action noise std (' + body_key + '):':>{pad}} {mean_std.item():.2f}\n"""
             
             # -- Losses for each body part
@@ -451,7 +439,7 @@ class ResidualWholeBodyDistillationRunner:
             # -- Action noise std for each body part
             for body_key in self.body_keys:
                 if body_key == "residual_whole_body":
-                    mean_std = self.teacher_student.action_std.mean()
+                    mean_std = self.policies[body_key].action_std.mean()
                     log_string += f"""{'Mean action noise std (' + body_key + '):':>{pad}} {mean_std.item():.2f}\n"""
             
             # -- Losses for each body part
@@ -478,15 +466,13 @@ class ResidualWholeBodyDistillationRunner:
         # save model
         saved_dict.update({
             f"model_state_dict_{key}": self.algs[key].policy.state_dict()
-            for key in self.body_keys if key != "residual_whole_body"
+            for key in self.body_keys
         })
-        saved_dict["model_state_dict_residual_whole_body"] = self.distillation_alg.policy.state_dict()
         # save optimizer
         saved_dict.update({
             f"optimizer_state_dict_{key}": self.algs[key].optimizer.state_dict()
-            for key in self.body_keys if key != "residual_whole_body"
+            for key in self.body_keys
         })
-        saved_dict["optimizer_state_dict_residual_whole_body"] = self.distillation_alg.optimizer.state_dict()
         # save iteration
         saved_dict["iter"] = self.current_learning_iteration
         # save infos
@@ -509,11 +495,10 @@ class ResidualWholeBodyDistillationRunner:
         # -- Load model
         resumed_training = True
         for body_key in self.body_keys:
-            if body_key != "residual_whole_body":
-                self.algs[body_key].policy.load_state_dict(loaded_dict[f"model_state_dict_{body_key}"])
+            if body_key == "residual_whole_body":
+                resumed_training = self.algs[body_key].policy.load_state_dict(loaded_dict[f"model_state_dict_{body_key}"])
             else:
-                resumed_training = self.distillation_alg.policy.load_state_dict(loaded_dict[f"model_state_dict_{body_key}"])
-            
+                self.algs[body_key].policy.load_state_dict(loaded_dict[f"model_state_dict_{body_key}"])
         
         # -- Load observation normalizer if used
         if self.empirical_normalization:
@@ -529,10 +514,14 @@ class ResidualWholeBodyDistillationRunner:
         # -- load optimizer if used
         if load_optimizer and resumed_training:
             for body_key in self.body_keys:
-                if body_key != "residual_whole_body":
+                try:
                     self.algs[body_key].optimizer.load_state_dict(loaded_dict[f"optimizer_state_dict_{body_key}"])
-                else:
-                    self.distillation_alg.optimizer.load_state_dict(loaded_dict[f"optimizer_state_dict_{body_key}"])
+                except KeyError:
+                    if body_key == "residual_whole_body":
+                        print(f"Warning: optimizer for {body_key} not found in checkpoint, skipping...")
+                        continue
+                    else:
+                        raise
         
         # -- load current learning iteration
         if resumed_training:
@@ -546,19 +535,15 @@ class ResidualWholeBodyDistillationRunner:
         # Move all policies to device if specified
         if device is not None:
             for body_key in self.body_keys:
-                if body_key != "residual_whole_body":
-                    self.algs[body_key].policy.to(device)
-                else:
-                    self.distillation_alg.policy.student.to(device)
-                    self.distillation_alg.policy.teacher.to(device)
+                self.algs[body_key].policy.to(device)
             if self.empirical_normalization:
                 self.actor_obs_normalizer.to(device)
         
-        def multi_actor_inference_policy(obs, residual_obs_student):
+        def multi_actor_inference_policy(obs, residual_obs):
             # Apply normalization if enabled
             if self.empirical_normalization:
                 obs = self.actor_obs_normalizer(obs)
-                residual_obs_student = self.actor_obs_normalizer(residual_obs_student)
+                residual_obs = self.actor_obs_normalizer(residual_obs)
             
             # Get actions from each body part
             actions_list = []
@@ -570,7 +555,7 @@ class ResidualWholeBodyDistillationRunner:
             combined_actions = torch.cat(actions_list, dim=1)
 
             # residual actions
-            residual_actions = self.distillation_alg.policy.act_inference(residual_obs_student)
+            residual_actions = self.algs["residual_whole_body"].policy.act_inference(residual_obs)
             action_dict = {
                 "base_action": combined_actions,
                 "residual_action": residual_actions
@@ -583,8 +568,8 @@ class ResidualWholeBodyDistillationRunner:
         # -- PPO
         for body_key in self.body_keys:
             if body_key == "residual_whole_body":
-                self.distillation_alg.policy.student.train()
-                self.distillation_alg.policy.teacher.eval()
+                self.algs[body_key].policy.student.train()
+                self.algs[body_key].policy.teacher.eval()
             else:
                 self.algs[body_key].policy.eval()
                 for param in self.algs[body_key].policy.parameters():
@@ -597,11 +582,11 @@ class ResidualWholeBodyDistillationRunner:
     def eval_mode(self):
         # -- PPO
         for body_key in self.body_keys:
-            if body_key != "residual_whole_body":
-                self.algs[body_key].policy.eval()
+            if body_key == "residual_whole_body":
+                self.algs[body_key].policy.student.eval()
+                self.algs[body_key].policy.teacher.eval()
             else:
-                self.distillation_alg.policy.student.eval()
-                self.distillation_alg.policy.teacher.eval()
+                self.algs[body_key].policy.eval()
         # -- Normalization
         if self.empirical_normalization:
             self.actor_obs_normalizer.eval()

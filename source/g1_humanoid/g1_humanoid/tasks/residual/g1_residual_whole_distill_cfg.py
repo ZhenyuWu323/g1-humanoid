@@ -202,8 +202,8 @@ class G1ResidualWholeBodyDistillEnvCfg(DirectRLEnvCfg):
     observation_space = {
         "actor_obs": 482,
         "critic_obs": 497,
-        "residual_actor_obs_student": 482 + 35,
-        "residual_actor_obs_teacher": 497 + 45 + 60,
+        "residual_student_obs": 482 + 35,
+        "residual_teacher_obs": 497 + 45 + 60,
     }
     action_dim= {
         "upper_body": 14,
@@ -289,6 +289,7 @@ class G1ResidualWholeBodyDistillEnvCfg(DirectRLEnvCfg):
     upper_body_names = arm_names 
     feet_body_name = ".*_ankle_roll_link"
     plate_name = "plate"
+    camera_name = 'd435_link'
 
     # gait phase
     gait_period = 0.8

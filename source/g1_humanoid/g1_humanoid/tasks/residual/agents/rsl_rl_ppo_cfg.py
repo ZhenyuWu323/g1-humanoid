@@ -63,7 +63,7 @@ class G1ResidualWholeBodyPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     empirical_normalization = False
     # residual upper bodypolicy
     residual_whole_body_policy = RslRlPpoActorCriticCfg(
-        init_noise_std=0.6,
+        init_noise_std=1.0,
         actor_hidden_dims=[512, 256, 128],
         critic_hidden_dims=[512, 256, 128],
         activation="elu",
@@ -109,7 +109,7 @@ class G1ResidualWholeBodyDistillationCfg(RslRlOnPolicyRunnerCfg):
     empirical_normalization = False
     # residual upper bodypolicy
     residual_whole_body_policy = RslRlDistillationStudentTeacherCfg(
-        init_noise_std=0.6,
+        init_noise_std=0.001,
         student_hidden_dims=[512, 256, 128],
         teacher_hidden_dims=[512, 256, 128],
         activation="elu",
@@ -148,6 +148,6 @@ class G1ResidualWholeBodyDistillationCfg(RslRlOnPolicyRunnerCfg):
     distillation_algorithm = RslRlDistillationAlgorithmCfg(
         num_learning_epochs=5,
         learning_rate=1.0e-3,
-        gradient_length=4,
+        gradient_length=5,
     )
 

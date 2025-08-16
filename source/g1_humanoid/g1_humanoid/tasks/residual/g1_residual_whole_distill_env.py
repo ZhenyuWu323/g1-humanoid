@@ -47,6 +47,9 @@ class G1ResidualWholeBodyDistillEnv(DirectRLEnv):
         # plate body index
         self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
 
+        # camera body index
+        self.camera_body_index = self.robot.data.body_names.index(self.cfg.camera_name)
+
 
         # body/link indexes
         self.feet_body_indexes = self.robot.find_bodies(self.cfg.feet_body_name)[0]
@@ -159,8 +162,8 @@ class G1ResidualWholeBodyDistillEnv(DirectRLEnv):
         object_pose_in_camera = compute_object_pose_in_camera_frame(
             object_quat_w=self._object.data.body_link_quat_w[:, 0, :],
             object_pos_w=self._object.data.body_pos_w[:, 0, :],
-            camera_quat_w=self.robot.data.body_link_quat_w[:, self.ref_body_index, :],
-            camera_pos_w=self.robot.data.body_pos_w[:, self.ref_body_index, :],
+            camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
+            camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
         ) # x, y, z, qw, qx, qy, qz
         
         # fill the history length
@@ -282,8 +285,8 @@ class G1ResidualWholeBodyDistillEnv(DirectRLEnv):
         object_pose_in_camera = compute_object_pose_in_camera_frame(
             object_quat_w=self._object.data.body_link_quat_w[:, 0, :],
             object_pos_w=self._object.data.body_pos_w[:, 0, :],
-            camera_quat_w=self.robot.data.body_link_quat_w[:, self.ref_body_index, :],
-            camera_pos_w=self.robot.data.body_pos_w[:, self.ref_body_index, :],
+            camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
+            camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
         ) # x, y, z, qw, qx, qy, qz
         self.object_pose_in_camera_buffer.append(object_pose_in_camera)
 
@@ -415,8 +418,8 @@ class G1ResidualWholeBodyDistillEnv(DirectRLEnv):
         observations = {
             "actor_obs": actor_obs, 
             "critic_obs": critic_obs, 
-            "residual_actor_obs_student": residual_actor_student_obs, 
-            "residual_actor_obs_teacher": residual_actor_teacher_obs}
+            "residual_student_obs": residual_actor_student_obs, 
+            "residual_teacher_obs": residual_actor_teacher_obs}
         return observations
 
     def _get_rewards(self) -> dict:

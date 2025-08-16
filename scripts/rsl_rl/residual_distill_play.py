@@ -153,7 +153,7 @@ def main():
         # run everything in inference mode
         with torch.inference_mode():
             # agent stepping
-            actor_obs, critic_obs, residual_actor_obs_student, residual_actor_obs_teacher = obs["actor_obs"], obs["critic_obs"], obs["residual_actor_obs_student"], obs["residual_actor_obs_teacher"]
+            actor_obs, critic_obs, residual_actor_obs_student, residual_actor_obs_teacher = obs["actor_obs"], obs["critic_obs"], obs["residual_student_obs"], obs["residual_teacher_obs"]
             actions = policy(actor_obs, residual_actor_obs_student)
             # env stepping
             obs, _, _, _ = env.step(actions)
