@@ -348,6 +348,12 @@ class G1ResidualWholeBodyDistillEnvCfg(DirectRLEnvCfg):
         "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
         "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
         "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
+        "object_pose_in_camera": NoiseModelCfg(
+            noise_cfg=GaussianNoiseCfg(
+                mean=0.0, 
+                std=0.01
+            )
+        ),
     }
 
     # clips

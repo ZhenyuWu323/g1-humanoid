@@ -147,7 +147,7 @@ class G1ResidualWholeBodyDistillationCfg(RslRlOnPolicyRunnerCfg):
 
     distillation_algorithm = RslRlDistillationAlgorithmCfg(
         num_learning_epochs=5,
-        learning_rate=1.0e-3,
-        gradient_length=5,
+        learning_rate=1.0e-4,
+        gradient_length=1,
     )
 
