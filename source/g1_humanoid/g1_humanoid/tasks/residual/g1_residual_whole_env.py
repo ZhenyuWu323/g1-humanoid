@@ -107,6 +107,10 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
                 "penalty_object_flat_orientation",
                 "object_upright_bonus",
                 "tracking_upper_body_dof_pos",
+                "penalty_plate_lin_acc",
+                "penalty_plate_ang_acc",
+                "tracking_zero_plate_lin_acc",
+                "tracking_zero_plate_ang_acc",
             ]
         }
 
@@ -614,6 +618,36 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             sigma=0.1,
         )
 
+        # plate linear acceleration l2
+        penalty_plate_lin_acc = mdp.body_acc_l2(
+            body_acc_w=self.robot.data.body_lin_acc_w,
+            body_idx=self.plate_body_index,
+            weight=-0.01,
+        )
+
+        # plate angular acceleration l2
+        penalty_plate_ang_acc = mdp.body_acc_l2(
+            body_acc_w=self.robot.data.body_ang_acc_w,
+            body_idx=self.plate_body_index,
+            weight=-0.001,
+        )
+
+        # plate tracking zero linear acceleration
+        tracking_zero_plate_lin_acc = mdp.body_acc_exp(
+            body_acc_w=self.robot.data.body_lin_acc_w,
+            body_idx=self.plate_body_index,
+            weight=1.0,
+            lambda_acc=0.25,
+        )
+
+        # plate tracking zero angular acceleration
+        tracking_zero_plate_ang_acc = mdp.body_acc_exp(
+            body_acc_w=self.robot.data.body_ang_acc_w,
+            body_idx=self.plate_body_index,
+            weight=1.0,
+            lambda_acc=0.25,
+        )
+
         # alive reward
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
         # locomotion reward
@@ -643,7 +677,11 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
             penalty_upper_body_dof_vel + 
             penalty_object_pos_deviation +
             penalty_object_flat_orientation +
-            object_upright_bonus
+            object_upright_bonus +
+            penalty_plate_lin_acc +
+            penalty_plate_ang_acc +
+            tracking_zero_plate_lin_acc +
+            tracking_zero_plate_ang_acc
         )
 
         residual_whole_body_reward = residual_upper_body_reward + residual_lower_body_reward + alive_reward
@@ -656,6 +694,10 @@ class G1ResidualWholeBodyEnv(DirectRLEnv):
         self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
         self._episode_sums["object_upright_bonus"] += object_upright_bonus
         self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
+        self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
+        self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
+        self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
+        self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
         # reward 
         residual_whole_body_reward = residual_whole_body_reward * self.step_dt
         lower_body_reward = torch.zeros(self.num_envs, device=self.device)
