@@ -11,13 +11,13 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import quat_rotate
-from isaaclab.sensors import ContactSensor
+from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_decoupled_obj_cfg import G1DecoupledEnvCfg, G1DecoupledPlateEnvCfg, G1DecoupledPlateObjectEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
-from .utils import compute_projected_gravity
+from .utils import compute_dof_pos_tracking_weight, compute_object_pose_in_camera_frame, compute_projected_gravity
 from isaaclab.envs.common import VecEnvStepReturn
 from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
@@ -47,7 +47,7 @@ class G1DecoupledEnv(DirectRLEnv):
         # plate body index
         if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
             self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
-
+            self.camera_body_index = self.robot.data.body_names.index(self.cfg.camera_name)
 
         # body/link indexes
         self.feet_body_indexes = self.robot.find_bodies(self.cfg.feet_body_name)[0]
@@ -95,11 +95,10 @@ class G1DecoupledEnv(DirectRLEnv):
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for key in [
-                # "penalty_plate_flat_orientation",
-                # "penalty_plate_lin_acc",
-                # "penalty_plate_ang_acc",
-                # "tracking_zero_plate_lin_acc",
-                # "tracking_zero_plate_ang_acc", 
+                "tracking_lin_vel_xy",
+                "tracking_ang_vel_z",
+                "gait_phase_reward",
+                "feet_clearance_reward",
                 "penalty_object_pos_deviation",
                 "penalty_object_flat_orientation",
                 "object_upright_bonus",
@@ -122,7 +121,8 @@ class G1DecoupledEnv(DirectRLEnv):
             self.plate_lin_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
             self.plate_ang_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
-            self.object_plate_rel_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+            #self.object_plate_rel_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+            self.object_pose_in_camera_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
             self.projected_gravity_object_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
             self.object_lin_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
             self.object_ang_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
@@ -141,7 +141,13 @@ class G1DecoupledEnv(DirectRLEnv):
             plate_lin_vel_w = self.robot.data.body_lin_vel_w[:, self.plate_body_index, :].to(self.sim.device)
             plate_ang_vel_w = self.robot.data.body_ang_vel_w[:, self.plate_body_index, :].to(self.sim.device)
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
-            object_plate_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
+            #object_plate_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
+            object_pose_in_camera = compute_object_pose_in_camera_frame(
+                object_quat_w=self._object.data.body_link_quat_w[:, 0, :],
+                object_pos_w=self._object.data.body_pos_w[:, 0, :],
+                camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
+                camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
+            ) # x, y, z, qw, qx, qy, qz
             projected_gravity_object = quat_apply_inverse(self._object.data.root_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
             object_lin_vel_w = self._object.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
             object_ang_vel_w = self._object.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
@@ -160,7 +166,8 @@ class G1DecoupledEnv(DirectRLEnv):
                 self.plate_lin_vel_buffer.append(plate_lin_vel_w)
                 self.plate_ang_vel_buffer.append(plate_ang_vel_w)
             if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
-                self.object_plate_rel_pos_buffer.append(object_plate_rel_pos)
+                #self.object_plate_rel_pos_buffer.append(object_plate_rel_pos)
+                self.object_pose_in_camera_buffer.append(object_pose_in_camera)
                 self.projected_gravity_object_buffer.append(projected_gravity_object)
                 self.object_lin_vel_buffer.append(object_lin_vel_w)
                 self.object_ang_vel_buffer.append(object_ang_vel_w)
@@ -174,10 +181,14 @@ class G1DecoupledEnv(DirectRLEnv):
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
 
+        # height scanner
+        self._height_scanner = RayCaster(self.cfg.height_scanner)
+        self.scene.sensors["height_scanner"] = self._height_scanner
+
         # number of envs
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+        self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
         # object
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
@@ -241,14 +252,31 @@ class G1DecoupledEnv(DirectRLEnv):
             self.plate_lin_vel_buffer.append(plate_lin_vel_w)
             self.plate_ang_vel_buffer.append(plate_ang_vel_w)
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
-            object_plate_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
+            #object_plate_rel_pos = self._object.data.body_pos_w[:, 0, :] - self.robot.data.body_pos_w[:, self.plate_body_index, :]
+            object_pose_in_camera = compute_object_pose_in_camera_frame(
+                object_quat_w=self._object.data.body_link_quat_w[:, 0, :],
+                object_pos_w=self._object.data.body_pos_w[:, 0, :],
+                camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
+                camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
+            ) # x, y, z, qw, qx, qy, qz
             projected_gravity_object = quat_apply_inverse(self._object.data.root_quat_w, self.robot.data.GRAVITY_VEC_W).to(self.sim.device)
             object_lin_vel_w = self._object.data.body_lin_vel_w[:, 0, :].to(self.sim.device)
             object_ang_vel_w = self._object.data.body_ang_vel_w[:, 0, :].to(self.sim.device)
-            self.object_plate_rel_pos_buffer.append(object_plate_rel_pos)
+            #self.object_plate_rel_pos_buffer.append(object_plate_rel_pos)
+            self.object_pose_in_camera_buffer.append(object_pose_in_camera)
             self.projected_gravity_object_buffer.append(projected_gravity_object)
             self.object_lin_vel_buffer.append(object_lin_vel_w)
             self.object_ang_vel_buffer.append(object_ang_vel_w)
+
+
+    def _apply_observation_noise(self, observations_dict: dict) -> dict:
+        noisy_observations_dict = {}
+        for obs_name, obs_value in observations_dict.items():
+            if obs_name in self.cfg.obs_noise_models:
+                noisy_observations_dict[obs_name] = self.obs_noise_models[obs_name].apply(obs_value)
+            else:
+                noisy_observations_dict[obs_name] = obs_value
+        return noisy_observations_dict
 
     def _get_observations(self) -> dict:
 
@@ -317,21 +345,25 @@ class G1DecoupledEnv(DirectRLEnv):
         # add object observations if using object
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
             # object observations
-            object_plate_rel_pos_buffer_flat = self.object_plate_rel_pos_buffer.buffer.reshape(self.num_envs, -1)
+            #object_plate_rel_pos_buffer_flat = self.object_plate_rel_pos_buffer.buffer.reshape(self.num_envs, -1)
+            object_pose_in_camera_buffer_flat = self.object_pose_in_camera_buffer.buffer.reshape(self.num_envs, -1)
             projected_gravity_object_buffer_flat = self.projected_gravity_object_buffer.buffer.reshape(self.num_envs, -1)
             object_lin_vel_buffer_flat = self.object_lin_vel_buffer.buffer.reshape(self.num_envs, -1)
             object_ang_vel_buffer_flat = self.object_ang_vel_buffer.buffer.reshape(self.num_envs, -1)
 
-            actor_observations_dict['object_plate_rel_pos'] = object_plate_rel_pos_buffer_flat
+            #actor_observations_dict['object_plate_rel_pos'] = object_plate_rel_pos_buffer_flat
+            actor_observations_dict['object_pose_in_camera'] = object_pose_in_camera_buffer_flat
             actor_observations_dict['projected_gravity_object'] = projected_gravity_object_buffer_flat
             actor_observations_dict['object_lin_vel_w'] = object_lin_vel_buffer_flat
             actor_observations_dict['object_ang_vel_w'] = object_ang_vel_buffer_flat
             
-            critic_observations_dict['object_plate_rel_pos'] = object_plate_rel_pos_buffer_flat
+            #critic_observations_dict['object_plate_rel_pos'] = object_plate_rel_pos_buffer_flat
+            critic_observations_dict['object_pose_in_camera'] = object_pose_in_camera_buffer_flat
             critic_observations_dict['projected_gravity_object'] = projected_gravity_object_buffer_flat
             critic_observations_dict['object_lin_vel_w'] = object_lin_vel_buffer_flat
             critic_observations_dict['object_ang_vel_w'] = object_ang_vel_buffer_flat
 
+        # scale observations
         actor_scaled_obs = {}
         critic_scaled_obs = {}
         for obs_name, obs_value in actor_observations_dict.items():
@@ -346,7 +378,12 @@ class G1DecoupledEnv(DirectRLEnv):
                 critic_scaled_obs[obs_name] = obs_value * scale
             else:
                 critic_scaled_obs[obs_name] = obs_value
-        actor_obs_list = list(actor_scaled_obs.values())
+
+        # apply observation noise
+        actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs)
+
+        # compute observations
+        actor_obs_list = list(actor_noisy_obs.values())
         critic_obs_list = list(critic_scaled_obs.values())
 
         # build task observation
@@ -499,7 +536,10 @@ class G1DecoupledEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=(1.0 - self.stable_cmd) * 1.0 + self.stable_cmd * 0.5,
+            weight=(1 - self.stable_cmd) + self.stable_cmd * compute_dof_pos_tracking_weight(
+                self._object.data.body_link_quat_w[:, 0, :], 
+                self.robot.data.GRAVITY_VEC_W
+            ),
             sigma=0.1,
         )
 
@@ -606,6 +646,14 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_upper_body_dof_vel + 
             alive_reward
         )
+
+        self._episode_sums["tracking_lin_vel_xy"] += tracking_lin_vel_xy
+        self._episode_sums["tracking_ang_vel_z"] += tracking_ang_vel_z
+        self._episode_sums["gait_phase_reward"] += feet_gait_reward
+        self._episode_sums["feet_clearance_reward"] += feet_clearance_reward
+        self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
+        
+        
         # # add plate rewards if using plate
         # if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
         #     upper_body_reward += (
@@ -634,7 +682,6 @@ class G1DecoupledEnv(DirectRLEnv):
             self._episode_sums["penalty_object_pos_deviation"] += penalty_object_pos_deviation
             self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
             self._episode_sums["object_upright_bonus"] += object_upright_bonus
-            self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
 
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt
@@ -649,8 +696,15 @@ class G1DecoupledEnv(DirectRLEnv):
         return died, time_out
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
+        extras = dict()
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
+
+        # apply terrain curriculum
+        if self.cfg.terrain_generator_cfg.curriculum:
+            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
+            extras["Curriculum/terrain_level"] = avg_terrain_level.item()
+
 
         # apply acceleration reward curriculum
         if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
@@ -684,7 +738,8 @@ class G1DecoupledEnv(DirectRLEnv):
             self.plate_lin_vel_buffer.reset(env_ids)
             self.plate_ang_vel_buffer.reset(env_ids)
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
-            self.object_plate_rel_pos_buffer.reset(env_ids)
+            #self.object_plate_rel_pos_buffer.reset(env_ids)
+            self.object_pose_in_camera_buffer.reset(env_ids)
             self.projected_gravity_object_buffer.reset(env_ids)
             self.object_lin_vel_buffer.reset(env_ids)
             self.object_ang_vel_buffer.reset(env_ids)
@@ -700,7 +755,6 @@ class G1DecoupledEnv(DirectRLEnv):
             self._object.write_root_velocity_to_sim(object_vel, env_ids=env_ids)
 
         # reset logging
-        extras = dict()
         for key in self._episode_sums.keys():
             episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
             extras["Episode_Reward/" + key] = episodic_sum_avg / self.max_episode_length_s

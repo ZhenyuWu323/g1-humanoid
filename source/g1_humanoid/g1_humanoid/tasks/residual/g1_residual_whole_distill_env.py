@@ -413,7 +413,12 @@ class G1ResidualWholeBodyDistillEnv(DirectRLEnv):
 
         # apply obs noise on pretain model
         actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs) # NOTE: ONLY APPLY NOISE ON PRETAIN ACTOR OBS
-        #residual_actor_student_noisy_obs_dict = self._apply_observation_noise(residual_actor_student_scaled_obs_dict)
+        
+        # apply noise on residual actor student obs # NOTE: ADDING NOISE WONT CONVERGE
+        # residual_actor_student_noisy_obs_dict = actor_noisy_obs.copy()
+        # residual_actor_student_noisy_obs_dict['actions'] = residual_action_buffer_flat
+        # residual_actor_student_noisy_obs_dict['object_pose_in_camera'] = self.obs_noise_models['object_pose_in_camera'].apply(object_pose_in_camera_buffer_flat)
+
 
         actor_obs = compute_obs(list(actor_noisy_obs.values()))
         critic_obs = compute_obs(list(critic_scaled_obs.values()))
