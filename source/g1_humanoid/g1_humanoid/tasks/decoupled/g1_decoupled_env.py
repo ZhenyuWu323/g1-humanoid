@@ -11,7 +11,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import quat_rotate
-from isaaclab.sensors import ContactSensor
+from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
 from .g1_decoupled_cfg import G1DecoupledEnvCfg, G1DecoupledPlateEnvCfg, G1DecoupledPlateObjectEnvCfg
@@ -95,16 +95,16 @@ class G1DecoupledEnv(DirectRLEnv):
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for key in [
-                # "penalty_plate_flat_orientation",
-                # "penalty_plate_lin_acc",
-                # "penalty_plate_ang_acc",
-                # "tracking_zero_plate_lin_acc",
-                # "tracking_zero_plate_ang_acc", 
+                "penalty_plate_flat_orientation",
+                "penalty_plate_lin_acc",
+                "penalty_plate_ang_acc",
+                "tracking_zero_plate_lin_acc",
+                "tracking_zero_plate_ang_acc", 
                 "penalty_object_pos_deviation",
                 "object_on_plate_reward",
                 "penalty_object_flat_orientation",
-                "object_upright_bonus",
-                "tracking_upper_body_dof_pos",
+                #"penalty_root_ang_acc",
+                #"tracking_zero_root_ang_acc",
             ]
         }
 
@@ -160,10 +160,14 @@ class G1DecoupledEnv(DirectRLEnv):
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
 
+        # height scanner
+        self._height_scanner = RayCaster(self.cfg.height_scanner)
+        self.scene.sensors["height_scanner"] = self._height_scanner
+
         # number of envs
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+        self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
         # object
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
@@ -261,7 +265,8 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat, # 145
             'dof_vel': dof_vel_buffer_flat, # 145
             'actions': action_buffer_flat, # 145
-            
+            #'sin_phase': sin_phase, # 1
+            #'cos_phase': cos_phase, # 1
         }
         critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
@@ -272,7 +277,8 @@ class G1DecoupledEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
             'actions': action_buffer_flat,
-            
+            #'sin_phase': sin_phase,
+            #'cos_phase': cos_phase,
         }
 
         # add plate observations if using plate
@@ -315,7 +321,6 @@ class G1DecoupledEnv(DirectRLEnv):
         """
         Lower Body Tracking Rewards
         """
-        
         tracking_lin_vel_xy = mdp.track_lin_vel_xy_yaw_frame_exp(
             root_quat_w=self.robot.data.root_quat_w,
             root_lin_vel_w=self.robot.data.root_lin_vel_w,
@@ -453,7 +458,7 @@ class G1DecoupledEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=1.0 * (1.0 - self.activate_acc_reward),
+            weight=1.0,
             sigma=0.1,
         )
 
@@ -499,44 +504,45 @@ class G1DecoupledEnv(DirectRLEnv):
         """
         Upper Body Plate Rewards
         """
-        # if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
-        #     # plate flat orientation
-        #     penalty_plate_flat_orientation = mdp.body_orientation_l2(
-        #         body_rot_w=self.robot.data.body_link_quat_w,
-        #         gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
-        #         body_idx=self.plate_body_index,
-        #         weight=-5.0,
-        #     )
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+            # plate flat orientation
+            penalty_plate_flat_orientation = mdp.body_orientation_l2(
+                body_rot_w=self.robot.data.body_link_quat_w,
+                gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
+                body_idx=self.plate_body_index,
+                weight=-5.0,
+            )
 
-        #     # plate linear acceleration l2
-        #     penalty_plate_lin_acc = mdp.body_acc_l2(
-        #         body_acc_w=self.robot.data.body_lin_acc_w,
-        #         body_idx=self.plate_body_index,
-        #         weight=-0.01 * self.activate_acc_reward,
-        #     )
+            # plate linear acceleration l2
+            penalty_plate_lin_acc = mdp.body_acc_l2(
+                body_acc_w=self.robot.data.body_lin_acc_w,
+                body_idx=self.plate_body_index,
+                weight=-0.01 * self.activate_acc_reward,
+            )
 
-        #     # plate angular acceleration l2
-        #     penalty_plate_ang_acc = mdp.body_acc_l2(
-        #         body_acc_w=self.robot.data.body_ang_acc_w,
-        #         body_idx=self.plate_body_index,
-        #         weight=-0.001 * self.activate_acc_reward,
-        #     )
+            # plate angular acceleration l2
+            penalty_plate_ang_acc = mdp.body_acc_l2(
+                body_acc_w=self.robot.data.body_ang_acc_w,
+                body_idx=self.plate_body_index,
+                weight=-0.001 * self.activate_acc_reward,
+            )
 
-        #     # plate tracking zero linear acceleration
-        #     tracking_zero_plate_lin_acc = mdp.body_acc_exp(
-        #         body_acc_w=self.robot.data.body_lin_acc_w,
-        #         body_idx=self.plate_body_index,
-        #         weight=2.0 * self.activate_acc_reward,
-        #         lambda_acc=0.25,
-        #     )
+            # plate tracking zero linear acceleration
+            tracking_zero_plate_lin_acc = mdp.body_acc_exp(
+                body_acc_w=self.robot.data.body_lin_acc_w,
+                body_idx=self.plate_body_index,
+                weight=2.0 * self.activate_acc_reward,
+                lambda_acc=0.25,
+            )
 
-        #     # plate tracking zero angular acceleration
-        #     tracking_zero_plate_ang_acc = mdp.body_acc_exp(
-        #         body_acc_w=self.robot.data.body_ang_acc_w,
-        #         body_idx=self.plate_body_index,
-        #         weight=2.0 * self.activate_acc_reward,
-        #         lambda_acc=0.25,
-        #     )
+            # plate tracking zero angular acceleration
+            tracking_zero_plate_ang_acc = mdp.body_acc_exp(
+                body_acc_w=self.robot.data.body_ang_acc_w,
+                body_idx=self.plate_body_index,
+                weight=2.0 * self.activate_acc_reward,
+                lambda_acc=0.25,
+            )
+
 
         # object/plate reward
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
@@ -549,10 +555,10 @@ class G1DecoupledEnv(DirectRLEnv):
                 weight=-0.01 * self.activate_acc_reward,
             )
             # object on plate
-            object_off_plate = self._object.data.body_pos_w[:, 0, 2] < 0.5
+            object_off_plate = self._object.data.body_pos_w[:, 0, 2] < self.robot.data.body_pos_w[:, self.plate_body_index, 2]
             object_on_plate_reward = mdp.alive_reward(
                 terminated=object_off_plate,
-                weight=0.5 * self.activate_acc_reward,
+                weight=0.10 * self.activate_acc_reward,
             )
             # object flat orientation
             penalty_object_flat_orientation = mdp.body_orientation_l2(
@@ -560,13 +566,6 @@ class G1DecoupledEnv(DirectRLEnv):
                 gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
                 body_idx=0,
                 weight=-0.5 * self.activate_acc_reward,
-            )
-            # object upright bonus
-            object_upright_bonus = mdp.cup_upright_bonus(
-                body_rot_w=self._object.data.body_link_quat_w,
-                gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
-                body_idx=0,
-                weight=1.0 * self.activate_acc_reward,
             )
 
 
@@ -603,37 +602,32 @@ class G1DecoupledEnv(DirectRLEnv):
             penalty_upper_body_dof_vel + 
             alive_reward
         )
-        # # add plate rewards if using plate
-        # if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
-        #     upper_body_reward += (
-        #         penalty_plate_flat_orientation +
-        #         penalty_plate_lin_acc +
-        #         penalty_plate_ang_acc +
-        #         tracking_zero_plate_lin_acc +
-        #         tracking_zero_plate_ang_acc
-        #     )
-            
+        # add plate rewards if using plate
+        if isinstance(self.cfg, G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg):
+            upper_body_reward += (
+                penalty_plate_flat_orientation +
+                penalty_plate_lin_acc +
+                penalty_plate_ang_acc +
+                tracking_zero_plate_lin_acc +
+                tracking_zero_plate_ang_acc
+            )
 
-        #     self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
-        #     self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
-        #     self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
-        #     self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
-        #     self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
-            
+            self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
+            self._episode_sums["penalty_plate_lin_acc"] += penalty_plate_lin_acc
+            self._episode_sums["penalty_plate_ang_acc"] += penalty_plate_ang_acc
+            self._episode_sums["tracking_zero_plate_lin_acc"] += tracking_zero_plate_lin_acc
+            self._episode_sums["tracking_zero_plate_ang_acc"] += tracking_zero_plate_ang_acc
 
         # add object/plate reward if using object/plate
         if isinstance(self.cfg, G1DecoupledPlateObjectEnvCfg):
             upper_body_reward += (
                 penalty_object_pos_deviation +
                 object_on_plate_reward +
-                penalty_object_flat_orientation +
-                object_upright_bonus
+                penalty_object_flat_orientation
             )
             self._episode_sums["penalty_object_pos_deviation"] += penalty_object_pos_deviation
             self._episode_sums["object_on_plate_reward"] += object_on_plate_reward
             self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
-            self._episode_sums["object_upright_bonus"] += object_upright_bonus
-            self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
 
         # reward 
         lower_body_reward = locomotion_reward * self.step_dt
@@ -648,8 +642,14 @@ class G1DecoupledEnv(DirectRLEnv):
         return died, time_out
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
+        extras = dict()
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self.robot._ALL_INDICES
+
+        # apply terrain curriculum
+        if self.cfg.terrain_generator_cfg.curriculum:
+            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
+            extras["Curriculum/terrain_level"] = avg_terrain_level.item()
 
         # apply acceleration reward curriculum
         acc_reward = mdp.acceleration_reward(
@@ -658,7 +658,7 @@ class G1DecoupledEnv(DirectRLEnv):
             asset_cfg=SceneEntityCfg("robot"),
             dist_threshold=4,
         )
-        self.activate_acc_reward[env_ids] = torch.max(self.activate_acc_reward[env_ids], acc_reward)
+        self.activate_acc_reward[env_ids] = acc_reward
 
         # reset robot
         self.robot.reset(env_ids)
@@ -693,7 +693,6 @@ class G1DecoupledEnv(DirectRLEnv):
             self._object.write_root_velocity_to_sim(object_vel, env_ids=env_ids)
 
         # reset logging
-        extras = dict()
         for key in self._episode_sums.keys():
             episodic_sum_avg = torch.mean(self._episode_sums[key][env_ids])
             extras["Episode_Reward/" + key] = episodic_sum_avg / self.max_episode_length_s
@@ -808,4 +807,3 @@ class G1DecoupledEnv(DirectRLEnv):
 def compute_obs(obs_tensors: List[torch.Tensor]) -> torch.Tensor:
     
     return torch.cat(obs_tensors, dim=-1)
-

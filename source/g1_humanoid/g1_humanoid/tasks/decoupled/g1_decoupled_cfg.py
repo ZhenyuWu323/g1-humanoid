@@ -16,17 +16,30 @@ from . import mdp
 from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.envs.common import ViewerCfg
+import isaaclab.terrains as terrain_gen
 
 @configclass
 class EventCfg:
     """Configuration for events."""
 
     # startup
-    physics_material = EventTerm(
+    robot_physics_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "static_friction_range": (0.3, 1.0),
+            "dynamic_friction_range": (0.3, 1.0),
+            "restitution_range": (0.0, 0.0),
+            "num_buckets": 64,
+        },
+    )
+
+    object_physics_material = EventTerm(
+        func=mdp.randomize_rigid_body_material,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
             "static_friction_range": (0.3, 1.0),
             "dynamic_friction_range": (0.3, 1.0),
             "restitution_range": (0.0, 0.0),
@@ -65,6 +78,36 @@ class EventCfg:
             "operation": "add",
         },
     )
+
+    add_wrist_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_wrist_.*"),
+            "mass_distribution_params": (0.0, 2.0),
+            "operation": "add",
+        },
+    )
+
+    add_object_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "mass_distribution_params": (0.0, 0.4),
+            "operation": "add",
+        },
+    )
+
+    # scale_object_size = EventTerm(
+    #     func=mdp.randomize_cylinder_scale,
+    #     mode="prestartup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+    #         "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
+    #         "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
+    #     },
+    # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
 
     # reset
     base_external_force_torque = EventTerm(
@@ -106,8 +149,19 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(10.0, 15.0),
+        interval_range_s=(5.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
+    )
+
+    external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_wrist_.*", ".*_elbow_.*", ".*_shoulder_.*", "torso_link"]),
+            "force_range": (-2.0, 2.0),
+            "torque_range": (-1.5, 1.5),
+        },
     )
 
 
@@ -174,11 +228,28 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
 
 
     # terrain configuration
+    terrain_generator_cfg = terrain_gen.TerrainGeneratorCfg(
+        size=(8.0, 8.0),
+        border_width=20.0,
+        num_rows=9,
+        num_cols=21,
+        horizontal_scale=0.1,
+        vertical_scale=0.005,
+        slope_threshold=0.75,
+        difficulty_range=(0.0, 1.0),
+        use_cache=False,
+        sub_terrains={
+            "flat": terrain_gen.MeshPlaneTerrainCfg(proportion=0.5),
+        },
+        curriculum=True,
+    )
+
+
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
-        terrain_type="plane",
-        terrain_generator=None,
-        max_init_terrain_level=5,
+        terrain_type="generator",
+        terrain_generator=terrain_generator_cfg,
+        max_init_terrain_level=terrain_generator_cfg.num_rows - 1,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
@@ -203,6 +274,15 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     robot: ArticulationCfg = G1_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
+    )
+    height_scanner: RayCasterCfg = RayCasterCfg(
+        prim_path="/World/envs/env_.*/Robot/torso_link",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
+        attach_yaw_only=True,
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
+        debug_vis=False,
+        mesh_prim_paths=["/World/ground"],
+        update_period=sim.dt * decimation,
     )
     reference_body = "torso_link"
 
@@ -234,6 +314,8 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     events: EventCfg = EventCfg()
     #events.push_robot = None
     events.add_plate_mass = None
+    events.add_object_mass = None
+    events.object_physics_material = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
@@ -317,6 +399,8 @@ class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
     plate_name = "plate"
 
     events: EventCfg = EventCfg()
+    events.add_object_mass = None
+    events.object_physics_material = None
 
     observation_space = {
         # upper body

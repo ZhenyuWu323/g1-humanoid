@@ -18,7 +18,13 @@ scripts/rsl_rl/logs/rsl_rl/*
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/
 scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/*
 
+!scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/
+scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/*
+
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_new_usd/
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_new_usd/**
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_old_usd/
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_whole/checkpoint_old_usd/**
+
+!scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/joint_baseline/
+!scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/joint_baseline/**
