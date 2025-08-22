@@ -151,8 +151,8 @@ def main():
         # run everything in inference mode
         with torch.inference_mode():
             # agent stepping
-            upper_body_actor_obs, upper_body_critic_obs, lower_body_actor_obs, lower_body_critic_obs = obs["upper_body_actor_obs"], obs["upper_body_critic_obs"], obs["lower_body_actor_obs"], obs["lower_body_critic_obs"]
-            actions = policy(upper_body_actor_obs, lower_body_actor_obs)
+            actor_obs, critic_obs, residual_actor_obs, residual_critic_obs = obs["actor_obs"], obs["critic_obs"], obs["residual_actor_obs"], obs["residual_critic_obs"]
+            actions = policy(actor_obs,residual_actor_obs)
             # env stepping
             obs, _, _, _ = env.step(actions)
         if args_cli.video:
