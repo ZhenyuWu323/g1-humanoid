@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, List, Sequence
 
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import ContactSensor, RayCaster
-from isaaclab.utils.math import quat_apply_inverse, yaw_quat
+from isaaclab.utils.math import quat_apply_inverse, yaw_quat, quat_box_minus, quat_error_magnitude
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv, DirectRLEnv
@@ -436,3 +436,98 @@ def penalty_residual_action(residual_actions: torch.Tensor, action_dim: dict, we
     lower = residual_actions[:, action_dim["upper_body"]:]
     cost = lambda_delta_upper * (upper**2).sum(dim=1) + lambda_delta_lower * (lower**2).sum(dim=1)
     return cost * weight
+
+
+def body_vel_l2(body_vel: torch.Tensor, body_idx: int, weight: torch.Tensor) -> torch.Tensor:
+    """Penalize body linear/angular acceleration using L2 squared kernel."""
+
+    return torch.sum(torch.square(body_vel), dim=1) * weight
+
+
+def body_vel_exp(body_vel: torch.Tensor, body_idx: int, weight: torch.Tensor, lambda_vel: float) -> torch.Tensor:
+
+    vel_squared_norm = torch.sum(torch.square(body_vel), dim=1)
+    return torch.exp(-lambda_vel * vel_squared_norm) * weight
+
+
+def compute_pose_deviation_penalty(
+    current_pose: torch.Tensor,  # [batch, 7] - (x,y,z,qw,qx,qy,qz)
+    target_pose: torch.Tensor,   # [batch, 7] - (x,y,z,qw,qx,qy,qz)
+    pos_weight: float = -1.0,
+    rot_weight: float = -1.0,
+    rot_threshold: float = 0.05,
+) -> torch.Tensor:
+    # position deviation - prevent sliding
+    pos_current = current_pose[:, :3]
+    pos_target = target_pose[:, :3]
+    
+    # rotation deviation - prevent flipping
+    quat_current = current_pose[:, 3:7]  # (qw,qx,qy,qz)
+    quat_target = target_pose[:, 3:7]
+    rot_error = quat_error_magnitude(quat_current, quat_target)
+
+    # position penalty l2
+    pos_penalty = torch.sum(torch.square(pos_current - pos_target), dim=1)
+
+    # rotation penalty smooth l1
+    rot_penalty = torch.where(
+            rot_error < rot_threshold,
+            0.5 * (rot_error / rot_threshold)**2,  
+            rot_error / rot_threshold - 0.5     
+        )
+    # combine penalty
+    total_penalty = pos_weight * pos_penalty + rot_weight * rot_penalty
+    return total_penalty
+
+
+def object_friction_penalty(
+    object_contact_sensor: ContactSensor, 
+    plate_quat_w: torch.Tensor,
+    mu_static_object: torch.Tensor,
+    mu_static_plate: torch.Tensor,
+    weight: float = -0.01,
+) -> torch.Tensor:
+    """Penalize object friction with plate by friction cone."""
+    force_matrix_w = object_contact_sensor.data.force_matrix_w
+    if force_matrix_w is None:
+        return torch.zeros(plate_quat_w.shape[0], device=plate_quat_w.device)
+    
+    mu_static = torch.sqrt(mu_static_object * mu_static_plate).to(plate_quat_w.device)
+    
+    # transform contact forces to plate frame
+    contact_forces = force_matrix_w[:, :, 0, :]
+    forces_plate = quat_apply_inverse(
+        plate_quat_w.unsqueeze(1),  # [N, 1, 4]
+        contact_forces  # [N, B, 3]
+    )
+    rewards = []
+    for i in range(forces_plate.shape[1]):
+        f = forces_plate[:, i, :]
+        f_z = f[:, 2]
+        f_xy = f[:, :2]
+        
+        # only consider points with contact
+        has_contact = f_z > 0.0
+        
+        # friction cone check
+        f_tang_mag = torch.norm(f_xy, dim=-1)
+        violation = torch.maximum(
+            f_tang_mag - mu_static * torch.abs(f_z),
+            torch.zeros_like(f_tang_mag)
+        )
+        
+        # smooth penalty
+        point_penalty = torch.where(
+            has_contact,
+            (violation / (torch.abs(f_z) + 1e-6))**2,  # L2 normalized
+            torch.zeros_like(violation)
+        )
+        rewards.append(point_penalty)
+    
+    # combine all contact point rewards
+    if len(rewards) > 0:
+        total_reward = torch.stack(rewards, dim=-1).mean(dim=-1)
+    else:
+        total_reward = torch.zeros_like(plate_quat_w[:, 0])
+    
+    return total_reward * weight

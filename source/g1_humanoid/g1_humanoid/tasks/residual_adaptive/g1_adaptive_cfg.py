@@ -40,8 +40,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.3, 1.0),
-            "dynamic_friction_range": (0.3, 1.0),
+            "static_friction_range": (0.1, 1.0),
+            "dynamic_friction_range": (0.1, 1.0),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -202,9 +202,9 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
     observation_space = {
         "actor_obs": 482,
         "critic_obs": 497,
-        "residual_actor_obs": 497 + 45 + 60,
-        "residual_critic_obs": 497 + 45 + 60,
-        "encoder_obs": 45 + 60,
+        "residual_actor_obs": 482 + 95,
+        "residual_critic_obs": 497 + 95,
+        "encoder_obs": 95,
     }
     action_dim= {
         "upper_body": 14,
@@ -260,7 +260,7 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
     # robot configuration
     robot: ArticulationCfg = G1_WITH_TRAY.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
-        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True
+        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True, update_period=sim.dt
     )
     height_scanner: RayCasterCfg = RayCasterCfg(
         prim_path="/World/envs/env_.*/Robot/torso_link",
@@ -269,6 +269,7 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
+        update_period=sim.dt * decimation,
     )
     reference_body = "torso_link"
 
@@ -291,6 +292,7 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
     upper_body_names = arm_names 
     feet_body_name = ".*_ankle_roll_link"
     plate_name = "plate"
+    camera_name = "d435_link"
 
     # gait phase
     gait_period = 0.8
@@ -390,9 +392,18 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
             rigid_props=sim_utils.RigidBodyPropertiesCfg(),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
             collision_props=sim_utils.CollisionPropertiesCfg(),
+            activate_contact_sensors=True,
             #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(),
+    )
+    object_contact_sensor: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Object", 
+        update_period=sim.dt, 
+        track_pose=True,
+        track_air_time=False,
+        filter_prim_paths_expr=["/World/envs/env_.*/Robot/plate"],
+        history_length=3,
     )
 
     
