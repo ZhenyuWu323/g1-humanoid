@@ -454,29 +454,15 @@ def compute_pose_deviation_penalty(
     current_pose: torch.Tensor,  # [batch, 7] - (x,y,z,qw,qx,qy,qz)
     target_pose: torch.Tensor,   # [batch, 7] - (x,y,z,qw,qx,qy,qz)
     pos_weight: float = -1.0,
-    rot_weight: float = -1.0,
-    rot_threshold: float = 0.05,
 ) -> torch.Tensor:
     # position deviation - prevent sliding
     pos_current = current_pose[:, :3]
     pos_target = target_pose[:, :3]
     
-    # rotation deviation - prevent flipping
-    quat_current = current_pose[:, 3:7]  # (qw,qx,qy,qz)
-    quat_target = target_pose[:, 3:7]
-    rot_error = quat_error_magnitude(quat_current, quat_target)
-
     # position penalty l2
     pos_penalty = torch.sum(torch.square(pos_current - pos_target), dim=1)
-
-    # rotation penalty smooth l1
-    rot_penalty = torch.where(
-            rot_error < rot_threshold,
-            0.5 * (rot_error / rot_threshold)**2,  
-            rot_error / rot_threshold - 0.5     
-        )
     # combine penalty
-    total_penalty = pos_weight * pos_penalty + rot_weight * rot_penalty
+    total_penalty = pos_weight * pos_penalty
     return total_penalty
 
 
@@ -485,6 +471,7 @@ def object_friction_penalty(
     plate_quat_w: torch.Tensor,
     mu_static_object: torch.Tensor,
     mu_static_plate: torch.Tensor,
+    contact_threshold: float = 0.0,
     weight: float = -0.01,
 ) -> torch.Tensor:
     """Penalize object friction with plate by friction cone."""
@@ -507,7 +494,7 @@ def object_friction_penalty(
         f_xy = f[:, :2]
         
         # only consider points with contact
-        has_contact = f_z > 0.0
+        has_contact = torch.abs(f_z) > contact_threshold
         
         # friction cone check
         f_tang_mag = torch.norm(f_xy, dim=-1)
@@ -519,7 +506,7 @@ def object_friction_penalty(
         # smooth penalty
         point_penalty = torch.where(
             has_contact,
-            (violation / (torch.abs(f_z) + 1e-6))**2,  # L2 normalized
+            violation,  # L2 normalized
             torch.zeros_like(violation)
         )
         rewards.append(point_penalty)

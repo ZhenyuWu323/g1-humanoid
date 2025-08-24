@@ -202,9 +202,9 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
     observation_space = {
         "actor_obs": 482,
         "critic_obs": 497,
-        "residual_actor_obs": 482 + 95,
-        "residual_critic_obs": 497 + 95,
-        "encoder_obs": 95,
+        "residual_actor_obs": 482 + 110,
+        "residual_critic_obs": 497 + 110,
+        "encoder_obs": 110,
     }
     action_dim= {
         "upper_body": 14,
