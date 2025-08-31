@@ -17,7 +17,7 @@ class G1ResidualAdaptivePPORunnerCfg(RslRlOnPolicyRunnerCfg):
     empirical_normalization = False
     # residual upper bodypolicy
     residual_whole_body_policy = RslRlActorCriticEncoderCfg(
-        init_noise_std=0.5,
+        init_noise_std=0.3,
         actor_hidden_dims=[512, 256, 128],
         critic_hidden_dims=[512, 256, 128],
         encoder_d_model=32,

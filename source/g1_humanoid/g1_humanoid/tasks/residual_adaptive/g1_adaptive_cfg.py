@@ -74,8 +74,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
-            "mass_distribution_params": (0.0, 1.5),
-            "operation": "add",
+            "mass_distribution_params": (0.1, 1.5),
+            "operation": "abs",
         },
     )
 
@@ -94,8 +94,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "mass_distribution_params": (0.0, 0.4),
-            "operation": "add",
+            "mass_distribution_params": (0.05, 0.5),
+            "operation": "abs",
         },
     )
 
@@ -149,7 +149,7 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(5.0, 15.0),
+        interval_range_s=(5.0, 5.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
     external_force_torque = EventTerm(

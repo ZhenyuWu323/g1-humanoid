@@ -653,12 +653,12 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         penalty_object_lin_vel = mdp.body_vel_l2(
             body_vel=object_lin_vel_plate,
             body_idx=0,
-            weight=0,
+            weight=-0.1, #-0.1
         )
         penalty_object_ang_vel = mdp.body_vel_l2(
             body_vel=object_ang_vel_plate,
             body_idx=0,
-            weight=0,
+            weight=-0.1, #-0.1
         )
 
         # object friction penalty
