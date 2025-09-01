@@ -46,3 +46,16 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualAdaptiveDistillRunnerCfg",
     },
 )
+
+
+""" G1 Residual Locomanipulation Adaptive Evaluate """
+
+gym.register(
+    id="G1-Residual-Locomanipulation-Adaptive-Evaluate",
+    entry_point=f"{__name__}.g1_adaptive_eval_env:G1ResidualAdaptiveEvaluateEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_adaptive_eval_cfg:G1ResidualAdaptiveEvaluateEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualAdaptiveEvaluateRunnerCfg",
+    },
+)

@@ -563,7 +563,7 @@ class ResidualAdaptiveDistillRunner:
             combined_actions = torch.cat(actions_list, dim=1)
 
             # residual actions
-            residual_actions = self.algs["residual_whole_body"].policy.act_inference(residual_obs)
+            residual_actions,_ = self.algs["residual_whole_body"].policy.act_inference(residual_obs)
             action_dict = {
                 "base_action": combined_actions,
                 "residual_action": residual_actions
@@ -591,9 +591,14 @@ class ResidualAdaptiveDistillRunner:
     def eval_mode(self):
         # -- PPO
         for body_key in self.body_keys:
-            self.algs[body_key].policy.student_encoder.eval()
-            self.algs[body_key].policy.teacher_encoder.eval()
-            self.algs[body_key].policy.actor.eval()
+            if body_key == "residual_whole_body":
+                self.algs[body_key].policy.student_encoder.eval()
+                self.algs[body_key].policy.teacher_encoder.eval()
+                self.algs[body_key].policy.actor.eval()
+            else:
+                self.algs[body_key].policy.eval()
+                for param in self.algs[body_key].policy.parameters():
+                    param.requires_grad = False
         # -- Normalization
         if self.empirical_normalization:
             self.actor_obs_normalizer.eval()
