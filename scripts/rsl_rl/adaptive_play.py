@@ -42,6 +42,7 @@ parser.add_argument(
     help="Number of samples per pixel per frame.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument("--distillation", action="store_true", default=False, help="Run distillation training.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -75,7 +76,7 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 import g1_humanoid.tasks  # noqa: F401
-from residual_adaptive import ResidualAdaptiveRunner, ResidualAdaptiveVecEnvWrapper
+from residual_adaptive import ResidualAdaptiveRunner, ResidualAdaptiveVecEnvWrapper, ResidualAdaptiveDistillRunner
 
 
 def main():
@@ -134,7 +135,10 @@ def main():
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
-    ppo_runner = ResidualAdaptiveRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    if args_cli.distillation:
+        ppo_runner = ResidualAdaptiveDistillRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    else:
+        ppo_runner = ResidualAdaptiveRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
     ppo_runner.load(resume_path)
 
     # obtain the trained policy for inference
@@ -151,8 +155,12 @@ def main():
         # run everything in inference mode
         with torch.inference_mode():
             # agent stepping
-            actor_obs, critic_obs, residual_actor_obs, residual_critic_obs = obs["actor_obs"], obs["critic_obs"], obs["residual_actor_obs"], obs["residual_critic_obs"]
-            actions = policy(actor_obs,residual_actor_obs)
+            if args_cli.distillation:
+                actor_obs, critic_obs, residual_student_obs, residual_teacher_obs = obs["actor_obs"], obs["critic_obs"], obs["residual_student_obs"], obs["residual_teacher_obs"]
+                actions = policy(actor_obs, residual_student_obs)
+            else:
+                actor_obs, critic_obs, residual_actor_obs, residual_critic_obs = obs["actor_obs"], obs["critic_obs"], obs["residual_actor_obs"], obs["residual_critic_obs"]
+                actions = policy(actor_obs,residual_actor_obs)
             # env stepping
             obs, _, _, _ = env.step(actions)
         if args_cli.video:

@@ -35,3 +35,26 @@ class RslRlActorCriticEncoderCfg:
 
     activation: str = MISSING
     """The activation function for the actor and critic networks."""
+
+
+@configclass
+class RslRlStudentTeacherEncoderCfg:
+    """Configuration for the distillation student-teacher encoder networks."""
+
+    actor_hidden_dims: list[int] = MISSING
+    """The hidden dimensions of the actor network."""
+
+    encoder_d_model: int = MISSING
+    """The dimension of the encoder."""
+
+    encoder_nhead: int = MISSING
+    """The number of attention heads in the encoder."""
+
+    encoder_num_layers: int = MISSING
+    """The number of layers in the encoder."""
+
+    activation: str = MISSING
+    """The activation function for the actor and critic networks."""
+
+
+

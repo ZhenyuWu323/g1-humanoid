@@ -14,7 +14,7 @@ from isaaclab.utils.math import quat_rotate
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .g1_adaptive_cfg import G1ResidualAdaptiveEnvCfg
+from .g1_adaptive_cfg import G1ResidualAdaptiveDistillEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
@@ -22,10 +22,10 @@ from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
 from .utils import compute_dof_pos_tracking_weight, compute_object_pos_in_plate_frame, compute_object_pose_in_camera_frame, compute_object_twist_in_plate_frame, is_object_on_plate
 
-class G1ResidualAdaptiveEnv(DirectRLEnv):
-    cfg: G1ResidualAdaptiveEnvCfg
+class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
+    cfg: G1ResidualAdaptiveDistillEnvCfg
 
-    def __init__(self, cfg: G1ResidualAdaptiveEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1ResidualAdaptiveDistillEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         ##########################################################################################
@@ -134,6 +134,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         self.object_physics_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.object_mass_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.object_projected_gravity_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
+        self.object_pos_in_camera_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self._buffers_initialized = False
 
 
@@ -160,6 +161,12 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             plate_pos_w=self.robot.data.body_pos_w[:, self.plate_body_index, :],
             object_pos_w=self._object.data.body_pos_w[:, 0, :],
         )
+        object_pos_in_camera = compute_object_pose_in_camera_frame(
+            object_quat_w=self._object.data.body_link_quat_w[:, 0, :],
+            object_pos_w=self._object.data.body_pos_w[:, 0, :],
+            camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
+            camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
+        )
         object_com = self._object.data.com_pos_b[:, 0, :].to(self.sim.device)
         object_physics = self._object.data._root_physx_view.get_material_properties()[:, 0, [0,2]] # mu_static, restitution
         object_mass = self._object.data._root_physx_view.get_masses()
@@ -183,6 +190,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             self.object_physics_buffer.append(object_physics)
             self.object_mass_buffer.append(object_mass)
             self.object_projected_gravity_buffer.append(object_projected_gravity)
+            self.object_pos_in_camera_buffer.append(object_pos_in_camera)
 
     def _setup_scene(self):
         # robot
@@ -279,6 +287,12 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             plate_pos_w=self.robot.data.body_pos_w[:, self.plate_body_index, :],
             object_pos_w=self._object.data.body_pos_w[:, 0, :],
         )
+        object_pos_in_camera = compute_object_pose_in_camera_frame(
+            object_quat_w=self._object.data.body_link_quat_w[:, 0, :],
+            object_pos_w=self._object.data.body_pos_w[:, 0, :],
+            camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
+            camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
+        )
         object_com = self._object.data.com_pos_b[:, 0, :].to(self.sim.device)
         object_physics = self._object.data._root_physx_view.get_material_properties()[:, 0, [0,2]] # mu_static, restitution
         object_mass = self._object.data._root_physx_view.get_masses()
@@ -290,6 +304,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         self.object_physics_buffer.append(object_physics)
         self.object_mass_buffer.append(object_mass)
         self.object_projected_gravity_buffer.append(object_projected_gravity)
+        self.object_pos_in_camera_buffer.append(object_pos_in_camera)
 
     
     def _scale_observations(self, observations_dict: dict) -> dict:
@@ -338,6 +353,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         object_physics_buffer_flat = self.object_physics_buffer.buffer.reshape(self.num_envs, -1)
         object_mass_buffer_flat = self.object_mass_buffer.buffer.reshape(self.num_envs, -1)
         object_projected_gravity_buffer_flat = self.object_projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
+        object_pos_in_camera_buffer_flat = self.object_pos_in_camera_buffer.buffer.reshape(self.num_envs, -1)
 
         # get command
         vel_command = self.velocity_command.command
@@ -364,7 +380,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             'actions': base_action_buffer_flat,
         }
 
-        residual_actor_observations_dict = {
+        residual_teacher_observations_dict = {
             'root_ang_vel_b': ang_vel_buffer_flat,
             'projected_gravity_b': projected_gravity_buffer_flat,
             'vel_command': vel_command,
@@ -381,8 +397,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             'object_projected_gravity': object_projected_gravity_buffer_flat,
         }
 
-        residual_critic_observations_dict = {
-            'root_lin_vel_b': lin_vel_buffer_flat,
+        residual_student_observations_dict = {
             'root_ang_vel_b': ang_vel_buffer_flat,
             'projected_gravity_b': projected_gravity_buffer_flat,
             'vel_command': vel_command,
@@ -390,42 +405,29 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
             'actions': residual_action_buffer_flat,
-            'object_pos_in_plate': object_pos_in_plate_buffer_flat,
-            'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
-            'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
-            'object_com': object_com_buffer_flat,
-            'object_physics': object_physics_buffer_flat,
-            'object_mass': object_mass_buffer_flat,
-            'object_projected_gravity': object_projected_gravity_buffer_flat,
+            'object_pos_in_camera': object_pos_in_camera_buffer_flat,
         }
+
         # scale obs
         actor_scaled_obs = self._scale_observations(actor_observations_dict)
         critic_scaled_obs = self._scale_observations(critic_observations_dict)
-        residual_actor_scaled_obs = self._scale_observations(residual_actor_observations_dict)
-        residual_critic_scaled_obs = self._scale_observations(residual_critic_observations_dict)
+        residual_teacher_scaled_obs = self._scale_observations(residual_teacher_observations_dict)
+        residual_student_scaled_obs = self._scale_observations(residual_student_observations_dict)
 
         # apply obs noise on pretain model
         actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs) # NOTE: ONLY APPLY NOISE ON PRETAIN ACTOR OBS
-        # residual_actor_noisy_obs = actor_noisy_obs.copy()
-        # residual_actor_noisy_obs['actions'] = residual_action_buffer_flat
-        # residual_actor_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
-        # residual_actor_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
-        # residual_actor_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
-        # residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
-        # residual_actor_noisy_obs['object_physics'] = object_physics_buffer_flat
-        # residual_actor_noisy_obs['object_mass'] = object_mass_buffer_flat
-        # residual_actor_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat
+        
 
         actor_obs = compute_obs(list(actor_noisy_obs.values()))
         critic_obs = compute_obs(list(critic_scaled_obs.values()))
-        residual_actor_obs = compute_obs(list(residual_actor_scaled_obs.values()))
-        residual_critic_obs = compute_obs(list(residual_critic_scaled_obs.values()))
+        residual_student_obs = compute_obs(list(residual_student_scaled_obs.values()))
+        residual_teacher_obs = compute_obs(list(residual_teacher_scaled_obs.values()))
 
         observations = {
             "actor_obs": actor_obs, 
             "critic_obs": critic_obs, 
-            "residual_actor_obs": residual_actor_obs, 
-            "residual_critic_obs": residual_critic_obs}
+            "residual_student_obs": residual_student_obs, 
+            "residual_teacher_obs": residual_teacher_obs}
         return observations
 
     def _get_rewards(self) -> dict:
@@ -784,6 +786,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         self.object_physics_buffer.reset(env_ids)
         self.object_mass_buffer.reset(env_ids)
         self.object_projected_gravity_buffer.reset(env_ids)
+        self.object_pos_in_camera_buffer.reset(env_ids)
 
         # reset object
         plate_pos_w = self.robot.data.body_pos_w[env_ids, self.plate_body_index, :].clone()

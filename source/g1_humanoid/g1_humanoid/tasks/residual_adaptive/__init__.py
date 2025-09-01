@@ -32,3 +32,17 @@ gym.register(
     },
 )
 
+
+
+
+""" G1 Residual Locomanipulation Adaptive Distill """
+
+gym.register(
+    id="G1-Residual-Locomanipulation-Adaptive-Distill",
+    entry_point=f"{__name__}.g1_adaptive_distill_env:G1ResidualAdaptiveDistillEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_adaptive_cfg:G1ResidualAdaptiveDistillEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualAdaptiveDistillRunnerCfg",
+    },
+)

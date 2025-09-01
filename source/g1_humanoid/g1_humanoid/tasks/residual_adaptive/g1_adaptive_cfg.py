@@ -407,4 +407,14 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
     )
 
     
-    
+@configclass
+class G1ResidualAdaptiveDistillEnvCfg(G1ResidualAdaptiveEnvCfg):
+    """ G1 Residual Locomanipulation Adaptive Environment Configuration """
+    # Observation space
+    observation_space = {
+        "actor_obs": 482,
+        "critic_obs": 497,
+        "residual_actor_obs": 482,
+        "residual_student_obs": 35,
+        "residual_teacher_obs": 110,
+    }

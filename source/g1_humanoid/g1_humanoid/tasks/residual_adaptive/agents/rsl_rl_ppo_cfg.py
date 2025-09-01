@@ -6,7 +6,7 @@
 from isaaclab.utils import configclass
 
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg, RslRlDistillationStudentTeacherCfg, RslRlDistillationAlgorithmCfg
-from .encoder_cfg import RslRlActorCriticEncoderCfg
+from .encoder_cfg import RslRlActorCriticEncoderCfg, RslRlStudentTeacherEncoderCfg
 
 @configclass
 class G1ResidualAdaptivePPORunnerCfg(RslRlOnPolicyRunnerCfg):
@@ -54,6 +54,41 @@ class G1ResidualAdaptivePPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+
+
+@configclass
+class G1ResidualAdaptiveDistillRunnerCfg(G1ResidualAdaptivePPORunnerCfg):
+    experiment_name = "g1_residual_adaptive_distillation"
+
+    residual_whole_body_policy = RslRlStudentTeacherEncoderCfg(
+        actor_hidden_dims=[512, 256, 128],
+        encoder_d_model=32,
+        encoder_nhead=2,
+        encoder_num_layers=1,
+        activation="elu",
+    )
+
+    ppo_algorithm = RslRlPpoAlgorithmCfg(
+        value_loss_coef=1.0,
+        use_clipped_value_loss=True,
+        clip_param=0.2,
+        entropy_coef=0.01,
+        num_learning_epochs=5,
+        num_mini_batches=4,
+        learning_rate=1.0e-3,
+        schedule="adaptive",
+        gamma=0.99,
+        lam=0.95,
+        desired_kl=0.01,
+        max_grad_norm=1.0,
+    )
+
+    distillation_algorithm = RslRlDistillationAlgorithmCfg(
+        num_learning_epochs=5,
+        learning_rate=1.0e-4,
+        gradient_length=1,
+    )
+
 
 
 
