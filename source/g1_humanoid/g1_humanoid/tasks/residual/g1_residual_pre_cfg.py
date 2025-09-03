@@ -23,7 +23,7 @@ class EventCfg:
     """Configuration for events."""
 
     # startup
-    physics_material = EventTerm(
+    robot_physics_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
@@ -62,8 +62,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
-            "mass_distribution_params": (0.0, 1.5),
-            "operation": "add",
+            "mass_distribution_params": (0.1, 1.5),
+            "operation": "abs",
         },
     )
 
@@ -110,16 +110,31 @@ class EventCfg:
         interval_range_s=(5.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
-
     external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
         mode="interval",
         interval_range_s=(5.0, 15.0),
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=[".*_wrist_.*", ".*_elbow_.*", ".*_shoulder_.*", "torso_link"]),
-            "force_range": (-2.0, 2.0),
-            "torque_range": (-1.5, 1.5),
+            "force_range": (-1.0, 1.0),
+            "torque_range": (-1.0, 1.0),
         },
+    )
+
+
+@configclass
+class CommandsCfg:
+    """Command specifications for the MDP."""
+    base_velocity = mdp.UniformVelocityCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(10.0, 10.0),
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        heading_command=False,
+        debug_vis=True,
+        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
+        ),
     )
 
 
@@ -272,6 +287,9 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     # events
     events: EventCfg = EventCfg()
 
+    # command
+    commands: CommandsCfg = CommandsCfg()
+
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
 
@@ -322,18 +340,6 @@ class G1ResidualPreEnvCfg(DirectRLEnvCfg):
     termination_height = 0.5
     
 
-    # command
-    base_velocity = mdp.UniformVelocityCommandCfg(
-        asset_name="robot",
-        resampling_time_range=(5.0, 5.0),
-        rel_standing_envs=0.02,
-        rel_heading_envs=1.0,
-        heading_command=False,
-        debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
-        ),
-    )
     # target base height
     target_base_height = 0.78
 

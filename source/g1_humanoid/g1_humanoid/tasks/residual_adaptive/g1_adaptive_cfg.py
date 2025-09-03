@@ -91,7 +91,7 @@ class EventCfg:
 
     add_object_mass = EventTerm(
         func=mdp.randomize_rigid_body_mass,
-        mode="startup",
+        mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
             "mass_distribution_params": (0.05, 0.5),
@@ -110,16 +110,6 @@ class EventCfg:
     # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
 
     # reset
-    base_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "force_range": (0.0, 0.0),
-            "torque_range": (-0.0, 0.0),
-        },
-    )
-
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -161,6 +151,21 @@ class EventCfg:
             "force_range": (-2.0, 2.0),
             "torque_range": (-1.5, 1.5),
         },
+    )
+
+@configclass
+class CommandsCfg:
+    """Command specifications for the MDP."""
+    base_velocity = mdp.UniformVelocityCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(10.0, 10.0),
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        heading_command=False,
+        debug_vis=True,
+        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
+        ),
     )
 
 
@@ -362,17 +367,8 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
     
 
     # command
-    base_velocity = mdp.UniformVelocityCommandCfg(
-        asset_name="robot",
-        resampling_time_range=(5.0, 5.0),
-        rel_standing_envs=0.02,
-        rel_heading_envs=1.0,
-        heading_command=False,
-        debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
-        ),
-    )
+    commands: CommandsCfg = CommandsCfg()
+
     # target base height
     target_base_height = 0.78
 

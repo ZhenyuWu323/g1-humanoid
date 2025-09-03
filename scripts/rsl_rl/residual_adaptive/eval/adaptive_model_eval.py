@@ -88,17 +88,15 @@ class AdaptiveModelEval(nn.Module):
 
     def load_state_dict(self, state_dict, strict=True):
         """Load the parameters of the actor-encoder model."""
-        new_state_dict = {}
+        encoder_state_dict = {}
+        actor_state_dict = {}
         for key, value in state_dict.items():
-            if "teacher" in key:
-                continue
-
             if "student_encoder." in key:
-                new_key = key.replace("student_encoder.", "encoder.")
-                new_state_dict[new_key] = value
+                encoder_state_dict[key.replace("student_encoder.", "")] = value
             elif "actor." in key:
-                new_state_dict[key] = value
+                actor_state_dict[key.replace("actor.", "")] = value
 
-        super().load_state_dict(new_state_dict, strict=strict)
+        self.encoder.load_state_dict(encoder_state_dict, strict=strict)
+        self.actor.load_state_dict(actor_state_dict, strict=strict)
         return True
 

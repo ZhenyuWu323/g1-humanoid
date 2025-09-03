@@ -21,6 +21,7 @@ from isaaclab.envs.common import VecEnvStepReturn
 from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
 from .utils import compute_dof_pos_tracking_weight, compute_object_pos_in_plate_frame, compute_object_pose_in_camera_frame, compute_object_twist_in_plate_frame, is_object_on_plate
+from isaaclab.managers import CommandManager
 
 class G1ResidualAdaptiveEnv(DirectRLEnv):
     cfg: G1ResidualAdaptiveEnvCfg
@@ -70,7 +71,8 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
 
 
         # body velocity command 
-        self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
+        self.command_manager = CommandManager(self.cfg.commands, self)
+        print("[INFO] Command Manager: ", self.command_manager)
 
         # actions and previous actions
         self.base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
@@ -340,7 +342,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         object_projected_gravity_buffer_flat = self.object_projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
 
         # get command
-        vel_command = self.velocity_command.command
+        vel_command = self.command_manager.get_command("base_velocity")
 
 
         # scale observations
@@ -437,13 +439,13 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         tracking_lin_vel_xy = mdp.track_lin_vel_xy_yaw_frame_exp(
             root_quat_w=self.robot.data.root_quat_w,
             root_lin_vel_w=self.robot.data.root_lin_vel_w,
-            vel_command=self.velocity_command.command,
+            vel_command=self.command_manager.get_command("base_velocity"),
             sigma=0.25,
             weight=1.0,
         )
         tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
             root_ang_vel_b=self.robot.data.root_ang_vel_b,
-            vel_command=self.velocity_command.command,
+            vel_command=self.command_manager.get_command("base_velocity"),
             sigma=0.25,
             weight=0.5,
         )
@@ -549,7 +551,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             period=0.8,
             offset=[0.0, 0.5],
             threshold=0.55,
-            command=self.velocity_command.command,
+            command=self.command_manager.get_command("base_velocity"),
             weight=0.5,
         )
 
@@ -662,12 +664,12 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         penalty_object_lin_vel = mdp.body_vel_l2(
             body_vel=object_lin_vel_plate,
             body_idx=0,
-            weight=-0.1, #-0.1
+            weight=0, #-0.1
         )
         penalty_object_ang_vel = mdp.body_vel_l2(
             body_vel=object_ang_vel_plate,
             body_idx=0,
-            weight=-0.1, #-0.1
+            weight=0, #-0.1
         )
 
         # object friction penalty
@@ -751,14 +753,14 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
 
         # apply terrain curriculum
         if self.cfg.terrain_generator_cfg.curriculum:
-            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
+            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.command_manager.get_command("base_velocity"))
             extras["Curriculum/terrain_level"] = avg_terrain_level.item()
 
         # reset robot
         self.robot.reset(env_ids)
         super()._reset_idx(env_ids)
         # reset command
-        self.velocity_command._resample_command(env_ids)
+        self.command_manager.reset(env_ids)
         # reset proprioceptive observations
         self.base_actions[env_ids] = 0.0
         self.prev_base_actions[env_ids] = 0.0
@@ -891,6 +893,9 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
                 self.sim.render()
 
+        # -- update command
+        if self.cfg.commands:
+            self.command_manager.compute(dt=self.step_dt)
         # post-step: step interval event
         if self.cfg.events:
             if "interval" in self.event_manager.available_modes:
@@ -911,6 +916,12 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
 
         # return observations, rewards, resets and extras
         return self.obs_buf, self.reward_buf, self.reset_terminated, self.reset_time_outs, self.extras
+
+    def close(self):
+        if not self._is_closed:
+            if self.cfg.commands:
+                del self.command_manager
+        super().close()
 
 
 @torch.jit.script

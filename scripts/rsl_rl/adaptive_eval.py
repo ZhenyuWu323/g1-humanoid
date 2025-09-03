@@ -77,7 +77,7 @@ from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 import g1_humanoid.tasks  # noqa: F401
 from residual_adaptive import ResidualAdaptiveRunner, ResidualAdaptiveVecEnvWrapper, ResidualAdaptiveDistillRunner, ResidualAdaptiveEvalRunner
-
+from utils import compute_metrics
 
 def main():
 
@@ -157,6 +157,7 @@ def main():
             actions = policy(actor_obs, residual_actor_obs, encoder_obs)
             # env stepping
             obs, _, _, _ = env.step(actions)
+            metrics = compute_metrics(env)
         if args_cli.video:
             timestep += 1
             # Exit the play loop after recording one video
