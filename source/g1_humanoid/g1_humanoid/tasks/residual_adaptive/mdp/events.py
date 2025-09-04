@@ -8,7 +8,7 @@ from pxr import Gf, Sdf, UsdGeom, Vt
 import omni
 import isaaclab.sim as sim_utils
 
-
+_all_forces = torch.tensor([])
 
 def randomize_cylinder_scale(
     env: DirectRLEnv,
@@ -126,10 +126,10 @@ def randomize_cylinder_scale(
 def apply_external_force_torque_custom(
     env: DirectRLEnv,
     env_ids: torch.Tensor,
-    force: list[float | tuple[float, float]] | torch.Tensor | None = None,
-    torque: list[float | tuple[float, float]] | torch.Tensor | None = None,
+    force_range: list[float | tuple[float, float]] | torch.Tensor | None = None,
+    torque_range: list[float | tuple[float, float]] | torch.Tensor | None = None,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-):
+) -> torch.Tensor:
     """Apply constant or randomized external forces and torques to specified bodies.
 
     This function applies forces and torques to the bodies of the asset. It supports both constant values
@@ -140,28 +140,43 @@ def apply_external_force_torque_custom(
     Args:
         env: The environment instance.
         env_ids: The environment IDs to apply forces and torques to. If None, applies to all environments.
-        force: The force specification for each axis [x, y, z]. Each axis can be:
+        force_range: The force specification for each axis [x, y, z]. Each axis can be:
                - A constant float value
                - A tuple (min, max) for randomization within the range
                - None for no force applied
-        torque: The torque specification for each axis [x, y, z]. Each axis can be:
-                - A constant float value  
+        torque_range: The torque specification for each axis [x, y, z]. Each axis can be:
+                - A constant float value
                 - A tuple (min, max) for randomization within the range
                 - None for no torque applied
         asset_cfg: The asset configuration specifying the asset and body IDs.
 
+    Returns:
+        torch.Tensor: The applied forces for all environments. 
+                     Shape: [num_envs, 3]. Contains current force values for all environments,
+                     with updated values for environments specified in env_ids.
+
     Example:
         Apply constant forces and torques:
-        >>> apply_constant_force_torque(env, env_ids, force=[10.0, 0.0, 0.0], torque=[0.0, 0.0, 5.0])
+        >>> forces = apply_external_force_torque_custom(env, env_ids, force=[10.0, 0.0, 0.0], torque=[0.0, 0.0, 5.0])
         
         Apply randomized forces with ranges:
-        >>> apply_constant_force_torque(env, env_ids, force=[(-5.0, 5.0), 0.0, (-2.0, 2.0)])
+        >>> forces = apply_external_force_torque_custom(env, env_ids, force=[(-5.0, 5.0), 0.0, (-2.0, 2.0)])
         
         Mix constant and randomized values:
-        >>> apply_constant_force_torque(env, env_ids, 
+        >>> forces = apply_external_force_torque_custom(env, env_ids, 
         ...                           force=[(-10.0, 10.0), 0.0, 5.0],
         ...                           torque=[0.0, (-3.0, 3.0), 2.0])
     """
+    global _all_forces
+    
+    # Initialize _all_forces if not already done or resize if needed
+    if _all_forces.numel() == 0 or _all_forces.shape[0] < env.num_envs:
+        _all_forces = torch.zeros((env.num_envs, 3), device=env.device)
+    
+    # Ensure _all_forces is on the correct device
+    if _all_forces.device != env.device:
+        _all_forces = _all_forces.to(env.device)
+
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject | Articulation = env.scene[asset_cfg.name]
     
@@ -169,25 +184,28 @@ def apply_external_force_torque_custom(
     if env_ids is None:
         env_ids = torch.arange(env.scene.num_envs, device=asset.device)
     
+    # resolve asset configuration
+    asset_cfg.resolve(env.scene)
+    
     # resolve number of bodies
     num_bodies = len(asset_cfg.body_ids) if isinstance(asset_cfg.body_ids, list) else asset.num_bodies
 
     # prepare force tensor
-    if force is not None:
-        if isinstance(force, torch.Tensor):
+    if force_range is not None:
+        if isinstance(force_range, torch.Tensor):
             # Direct tensor input
-            forces = force.to(device=asset.device, dtype=torch.float32)
+            forces = force_range.to(device=asset.device, dtype=torch.float32)
             if forces.dim() == 1:
                 forces = forces.unsqueeze(0).unsqueeze(0).expand(len(env_ids), num_bodies, 3).contiguous()
             elif forces.dim() == 2:
                 forces = forces.unsqueeze(1).expand(-1, num_bodies, -1).contiguous()
         else:
             # List input - handle constant values and ranges per axis
-            if len(force) != 3:
-                raise ValueError(f"Force list must have exactly 3 elements [x, y, z], got {len(force)} elements")
-            
+            if len(force_range) != 3:
+                raise ValueError(f"Force list must have exactly 3 elements [x, y, z], got {len(force_range)} elements")
+
             force_components = []
-            for i, axis_spec in enumerate(force):
+            for i, axis_spec in enumerate(force_range):
                 if isinstance(axis_spec, (tuple, list)) and len(axis_spec) == 2:
                     # Randomize within range for this axis
                     min_val, max_val = axis_spec
@@ -217,21 +235,21 @@ def apply_external_force_torque_custom(
         forces = torch.zeros((len(env_ids), num_bodies, 3), dtype=torch.float32, device=asset.device)
 
     # prepare torque tensor
-    if torque is not None:
-        if isinstance(torque, torch.Tensor):
+    if torque_range is not None:
+        if isinstance(torque_range, torch.Tensor):
             # Direct tensor input
-            torques = torque.to(device=asset.device, dtype=torch.float32)
+            torques = torque_range.to(device=asset.device, dtype=torch.float32)
             if torques.dim() == 1:
                 torques = torques.unsqueeze(0).unsqueeze(0).expand(len(env_ids), num_bodies, 3).contiguous()
             elif torques.dim() == 2:
                 torques = torques.unsqueeze(1).expand(-1, num_bodies, -1).contiguous()
         else:
             # List input - handle constant values and ranges per axis
-            if len(torque) != 3:
-                raise ValueError(f"Torque list must have exactly 3 elements [x, y, z], got {len(torque)} elements")
-            
+            if len(torque_range) != 3:
+                raise ValueError(f"Torque list must have exactly 3 elements [x, y, z], got {len(torque_range)} elements")
+
             torque_components = []
-            for i, axis_spec in enumerate(torque):
+            for i, axis_spec in enumerate(torque_range):
                 if isinstance(axis_spec, (tuple, list)) and len(axis_spec) == 2:
                     # Randomize within range for this axis
                     min_val, max_val = axis_spec
@@ -263,3 +281,58 @@ def apply_external_force_torque_custom(
     # set the forces and torques into the buffers
     # note: these are only applied when you call: `asset.write_data_to_sim()`
     asset.set_external_force_and_torque(forces, torques, env_ids=env_ids, body_ids=asset_cfg.body_ids)
+    
+    # Store the applied forces for the specified environments (take first body for simplicity)
+    # Sum forces across all bodies if multiple bodies are affected
+    if num_bodies > 1:
+        applied_forces = forces.sum(dim=1)  # Sum across bodies: [num_envs, 3]
+    else:
+        applied_forces = forces.squeeze(1)  # Remove body dimension: [num_envs, 3]
+    
+    # Update the global forces array for the specified environments
+    _all_forces[env_ids] = applied_forces
+    
+    return _all_forces
+
+def clear_external_wrenches(
+    env: DirectRLEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Clear any external forces and torques applied to the specified asset.
+    
+    Args:
+        env: The environment instance.
+        env_ids: The environment IDs to clear forces for.
+        asset_cfg: The asset configuration specifying the asset and body IDs.
+        
+    Returns:
+        torch.Tensor: The updated forces for all environments after clearing.
+                     Shape: [num_envs, 3]. Contains zero forces for specified environments.
+    """
+    global _all_forces
+    
+    # Initialize _all_forces if not already done or resize if needed
+    if _all_forces.numel() == 0 or _all_forces.shape[0] < env.num_envs:
+        _all_forces = torch.zeros((env.num_envs, 3), device=env.device)
+    
+    # Ensure _all_forces is on the correct device
+    if _all_forces.device != env.device:
+        _all_forces = _all_forces.to(env.device)
+
+    asset: RigidObject | Articulation = env.scene[asset_cfg.name]
+    asset_cfg.resolve(env.scene)
+    num_bodies = len(asset_cfg.body_ids) if isinstance(asset_cfg.body_ids, list) else asset.num_bodies
+
+    # Passing zero tensors disables external wrenches
+    asset.set_external_force_and_torque(
+        forces=torch.zeros((len(env_ids), num_bodies, 3), device=asset.device),
+        torques=torch.zeros((len(env_ids), num_bodies, 3), device=asset.device),
+        env_ids=env_ids,
+        body_ids=asset_cfg.body_ids
+    )
+    
+    # Update the global forces array to zero for the specified environments
+    _all_forces[env_ids] = torch.zeros((len(env_ids), 3), device=env.device)
+    
+    return _all_forces

@@ -22,43 +22,19 @@ import isaaclab.terrains as terrain_gen
 class EventCfg:
     """Configuration for events."""
 
-    # startup
-    robot_physics_material = EventTerm(
+     # startup - randomize physical properties for robustness testing
+    physics_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
             "static_friction_range": (0.3, 1.0),
-            "dynamic_friction_range": (0.3, 1.0),
-            "restitution_range": (0.0, 0.0),
+            "dynamic_friction_range": (0.2, 1.5),
+            "restitution_range": (0.0, 0.2),
             "num_buckets": 64,
         },
     )
 
-
-    add_plate_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
-            "mass_distribution_params": (0.1, 2.0),
-            "operation": "abs",
-        },
-    )
-
-
-    add_object_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "mass_distribution_params": (0.05, 0.5),
-            "operation": "abs",
-            "distribution": "uniform",
-        },
-    )
-
-    # reset
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -80,7 +56,50 @@ class EventCfg:
         mode="reset",
         params={
             "position_range": (1.0, 1.0),
-            "velocity_range": (0.0, 0.0),
+            "velocity_range": (-1.0, 1.0),
+        },
+    )
+
+    set_plate_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+            "mass_distribution_params": (0.1, 2.0),
+            "operation": "abs",
+        },
+    )
+
+    # Randomize cylinder mass at episode start
+    randomize_cylinder_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("object"),
+            "mass_distribution_params": (0.05, 0.5),  # Random mass between 0.05 and 0.5 kg
+            "operation": "abs",
+            "distribution": "uniform",
+        },
+    )
+
+    # Clear external wrenches
+    clear_external_wrenches = EventTerm(
+        func=mdp.clear_external_wrenches,
+        mode="interval",
+        interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+        },
+    )
+
+    # External force disturbances - more aggressive for testing
+    base_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque_custom,
+        mode="interval",
+        interval_range_s=(10.0, 10.0),
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
         },
     )
    
@@ -90,7 +109,8 @@ class CommandsCfg:
     """Command specifications for the MDP."""
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
-        resampling_time_range=(5.0, 5.0),
+        #resampling_time_range=(5.0, 5.0),
+        resampling_time_range=(20.0, 20.0),
         rel_standing_envs=0.02,
         rel_heading_envs=1.0,
         heading_command=False,

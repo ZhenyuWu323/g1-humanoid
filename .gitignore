@@ -28,3 +28,5 @@ scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/*
 
 !scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/joint_baseline/
 !scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/joint_baseline/**
+
+scripts/rsl_rl/eval.sh
