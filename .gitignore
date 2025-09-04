@@ -30,3 +30,10 @@ scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/*
 !scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/joint_baseline/**
 
 scripts/rsl_rl/eval.sh
+
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/
+scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/*
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/residual_distilled/
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/residual_distilled/**
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/more_distilled/
+!scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/more_distilled/**

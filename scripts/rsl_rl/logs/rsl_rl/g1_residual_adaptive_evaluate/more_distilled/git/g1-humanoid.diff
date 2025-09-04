@@ -1,0 +1,245 @@
+--- git status ---
+On branch zhenyu
+Your branch is ahead of 'origin/zhenyu' by 2 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_env.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	scripts/rsl_rl/logs/rsl_rl/g1_decoupled_locomanipulation/joint_baseline/model_18400.pt
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_cfg.py
+index b00ce60..55f1383 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_cfg.py
+@@ -13,7 +13,7 @@ from isaaclab.utils import configclass
+ from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
+ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
+ from . import mdp
+-from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
++from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG, G1_WITH_TRAY
+ from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
+ from isaaclab.envs.common import ViewerCfg
+ import isaaclab.terrains as terrain_gen
+@@ -40,8 +40,8 @@ class EventCfg:
+         mode="startup",
+         params={
+             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+-            "static_friction_range": (0.3, 1.0),
+-            "dynamic_friction_range": (0.3, 1.0),
++            "static_friction_range": (0.1, 1.0),
++            "dynamic_friction_range": (0.1, 1.0),
+             "restitution_range": (0.0, 0.0),
+             "num_buckets": 64,
+         },
+@@ -74,8 +74,8 @@ class EventCfg:
+         mode="startup",
+         params={
+             "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+-            "mass_distribution_params": (0.0, 1.5),
+-            "operation": "add",
++            "mass_distribution_params": (0.1, 1.5),
++            "operation": "abs",
+         },
+     )
+ 
+@@ -91,11 +91,11 @@ class EventCfg:
+ 
+     add_object_mass = EventTerm(
+         func=mdp.randomize_rigid_body_mass,
+-        mode="startup",
++        mode="reset",
+         params={
+             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+-            "mass_distribution_params": (0.0, 0.4),
+-            "operation": "add",
++            "mass_distribution_params": (0.05, 0.5),
++            "operation": "abs",
+         },
+     )
+ 
+@@ -110,16 +110,6 @@ class EventCfg:
+     # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
+ 
+     # reset
+-    base_external_force_torque = EventTerm(
+-        func=mdp.apply_external_force_torque,
+-        mode="reset",
+-        params={
+-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+-            "force_range": (0.0, 0.0),
+-            "torque_range": (-0.0, 0.0),
+-        },
+-    )
+-
+     reset_base = EventTerm(
+         func=mdp.reset_root_state_uniform,
+         mode="reset",
+@@ -164,6 +154,20 @@ class EventCfg:
+         },
+     )
+ 
++@configclass
++class CommandsCfg:
++    """Command specifications for the MDP."""
++    base_velocity = mdp.UniformVelocityCommandCfg(
++        asset_name="robot",
++        resampling_time_range=(10.0, 10.0),
++        rel_standing_envs=0.02,
++        rel_heading_envs=1.0,
++        heading_command=False,
++        debug_vis=True,
++        ranges=mdp.UniformVelocityCommandCfg.Ranges(
++            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
++        ),
++    )
+ 
+ 
+ 
+@@ -368,17 +372,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
+     
+ 
+     # command
+-    base_velocity = mdp.UniformVelocityCommandCfg(
+-        asset_name="robot",
+-        resampling_time_range=(5.0, 5.0),
+-        rel_standing_envs=0.02,
+-        rel_heading_envs=1.0,
+-        heading_command=False,
+-        debug_vis=True,
+-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+-            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
+-        ),
+-    )
++    commands: CommandsCfg = CommandsCfg()
+     # target base height
+     target_base_height = 0.78
+ 
+@@ -394,7 +388,7 @@ class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
+     """ G1 Decoupled Plate Locomanipulation Environment Configuration """
+ 
+     # robot configuration
+-    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
++    robot: ArticulationCfg = G1_WITH_TRAY.replace(prim_path="/World/envs/env_.*/Robot")
+ 
+     plate_name = "plate"
+ 
+@@ -417,7 +411,7 @@ class G1DecoupledPlateObjectEnvCfg(G1DecoupledPlateEnvCfg):
+     """ G1 Decoupled Plate Object Locomanipulation Environment Configuration """
+ 
+     # robot configuration
+-    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
++    robot: ArticulationCfg = G1_WITH_TRAY.replace(prim_path="/World/envs/env_.*/Robot")
+ 
+     events: EventCfg = EventCfg()
+ 
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_env.py b/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_env.py
+index 011f2e4..11e5354 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/decoupled/g1_decoupled_env.py
+@@ -21,7 +21,7 @@ from .utils import compute_projected_gravity
+ from isaaclab.envs.common import VecEnvStepReturn
+ from isaaclab.utils.buffers import CircularBuffer
+ from isaaclab.utils.math import quat_apply_inverse
+-
++from isaaclab.managers import CommandManager
+ class G1DecoupledEnv(DirectRLEnv):
+     cfg: G1DecoupledEnvCfg | G1DecoupledPlateEnvCfg | G1DecoupledPlateObjectEnvCfg
+ 
+@@ -70,8 +70,9 @@ class G1DecoupledEnv(DirectRLEnv):
+                 self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
+ 
+ 
+-        # body velocity command 
+-        self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
++        # body velocity command
++        self.command_manager = CommandManager(self.cfg.commands, self)
++        print("[INFO] Command Manager: ", self.command_manager)
+ 
+         # actions and previous actions
+         self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+@@ -249,7 +250,7 @@ class G1DecoupledEnv(DirectRLEnv):
+         action_buffer_flat = self.action_buffer.buffer.reshape(self.num_envs, -1)
+ 
+         # get command
+-        vel_command = self.velocity_command.command
++        vel_command = self.command_manager.get_command("base_velocity")
+ 
+         # phase
+         sin_phase = torch.sin(2 * np.pi * self.phase ).unsqueeze(1)
+@@ -324,13 +325,13 @@ class G1DecoupledEnv(DirectRLEnv):
+         tracking_lin_vel_xy = mdp.track_lin_vel_xy_yaw_frame_exp(
+             root_quat_w=self.robot.data.root_quat_w,
+             root_lin_vel_w=self.robot.data.root_lin_vel_w,
+-            vel_command=self.velocity_command.command,
++            vel_command=self.command_manager.get_command("base_velocity"),
+             sigma=0.25,
+             weight=1.0,
+         )
+         tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
+             root_ang_vel_b=self.robot.data.root_ang_vel_b,
+-            vel_command=self.velocity_command.command,
++            vel_command=self.command_manager.get_command("base_velocity"),
+             sigma=0.25,
+             weight=0.5,
+         )
+@@ -435,7 +436,7 @@ class G1DecoupledEnv(DirectRLEnv):
+             period=0.8,
+             offset=[0.0, 0.5],
+             threshold=0.55,
+-            command=self.velocity_command.command,
++            command=self.command_manager.get_command("base_velocity"),
+             weight=0.5,
+         )
+ 
+@@ -648,7 +649,7 @@ class G1DecoupledEnv(DirectRLEnv):
+ 
+         # apply terrain curriculum
+         if self.cfg.terrain_generator_cfg.curriculum:
+-            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
++            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.command_manager.get_command("base_velocity"))
+             extras["Curriculum/terrain_level"] = avg_terrain_level.item()
+ 
+         # apply acceleration reward curriculum
+@@ -664,7 +665,7 @@ class G1DecoupledEnv(DirectRLEnv):
+         self.robot.reset(env_ids)
+         super()._reset_idx(env_ids)
+         # reset command
+-        self.velocity_command._resample_command(env_ids)
++        self.command_manager.reset(env_ids)
+         # reset actions
+         self.actions[env_ids] = 0.0
+         self.prev_actions[env_ids] = 0.0
+@@ -781,7 +782,9 @@ class G1DecoupledEnv(DirectRLEnv):
+             if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
+                 self.sim.render()
+ 
+-        # post-step: step interval event
++        # post-step: step interval event# -- update command
++        if self.cfg.commands:
++            self.command_manager.compute(dt=self.step_dt)
+         if self.cfg.events:
+             if "interval" in self.event_manager.available_modes:
+                 self.event_manager.apply(mode="interval", dt=self.step_dt)
+@@ -801,6 +804,12 @@ class G1DecoupledEnv(DirectRLEnv):
+ 
+         # return observations, rewards, resets and extras
+         return self.obs_buf, self.reward_buf, self.reset_terminated, self.reset_time_outs, self.extras
++    
++    def close(self):
++        if not self._is_closed:
++            if self.cfg.commands:
++                del self.command_manager
++        super().close()
+ 
+ 
+ @torch.jit.script

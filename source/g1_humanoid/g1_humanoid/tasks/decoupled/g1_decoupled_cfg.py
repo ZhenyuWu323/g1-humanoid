@@ -13,7 +13,7 @@ from isaaclab.utils import configclass
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
-from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG
+from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG, G1_WITH_TRAY
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.envs.common import ViewerCfg
 import isaaclab.terrains as terrain_gen
@@ -40,8 +40,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.3, 1.0),
-            "dynamic_friction_range": (0.3, 1.0),
+            "static_friction_range": (0.1, 1.0),
+            "dynamic_friction_range": (0.1, 1.0),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -74,8 +74,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
-            "mass_distribution_params": (0.0, 1.5),
-            "operation": "add",
+            "mass_distribution_params": (0.1, 1.5),
+            "operation": "abs",
         },
     )
 
@@ -91,11 +91,11 @@ class EventCfg:
 
     add_object_mass = EventTerm(
         func=mdp.randomize_rigid_body_mass,
-        mode="startup",
+        mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "mass_distribution_params": (0.0, 0.4),
-            "operation": "add",
+            "mass_distribution_params": (0.05, 0.5),
+            "operation": "abs",
         },
     )
 
@@ -110,16 +110,6 @@ class EventCfg:
     # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
 
     # reset
-    base_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "force_range": (0.0, 0.0),
-            "torque_range": (-0.0, 0.0),
-        },
-    )
-
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -164,6 +154,20 @@ class EventCfg:
         },
     )
 
+@configclass
+class CommandsCfg:
+    """Command specifications for the MDP."""
+    base_velocity = mdp.UniformVelocityCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(10.0, 10.0),
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        heading_command=False,
+        debug_vis=True,
+        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
+        ),
+    )
 
 
 
@@ -368,17 +372,7 @@ class G1DecoupledEnvCfg(DirectRLEnvCfg):
     
 
     # command
-    base_velocity = mdp.UniformVelocityCommandCfg(
-        asset_name="robot",
-        resampling_time_range=(5.0, 5.0),
-        rel_standing_envs=0.02,
-        rel_heading_envs=1.0,
-        heading_command=False,
-        debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
-        ),
-    )
+    commands: CommandsCfg = CommandsCfg()
     # target base height
     target_base_height = 0.78
 
@@ -394,7 +388,7 @@ class G1DecoupledPlateEnvCfg(G1DecoupledEnvCfg):
     """ G1 Decoupled Plate Locomanipulation Environment Configuration """
 
     # robot configuration
-    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+    robot: ArticulationCfg = G1_WITH_TRAY.replace(prim_path="/World/envs/env_.*/Robot")
 
     plate_name = "plate"
 
@@ -417,7 +411,7 @@ class G1DecoupledPlateObjectEnvCfg(G1DecoupledPlateEnvCfg):
     """ G1 Decoupled Plate Object Locomanipulation Environment Configuration """
 
     # robot configuration
-    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
+    robot: ArticulationCfg = G1_WITH_TRAY.replace(prim_path="/World/envs/env_.*/Robot")
 
     events: EventCfg = EventCfg()
 
