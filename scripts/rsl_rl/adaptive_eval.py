@@ -42,6 +42,7 @@ parser.add_argument(
     help="Number of samples per pixel per frame.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument("--teacher", action="store_true", default=False, help="Run in teacher mode.")
 
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -136,7 +137,9 @@ def main():
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
-    runner = ResidualAdaptiveEvalRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    agent_cfg_dict = agent_cfg.to_dict()
+    agent_cfg_dict["teacher_mode"] = args_cli.teacher
+    runner = ResidualAdaptiveEvalRunner(env, agent_cfg_dict, log_dir=None, device=agent_cfg.device)
     runner.load(resume_path)
 
     # obtain the trained policy for inference
@@ -153,8 +156,8 @@ def main():
         # run everything in inference mode
         with torch.inference_mode():
             # agent stepping
-            actor_obs, residual_actor_obs, encoder_obs = obs["base_actor_obs"], obs["residual_actor_obs"], obs["residual_encoder_obs"]
-            actions = policy(actor_obs, residual_actor_obs, encoder_obs)
+            actor_obs, critic_obs, residual_student_obs, residual_teacher_obs = obs["actor_obs"], obs["critic_obs"], obs["residual_student_obs"], obs["residual_teacher_obs"]
+            actions = policy(actor_obs, residual_student_obs, residual_teacher_obs)
             # env stepping
             obs, _, _, _ = env.step(actions)
             metrics = compute_metrics(env)

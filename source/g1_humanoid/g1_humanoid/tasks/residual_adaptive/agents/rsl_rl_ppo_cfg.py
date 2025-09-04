@@ -98,10 +98,8 @@ class G1ResidualAdaptiveEvaluateRunnerCfg(RslRlOnPolicyRunnerCfg):
     experiment_name = "g1_residual_adaptive_evaluate"
     empirical_normalization = False
     # residual upper bodypolicy
-    residual_whole_body_policy = RslRlActorCriticEncoderCfg(
-        init_noise_std=0.3,
+    residual_whole_body_policy = RslRlStudentTeacherEncoderCfg(
         actor_hidden_dims=[512, 256, 128],
-        critic_hidden_dims=[512, 256, 128],
         encoder_d_model=32,
         encoder_nhead=2,
         encoder_num_layers=1,

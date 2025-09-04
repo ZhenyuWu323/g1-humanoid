@@ -21,6 +21,8 @@ from rsl_rl.modules import (
     StudentTeacherRecurrent,
 )
 from rsl_rl.utils import store_code_state
+
+from .student_teacher_eval import StudentTeacherEncoderEval
 from ..residual_adaptive_env_wrapper import ResidualAdaptiveVecEnvWrapper
 from .adaptive_model_eval import AdaptiveModelEval
 
@@ -33,6 +35,7 @@ class ResidualAdaptiveEvalRunner:
         self.upper_body_policy_cfg = train_cfg["upper_body_policy"]
         self.lower_body_policy_cfg = train_cfg["lower_body_policy"]
         self.residual_policy_cfg = train_cfg["residual_whole_body_policy"]
+        self.teacher_mode = train_cfg["teacher_mode"]
         self.device = device
         self.env = env
 
@@ -88,12 +91,14 @@ class ResidualAdaptiveEvalRunner:
             num_actions=self.num_actions["lower_body"],
             **self.lower_body_policy_cfg
         ).to(self.device)
-        self.policies["residual_whole_body"] = AdaptiveModelEval(
+        self.policies["residual_whole_body"] = StudentTeacherEncoderEval(
             num_actor_obs=self.num_obs["residual_actor_obs"],
             num_actions=self.num_actions["upper_body"] + self.num_actions["lower_body"],
-            num_encoder_obs=int(self.num_obs["encoder_obs"]/self.env.history_length),
+            num_student_encoder_obs=int(self.num_obs["residual_student_obs"]/self.env.history_length),
+            num_teacher_encoder_obs=int(self.num_obs["residual_teacher_obs"]/self.env.history_length),
             num_time_steps=self.env.history_length,
             num_encoder_output=self.env.encoder_output_dim,
+            teacher_mode=self.teacher_mode,
             **self.residual_policy_cfg
         ).to(self.device)
         # NOTE: disable gradient for lower and upper body policies
@@ -152,7 +157,7 @@ class ResidualAdaptiveEvalRunner:
             for body_key in self.body_keys:
                 self.policies[body_key].to(device)
         
-        def multi_actor_inference_policy(obs, residual_obs, encoder_obs):
+        def multi_actor_inference_policy(obs, residual_obs, teacher_obs):
             
             # Get actions from each body part
             actions_list = []
@@ -164,7 +169,7 @@ class ResidualAdaptiveEvalRunner:
             combined_actions = torch.cat(actions_list, dim=1)
 
             # residual actions
-            residual_actions = self.policies["residual_whole_body"].act_inference(residual_obs, encoder_obs)
+            residual_actions = self.policies["residual_whole_body"].act_inference(residual_obs, teacher_obs)
             action_dict = {
                 "base_action": combined_actions,
                 "residual_action": residual_actions

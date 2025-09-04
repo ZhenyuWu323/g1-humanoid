@@ -35,28 +35,6 @@ class EventCfg:
         },
     )
 
-    object_physics_material = EventTerm(
-        func=mdp.randomize_rigid_body_material,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.1, 1.0),
-            "dynamic_friction_range": (0.1, 1.0),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
-        },
-    )
-
-
-    add_base_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "mass_distribution_params": (-1.0, 3.0),
-            "operation": "add",
-        },
-    )
 
     add_plate_mass = EventTerm(
         func=mdp.randomize_rigid_body_mass,
@@ -105,16 +83,22 @@ class EventCfg:
             "velocity_range": (0.0, 0.0),
         },
     )
-    #External force disturbances - more aggressive for testing
-    # interval
-    push_robot = EventTerm(
-        func=mdp.push_by_setting_velocity,
-        mode="interval",
-        interval_range_s=(5.0, 5.0),
-        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
+   
+
+@configclass
+class CommandsCfg:
+    """Command specifications for the MDP."""
+    base_velocity = mdp.UniformVelocityCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(5.0, 5.0),
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        heading_command=False,
+        debug_vis=True,
+        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
+        ),
     )
-
-
 
 
 
@@ -156,7 +140,8 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
         "actor_obs": 482,
         "critic_obs": 497,
         "residual_actor_obs": 482,
-        "encoder_obs": 35,
+        "residual_student_obs": 35,
+        "residual_teacher_obs": 110,
     }
     action_dim= {
         "upper_body": 14,
@@ -314,17 +299,8 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
     
 
     # command
-    base_velocity = mdp.UniformVelocityCommandCfg(
-        asset_name="robot",
-        resampling_time_range=(5.0, 5.0),
-        rel_standing_envs=0.02,
-        rel_heading_envs=1.0,
-        heading_command=False,
-        debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
-        ),
-    )
+    commands: CommandsCfg = CommandsCfg()
+
     # target base height
     target_base_height = 0.78
 
