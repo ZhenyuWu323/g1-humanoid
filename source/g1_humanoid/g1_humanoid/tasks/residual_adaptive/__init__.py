@@ -48,6 +48,20 @@ gym.register(
 )
 
 
+
+""" G1 Residual Locomanipulation Adaptive Fine-Tune """
+
+gym.register(
+    id="G1-Residual-Locomanipulation-Adaptive-Fine-Tune",
+    entry_point=f"{__name__}.g1_adaptive_env:G1ResidualAdaptiveEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_adaptive_cfg:G1ResidualAdaptiveFineTuneEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualAdaptivePPORunnerCfg",
+    },
+)
+
+
 """ G1 Residual Locomanipulation Adaptive Evaluate """
 
 gym.register(

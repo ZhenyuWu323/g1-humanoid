@@ -1,5 +1,8 @@
 import torch
 from isaaclab.utils.math import quat_apply_inverse, subtract_frame_transforms
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg, RigidObjectCollectionCfg
+import isaaclab.sim as sim_utils
+import numpy as np
 
 
 
@@ -72,3 +75,43 @@ def is_object_on_plate(object_pos_in_plate):
     xy_condition = torch.norm(object_pos_in_plate[:, :2], dim=1) < 0.3
 
     return z_condition & xy_condition 
+
+
+
+
+def generate_cylinder_variants(num_variants=24):
+
+    radius_range = (0.02, 0.05)      
+    height_range = (0.08, 0.15)      
+    mass_range = (0.05, 0.3)         
+    friction_range = (0.1, 1.0)     
+    
+    variants = {}
+    
+    for i in range(num_variants):
+        radius = np.random.uniform(*radius_range)
+        height = np.random.uniform(*height_range)
+        mass = np.random.uniform(*mass_range)
+        static_friction = np.random.uniform(*friction_range)
+        dynamic_friction = static_friction * np.random.uniform(0.8, 1.0)  
+        
+        
+        variants[f"object_{i:02d}"] = RigidObjectCfg(
+            prim_path=f"/World/envs/env_.*/Object_{i:02d}",
+            spawn=sim_utils.CylinderCfg(
+                radius=radius,
+                height=height,
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+                mass_props=sim_utils.MassPropertiesCfg(mass=mass),
+                collision_props=sim_utils.CollisionPropertiesCfg(),
+                physics_material=sim_utils.RigidBodyMaterialCfg(
+                    static_friction=static_friction,
+                    dynamic_friction=dynamic_friction,
+                    restitution=0.0,
+                ),
+                activate_contact_sensors=True,
+            ),
+            init_state=RigidObjectCfg.InitialStateCfg(pos=(100.0, 100.0, 0.0)),
+        )
+    
+    return variants

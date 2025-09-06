@@ -82,26 +82,46 @@ class EventCfg:
         },
     )
 
-    # Clear external wrenches
-    clear_external_wrenches = EventTerm(
-        func=mdp.clear_external_wrenches,
-        mode="interval",
-        interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
+    # # Clear external wrenches
+    # clear_external_wrenches = EventTerm(
+    #     func=mdp.clear_external_wrenches,
+    #     mode="interval",
+    #     interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+    #     },
+    # )
+
+    # # External force disturbances - more aggressive for testing
+    # base_external_force_torque = EventTerm(
+    #     func=mdp.apply_external_force_torque_custom,
+    #     mode="interval",
+    #     interval_range_s=(10.0, 10.0),
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+    #         "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
+    #     },
+    # )
+
+
+    set_object_com = EventTerm(
+        func=mdp.randomize_rigid_body_com_fixed,
+        mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
         },
     )
 
-    # External force disturbances - more aggressive for testing
-    base_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque_custom,
-        mode="interval",
-        interval_range_s=(10.0, 10.0),
+    scale_object_size = EventTerm(
+        func=mdp.randomize_cylinder_scale,
+        mode="prestartup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
+            "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
         },
-    )
+    )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
    
 
 @configclass
@@ -109,8 +129,8 @@ class CommandsCfg:
     """Command specifications for the MDP."""
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
-        #resampling_time_range=(5.0, 5.0),
-        resampling_time_range=(20.0, 20.0),
+        resampling_time_range=(5.0, 5.0),
+        #resampling_time_range=(20.0, 20.0),
         rel_standing_envs=0.02,
         rel_heading_envs=1.0,
         heading_command=False,
@@ -260,7 +280,7 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
     events: EventCfg = EventCfg()
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=64, env_spacing=3, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1000, env_spacing=3, replicate_physics=False)
 
     # reward scales
     reward_scales = {

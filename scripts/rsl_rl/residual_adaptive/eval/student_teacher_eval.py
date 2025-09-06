@@ -139,12 +139,33 @@ class StudentTeacherEncoderEval(nn.Module):
             bool: Whether this training resumes a previous training. This flag is used by the `load()` function of
                 `OnPolicyRunner` to determine how to load further parameters.
         """
-        super().load_state_dict(state_dict, strict=strict)
-        self.loaded_teacher = True
-        self.teacher_encoder.eval()
-        self.student_encoder.eval()
-        self.actor.eval()
-        return True
+
+        if (any("encoder" in key for key in state_dict.keys()) and 
+            not any("student_encoder" in key for key in state_dict.keys()) and 
+            not any("teacher_encoder" in key for key in state_dict.keys())):
+            # case where we are loading the parameters from the teacher encoder
+            # load the teacher encoder
+            teacher_state_dict = {}
+            actor_state_dict = {}
+            for key, value in state_dict.items():
+                if "encoder." in key:
+                    teacher_state_dict[key.replace("encoder.", "")] = value
+                if "actor." in key:
+                    actor_state_dict[key.replace("actor.", "")] = value
+            self.teacher_encoder.load_state_dict(teacher_state_dict, strict=strict)
+            self.actor.load_state_dict(actor_state_dict, strict=strict)
+            self.loaded_teacher = True
+            self.teacher_encoder.eval()
+            self.student_encoder.eval()
+            self.actor.eval()
+            return True
+        else:
+            super().load_state_dict(state_dict, strict=strict)
+            self.loaded_teacher = True
+            self.teacher_encoder.eval()
+            self.student_encoder.eval()
+            self.actor.eval()
+            return True
     
 
     def get_hidden_states(self):

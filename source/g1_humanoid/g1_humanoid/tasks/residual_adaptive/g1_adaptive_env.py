@@ -14,7 +14,7 @@ from isaaclab.utils.math import quat_rotate
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .g1_adaptive_cfg import G1ResidualAdaptiveEnvCfg
+from .g1_adaptive_cfg import G1ResidualAdaptiveEnvCfg, G1ResidualAdaptiveFineTuneEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
@@ -24,9 +24,9 @@ from .utils import compute_dof_pos_tracking_weight, compute_object_pos_in_plate_
 from isaaclab.managers import CommandManager
 
 class G1ResidualAdaptiveEnv(DirectRLEnv):
-    cfg: G1ResidualAdaptiveEnvCfg
+    cfg: G1ResidualAdaptiveEnvCfg | G1ResidualAdaptiveFineTuneEnvCfg
 
-    def __init__(self, cfg: G1ResidualAdaptiveEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1ResidualAdaptiveEnvCfg | G1ResidualAdaptiveFineTuneEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         ##########################################################################################
@@ -214,7 +214,10 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         
 
         # clone and replicate
-        self.scene.clone_environments(copy_from_source=False)
+        if isinstance(self.cfg, G1ResidualAdaptiveFineTuneEnvCfg):
+            self.scene.filter_collisions()
+        else:
+            self.scene.clone_environments(copy_from_source=False)
         self.cfg.sky_light_cfg.func("/World/Light", self.cfg.sky_light_cfg)
 
 
@@ -366,22 +369,22 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             'actions': base_action_buffer_flat,
         }
 
-        residual_actor_observations_dict = {
-            'root_ang_vel_b': ang_vel_buffer_flat,
-            'projected_gravity_b': projected_gravity_buffer_flat,
-            'vel_command': vel_command,
-            'ref_upper_body_dof_pos': self.default_upper_joint_pos,
-            'dof_pos': dof_pos_buffer_flat,
-            'dof_vel': dof_vel_buffer_flat,
-            'actions': residual_action_buffer_flat,
-            'object_pos_in_plate': object_pos_in_plate_buffer_flat,
-            'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
-            'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
-            'object_com': object_com_buffer_flat,
-            'object_physics': object_physics_buffer_flat,
-            'object_mass': object_mass_buffer_flat,
-            'object_projected_gravity': object_projected_gravity_buffer_flat,
-        }
+        # residual_actor_observations_dict = {
+        #     'root_ang_vel_b': ang_vel_buffer_flat,
+        #     'projected_gravity_b': projected_gravity_buffer_flat,
+        #     'vel_command': vel_command,
+        #     'ref_upper_body_dof_pos': self.default_upper_joint_pos,
+        #     'dof_pos': dof_pos_buffer_flat,
+        #     'dof_vel': dof_vel_buffer_flat,
+        #     'actions': residual_action_buffer_flat,
+        #     'object_pos_in_plate': object_pos_in_plate_buffer_flat,
+        #     'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
+        #     'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
+        #     'object_com': object_com_buffer_flat,
+        #     'object_physics': object_physics_buffer_flat,
+        #     'object_mass': object_mass_buffer_flat,
+        #     'object_projected_gravity': object_projected_gravity_buffer_flat,
+        # }
 
         residual_critic_observations_dict = {
             'root_lin_vel_b': lin_vel_buffer_flat,
@@ -403,24 +406,24 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         # scale obs
         actor_scaled_obs = self._scale_observations(actor_observations_dict)
         critic_scaled_obs = self._scale_observations(critic_observations_dict)
-        residual_actor_scaled_obs = self._scale_observations(residual_actor_observations_dict)
+        #residual_actor_scaled_obs = self._scale_observations(residual_actor_observations_dict)
         residual_critic_scaled_obs = self._scale_observations(residual_critic_observations_dict)
 
         # apply obs noise on pretain model
         actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs) # NOTE: ONLY APPLY NOISE ON PRETAIN ACTOR OBS
-        # residual_actor_noisy_obs = actor_noisy_obs.copy()
-        # residual_actor_noisy_obs['actions'] = residual_action_buffer_flat
-        # residual_actor_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
-        # residual_actor_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
-        # residual_actor_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
-        # residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
-        # residual_actor_noisy_obs['object_physics'] = object_physics_buffer_flat
-        # residual_actor_noisy_obs['object_mass'] = object_mass_buffer_flat
-        # residual_actor_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat
+        residual_actor_noisy_obs = actor_noisy_obs.copy()
+        residual_actor_noisy_obs['actions'] = residual_action_buffer_flat
+        residual_actor_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
+        residual_actor_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
+        residual_actor_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
+        residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
+        residual_actor_noisy_obs['object_physics'] = object_physics_buffer_flat
+        residual_actor_noisy_obs['object_mass'] = object_mass_buffer_flat
+        residual_actor_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat
 
         actor_obs = compute_obs(list(actor_noisy_obs.values()))
         critic_obs = compute_obs(list(critic_scaled_obs.values()))
-        residual_actor_obs = compute_obs(list(residual_actor_scaled_obs.values()))
+        residual_actor_obs = compute_obs(list(residual_actor_noisy_obs.values()))
         residual_critic_obs = compute_obs(list(residual_critic_scaled_obs.values()))
 
         observations = {

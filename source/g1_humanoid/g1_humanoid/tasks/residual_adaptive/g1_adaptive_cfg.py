@@ -1,4 +1,6 @@
 import math
+
+import torch
 import isaaclab.envs.mdp as mdp
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -99,15 +101,24 @@ class EventCfg:
         },
     )
 
-    # scale_object_size = EventTerm(
-    #     func=mdp.randomize_cylinder_scale,
-    #     mode="prestartup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-    #         "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
-    #         "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
-    #     },
-    # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
+    set_object_com = EventTerm(
+        func=mdp.randomize_rigid_body_com_fixed,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
+        },
+    )
+
+    scale_object_size = EventTerm(
+        func=mdp.randomize_cylinder_scale,
+        mode="prestartup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
+            "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
+        },
+    )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
 
     # reset
     reset_base = EventTerm(
@@ -139,7 +150,7 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(5.0, 5.0),
+        interval_range_s=(5.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
     external_force_torque = EventTerm(
@@ -306,6 +317,7 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
 
     # events
     events: EventCfg = EventCfg()
+    events.scale_object_size = None
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
@@ -406,6 +418,12 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
 @configclass
 class G1ResidualAdaptiveDistillEnvCfg(G1ResidualAdaptiveEnvCfg):
     """ G1 Residual Locomanipulation Adaptive Environment Configuration """
+
+    # scene
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1500, env_spacing=2.5, replicate_physics=False)
+
+    # events
+    events: EventCfg = EventCfg()
     # Observation space
     observation_space = {
         "actor_obs": 482,
@@ -414,3 +432,19 @@ class G1ResidualAdaptiveDistillEnvCfg(G1ResidualAdaptiveEnvCfg):
         "residual_student_obs": 35,
         "residual_teacher_obs": 110,
     }
+
+    # object pose noise
+    object_pose_noise_cfg: NoiseModelCfg = NoiseModelCfg(
+        noise_cfg=GaussianNoiseCfg(mean=0.0, std=0.01,operation="add")
+    )
+
+
+@configclass
+class G1ResidualAdaptiveFineTuneEnvCfg(G1ResidualAdaptiveEnvCfg):
+    """ G1 Residual Locomanipulation Adaptive Environment Configuration """
+
+    # scene
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1500, env_spacing=2.5, replicate_physics=False)
+
+    # events
+    events: EventCfg = EventCfg()
