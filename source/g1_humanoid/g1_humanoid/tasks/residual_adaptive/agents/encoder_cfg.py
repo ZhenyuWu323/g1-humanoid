@@ -44,14 +44,11 @@ class RslRlStudentTeacherEncoderCfg:
     actor_hidden_dims: list[int] = MISSING
     """The hidden dimensions of the actor network."""
 
-    encoder_d_model: int = MISSING
-    """The dimension of the encoder."""
+    teacher_encoder_dim: list[int] = MISSING
+    """The dimension of the teacher encoder[d_model, nhead, num_layers]."""
 
-    encoder_nhead: int = MISSING
-    """The number of attention heads in the encoder."""
-
-    encoder_num_layers: int = MISSING
-    """The number of layers in the encoder."""
+    student_encoder_dim: list[int] = MISSING
+    """The dimension of the student encoder[d_model, nhead, num_layers]."""
 
     activation: str = MISSING
     """The activation function for the actor and critic networks."""

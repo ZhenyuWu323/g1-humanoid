@@ -24,9 +24,8 @@ class StudentTeacherEncoder(nn.Module):
         num_time_steps,
         num_encoder_output,
         actor_hidden_dims=[256, 256, 256],
-        encoder_d_model=128,
-        encoder_nhead=8,
-        encoder_num_layers=2,
+        teacher_encoder_dim=[128,8,1], # d_model, nhead, num_layers
+        student_encoder_dim=[128,8,1], # d_model, nhead, num_layers
         activation="elu",
         **kwargs,
     ):
@@ -62,13 +61,15 @@ class StudentTeacherEncoder(nn.Module):
 
 
         # Teacher Enco
-        self.teacher_encoder = TransformerEncoder(num_teacher_encoder_obs, encoder_d_model, encoder_nhead, encoder_num_layers, num_encoder_output, num_time_steps)
+        teacher_encoder_d_model, teacher_encoder_nhead, teacher_encoder_num_layers = teacher_encoder_dim
+        self.teacher_encoder = TransformerEncoder(num_teacher_encoder_obs, teacher_encoder_d_model, teacher_encoder_nhead, teacher_encoder_num_layers, num_encoder_output, num_time_steps)
         self.teacher_encoder.eval()
         for param in self.teacher_encoder.parameters():
             param.requires_grad = False
 
         # Student Encoder
-        self.student_encoder = TransformerEncoder(num_student_encoder_obs, encoder_d_model, encoder_nhead, encoder_num_layers, num_encoder_output, num_time_steps)
+        student_encoder_d_model, student_encoder_nhead, student_encoder_num_layers = student_encoder_dim
+        self.student_encoder = TransformerEncoder(num_student_encoder_obs, student_encoder_d_model, student_encoder_nhead, student_encoder_num_layers, num_encoder_output, num_time_steps)
 
         print(f"Actor MLP: {self.actor}")
         print(f"Teacher Encoder: {self.teacher_encoder}")

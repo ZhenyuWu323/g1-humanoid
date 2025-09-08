@@ -113,6 +113,8 @@ class DistillationEncoder:
 
     def update(self):
         self.num_updates += 1
+        mean_action_loss = 0
+        mean_obs_loss = 0
         mean_behavior_loss = 0
         loss = 0
         cnt = 0
@@ -127,11 +129,15 @@ class DistillationEncoder:
                 
 
                 # behavior cloning loss NOTE: also include l2 of actions
-                behavior_loss = self.loss_fn(actions, privileged_actions) + self.loss_fn(student_encoded_obs, privileged_encoded_obs)
+                action_loss = self.loss_fn(actions, privileged_actions)
+                obs_loss = self.loss_fn(student_encoded_obs, privileged_encoded_obs)
+                behavior_loss = action_loss + obs_loss
 
                 # total loss
                 loss = loss + behavior_loss
                 mean_behavior_loss += behavior_loss.item()
+                mean_action_loss += action_loss.item()
+                mean_obs_loss += obs_loss.item()
                 cnt += 1
 
                 # gradient step
@@ -149,12 +155,14 @@ class DistillationEncoder:
                 self.policy.detach_hidden_states(dones.view(-1))
 
         mean_behavior_loss /= cnt
+        mean_action_loss /= cnt
+        mean_obs_loss /= cnt
         self.storage.clear()
         self.last_hidden_states = self.policy.get_hidden_states()
         self.policy.detach_hidden_states()
 
         # construct the loss dictionary
-        loss_dict = {"behavior": mean_behavior_loss}
+        loss_dict = {"action": mean_action_loss, "obs": mean_obs_loss, "behavior": mean_behavior_loss}
 
         return loss_dict
 

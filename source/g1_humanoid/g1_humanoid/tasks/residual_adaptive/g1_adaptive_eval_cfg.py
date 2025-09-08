@@ -83,25 +83,25 @@ class EventCfg:
     )
 
     # # Clear external wrenches
-    # clear_external_wrenches = EventTerm(
-    #     func=mdp.clear_external_wrenches,
-    #     mode="interval",
-    #     interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-    #     },
-    # )
+    clear_external_wrenches = EventTerm(
+        func=mdp.clear_external_wrenches,
+        mode="interval",
+        interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+        },
+    )
 
-    # # External force disturbances - more aggressive for testing
-    # base_external_force_torque = EventTerm(
-    #     func=mdp.apply_external_force_torque_custom,
-    #     mode="interval",
-    #     interval_range_s=(10.0, 10.0),
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-    #         "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
-    #     },
-    # )
+    # External force disturbances - more aggressive for testing
+    base_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque_custom,
+        mode="interval",
+        interval_range_s=(10.0, 10.0),
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
+        },
+    )
 
 
     set_object_com = EventTerm(
@@ -129,8 +129,8 @@ class CommandsCfg:
     """Command specifications for the MDP."""
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
-        resampling_time_range=(5.0, 5.0),
-        #resampling_time_range=(20.0, 20.0),
+        #resampling_time_range=(5.0, 5.0),
+        resampling_time_range=(20.0, 20.0),
         rel_standing_envs=0.02,
         rel_heading_envs=1.0,
         heading_command=False,
@@ -181,7 +181,7 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
         "critic_obs": 497,
         "residual_actor_obs": 482,
         "residual_student_obs": 35,
-        "residual_teacher_obs": 110,
+        "residual_teacher_obs": 95,
     }
     action_dim= {
         "upper_body": 14,
@@ -372,6 +372,11 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
         track_air_time=False,
         filter_prim_paths_expr=["/World/envs/env_.*/Robot/plate"],
         history_length=3,
+    )
+
+     # object pose noise
+    object_pose_noise_cfg: NoiseModelCfg = NoiseModelCfg(
+        noise_cfg=GaussianNoiseCfg(mean=0.0, std=0.01,operation="add")
     )
 
     

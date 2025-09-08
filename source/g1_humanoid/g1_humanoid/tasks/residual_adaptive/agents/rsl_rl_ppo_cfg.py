@@ -62,9 +62,8 @@ class G1ResidualAdaptiveDistillRunnerCfg(G1ResidualAdaptivePPORunnerCfg):
 
     residual_whole_body_policy = RslRlStudentTeacherEncoderCfg(
         actor_hidden_dims=[512, 256, 128],
-        encoder_d_model=32,
-        encoder_nhead=2,
-        encoder_num_layers=1,
+        teacher_encoder_dim=[32,2,1],
+        student_encoder_dim=[32,2,2],
         activation="elu",
     )
 
@@ -84,9 +83,9 @@ class G1ResidualAdaptiveDistillRunnerCfg(G1ResidualAdaptivePPORunnerCfg):
     )
 
     distillation_algorithm = RslRlDistillationAlgorithmCfg(
-        num_learning_epochs=5,
-        learning_rate=1.0e-4,
-        gradient_length=1,
+        num_learning_epochs=5, #5 is better
+        learning_rate=1e-3,
+        gradient_length=15,
     )
 
 
@@ -100,9 +99,8 @@ class G1ResidualAdaptiveEvaluateRunnerCfg(RslRlOnPolicyRunnerCfg):
     # residual upper bodypolicy
     residual_whole_body_policy = RslRlStudentTeacherEncoderCfg(
         actor_hidden_dims=[512, 256, 128],
-        encoder_d_model=32,
-        encoder_nhead=2,
-        encoder_num_layers=1,
+        teacher_encoder_dim=[32,2,1],
+        student_encoder_dim=[32,2,2],
         activation="elu",
     )
     # upper body policy

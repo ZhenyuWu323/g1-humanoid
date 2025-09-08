@@ -380,7 +380,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         #     'object_pos_in_plate': object_pos_in_plate_buffer_flat,
         #     'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
         #     'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
-        #     'object_com': object_com_buffer_flat,
+        #     #'object_com': object_com_buffer_flat,
         #     'object_physics': object_physics_buffer_flat,
         #     'object_mass': object_mass_buffer_flat,
         #     'object_projected_gravity': object_projected_gravity_buffer_flat,
@@ -398,7 +398,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
             'object_pos_in_plate': object_pos_in_plate_buffer_flat,
             'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
             'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
-            'object_com': object_com_buffer_flat,
+            #'object_com': object_com_buffer_flat,
             'object_physics': object_physics_buffer_flat,
             'object_mass': object_mass_buffer_flat,
             'object_projected_gravity': object_projected_gravity_buffer_flat,
@@ -416,7 +416,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
         residual_actor_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
         residual_actor_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
         residual_actor_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
-        residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
+        #residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
         residual_actor_noisy_obs['object_physics'] = object_physics_buffer_flat
         residual_actor_noisy_obs['object_mass'] = object_mass_buffer_flat
         residual_actor_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat

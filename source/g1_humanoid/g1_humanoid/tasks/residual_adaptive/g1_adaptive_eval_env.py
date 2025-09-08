@@ -69,6 +69,10 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
             for key, value in self.cfg.obs_noise_models.items():
                 self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
 
+        # object pose noise
+        if self.cfg.object_pose_noise_cfg:
+            self.object_pose_noise_model = self.cfg.object_pose_noise_cfg.class_type(self.cfg.object_pose_noise_cfg, self.num_envs, self.sim.device)
+
 
         # body velocity command 
         self.command_manager = CommandManager(self.cfg.commands, self)
@@ -139,7 +143,21 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
         self.object_pos_in_camera_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self._buffers_initialized = False
 
-
+    def _apply_object_pose_noise(self, object_pose_in_camera: torch.Tensor) -> torch.Tensor:
+        noisy_object_pose_in_camera = self.object_pose_noise_model.apply(object_pose_in_camera)
+        pos = noisy_object_pose_in_camera[..., :3]
+        quat = noisy_object_pose_in_camera[..., 3:]
+        # normalize quaternion
+        quat_norm = torch.norm(quat, dim=-1, keepdim=True)
+        valid_mask = quat_norm.squeeze(-1) > 1e-6
+        quat = torch.where(
+            valid_mask.unsqueeze(-1),
+            quat / (quat_norm + 1e-8),
+            torch.tensor([1., 0., 0., 0.], device=quat.device)  # default identity quat
+        )
+        
+        return torch.cat([pos, quat], dim=-1)
+    
     def _initialize_buffers_with_current_state(self):
         # proprioceptive observations
         dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
@@ -169,6 +187,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
             camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
             camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
         )
+        object_pos_in_camera = self._apply_object_pose_noise(object_pos_in_camera)
         object_com = self._object.data.com_pos_b[:, 0, :].to(self.sim.device)
         object_physics = self._object.data._root_physx_view.get_material_properties()[:, 0, [0,2]] # mu_static, restitution
         object_mass = self._object.data._root_physx_view.get_masses()
@@ -296,6 +315,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
             camera_quat_w=self.robot.data.body_link_quat_w[:, self.camera_body_index, :],
             camera_pos_w=self.robot.data.body_pos_w[:, self.camera_body_index, :],
         )
+        object_pos_in_camera = self._apply_object_pose_noise(object_pos_in_camera)
         object_com = self._object.data.com_pos_b[:, 0, :].to(self.sim.device)
         object_physics = self._object.data._root_physx_view.get_material_properties()[:, 0, [0,2]] # mu_static, restitution
         object_mass = self._object.data._root_physx_view.get_masses()
@@ -394,7 +414,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
         #     'object_pos_in_plate': object_pos_in_plate_buffer_flat,
         #     'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
         #     'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
-        #     'object_com': object_com_buffer_flat,
+        #     #'object_com': object_com_buffer_flat,
         #     'object_physics': object_physics_buffer_flat,
         #     'object_mass': object_mass_buffer_flat,
         #     'object_projected_gravity': object_projected_gravity_buffer_flat,
@@ -424,7 +444,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
         residual_teacher_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
         residual_teacher_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
         residual_teacher_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
-        residual_teacher_noisy_obs['object_com'] = object_com_buffer_flat
+        #residual_teacher_noisy_obs['object_com'] = object_com_buffer_flat
         residual_teacher_noisy_obs['object_physics'] = object_physics_buffer_flat
         residual_teacher_noisy_obs['object_mass'] = object_mass_buffer_flat
         residual_teacher_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat
