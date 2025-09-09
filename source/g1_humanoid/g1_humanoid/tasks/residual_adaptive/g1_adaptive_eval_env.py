@@ -241,8 +241,8 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
         
 
         # clone and replicate
-        #self.scene.clone_environments(copy_from_source=False)
-        self.scene.filter_collisions()
+        self.scene.clone_environments(copy_from_source=False)
+        #self.scene.filter_collisions()
         self.cfg.sky_light_cfg.func("/World/Light", self.cfg.sky_light_cfg)
 
 
@@ -797,6 +797,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
         super()._reset_idx(env_ids)
         # reset command
         self.command_manager.reset(env_ids)
+        self.event_manager.reset(env_ids)
         # reset proprioceptive observations
         self.base_actions[env_ids] = 0.0
         self.prev_base_actions[env_ids] = 0.0

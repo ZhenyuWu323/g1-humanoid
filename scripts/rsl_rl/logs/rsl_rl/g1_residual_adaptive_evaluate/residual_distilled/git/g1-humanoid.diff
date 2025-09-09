@@ -5,104 +5,279 @@ Your branch is up to date with 'origin/zhenyu'.
 Changes not staged for commit:
   (use "git add <file>..." to update what will be committed)
   (use "git restore <file>..." to discard changes in working directory)
+	modified:   scripts/rsl_rl/residual_adaptive/distill/distill_encoder.py
+	modified:   scripts/rsl_rl/residual_adaptive/distill/student_teacher_encode.py
+	modified:   scripts/rsl_rl/residual_adaptive/eval/student_teacher_eval.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/agents/rsl_rl_ppo_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_cfg.py
 	modified:   source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_distill_env.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_env.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_env.py
 
 no changes added to commit (use "git add" and/or "git commit -a") 
 
 
 --- git diff ---
+diff --git a/scripts/rsl_rl/residual_adaptive/distill/distill_encoder.py b/scripts/rsl_rl/residual_adaptive/distill/distill_encoder.py
+index b190062..1487b0a 100644
+--- a/scripts/rsl_rl/residual_adaptive/distill/distill_encoder.py
++++ b/scripts/rsl_rl/residual_adaptive/distill/distill_encoder.py
+@@ -113,6 +113,8 @@ class DistillationEncoder:
+ 
+     def update(self):
+         self.num_updates += 1
++        mean_action_loss = 0
++        mean_obs_loss = 0
+         mean_behavior_loss = 0
+         loss = 0
+         cnt = 0
+@@ -127,11 +129,15 @@ class DistillationEncoder:
+                 
+ 
+                 # behavior cloning loss NOTE: also include l2 of actions
+-                behavior_loss = self.loss_fn(actions, privileged_actions) + self.loss_fn(student_encoded_obs, privileged_encoded_obs)
++                action_loss = self.loss_fn(actions, privileged_actions)
++                obs_loss = self.loss_fn(student_encoded_obs, privileged_encoded_obs)
++                behavior_loss = action_loss + obs_loss
+ 
+                 # total loss
+                 loss = loss + behavior_loss
+                 mean_behavior_loss += behavior_loss.item()
++                mean_action_loss += action_loss.item()
++                mean_obs_loss += obs_loss.item()
+                 cnt += 1
+ 
+                 # gradient step
+@@ -148,13 +154,15 @@ class DistillationEncoder:
+                 self.policy.reset(dones.view(-1))
+                 self.policy.detach_hidden_states(dones.view(-1))
+ 
++        mean_action_loss /= cnt
++        mean_obs_loss /= cnt
+         mean_behavior_loss /= cnt
+         self.storage.clear()
+         self.last_hidden_states = self.policy.get_hidden_states()
+         self.policy.detach_hidden_states()
+ 
+         # construct the loss dictionary
+-        loss_dict = {"behavior": mean_behavior_loss}
++        loss_dict = {"action": mean_action_loss, "obs": mean_obs_loss, "behavior": mean_behavior_loss}
+ 
+         return loss_dict
+ 
+diff --git a/scripts/rsl_rl/residual_adaptive/distill/student_teacher_encode.py b/scripts/rsl_rl/residual_adaptive/distill/student_teacher_encode.py
+index cc01d71..afef66f 100644
+--- a/scripts/rsl_rl/residual_adaptive/distill/student_teacher_encode.py
++++ b/scripts/rsl_rl/residual_adaptive/distill/student_teacher_encode.py
+@@ -68,7 +68,7 @@ class StudentTeacherEncoder(nn.Module):
+             param.requires_grad = False
+ 
+         # Student Encoder
+-        self.student_encoder = TransformerEncoder(num_student_encoder_obs, encoder_d_model, encoder_nhead, encoder_num_layers, num_encoder_output, num_time_steps)
++        self.student_encoder = TransformerEncoder(num_student_encoder_obs, encoder_d_model, encoder_nhead, encoder_num_layers+1, num_encoder_output, num_time_steps)
+ 
+         print(f"Actor MLP: {self.actor}")
+         print(f"Teacher Encoder: {self.teacher_encoder}")
+diff --git a/scripts/rsl_rl/residual_adaptive/eval/student_teacher_eval.py b/scripts/rsl_rl/residual_adaptive/eval/student_teacher_eval.py
+index 34e0be9..4e4109f 100644
+--- a/scripts/rsl_rl/residual_adaptive/eval/student_teacher_eval.py
++++ b/scripts/rsl_rl/residual_adaptive/eval/student_teacher_eval.py
+@@ -69,7 +69,7 @@ class StudentTeacherEncoderEval(nn.Module):
+             param.requires_grad = False
+ 
+         # Student Encoder
+-        self.student_encoder = TransformerEncoder(num_student_encoder_obs, encoder_d_model, encoder_nhead, encoder_num_layers, num_encoder_output, num_time_steps)
++        self.student_encoder = TransformerEncoder(num_student_encoder_obs, encoder_d_model, encoder_nhead, encoder_num_layers+1, num_encoder_output, num_time_steps)
+ 
+         print(f"[INFO] Evaluating Teacher: {self.teacher_mode}")
+         print(f"Actor MLP: {self.actor}")
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/agents/rsl_rl_ppo_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/agents/rsl_rl_ppo_cfg.py
+index 87f85ec..1262488 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/agents/rsl_rl_ppo_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/agents/rsl_rl_ppo_cfg.py
+@@ -84,9 +84,9 @@ class G1ResidualAdaptiveDistillRunnerCfg(G1ResidualAdaptivePPORunnerCfg):
+     )
+ 
+     distillation_algorithm = RslRlDistillationAlgorithmCfg(
+-        num_learning_epochs=5,
+-        learning_rate=1.0e-4,
+-        gradient_length=1,
++        num_learning_epochs=10, #5 is better
++        learning_rate=1e-3,
++        gradient_length=15,
+     )
+ 
+ 
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_cfg.py
+index 2c78841..ec1ecd5 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_cfg.py
+@@ -218,9 +218,9 @@ class G1ResidualAdaptiveEnvCfg(DirectRLEnvCfg):
+     observation_space = {
+         "actor_obs": 482,
+         "critic_obs": 497,
+-        "residual_actor_obs": 482 + 110,
+-        "residual_critic_obs": 497 + 110,
+-        "encoder_obs": 110,
++        "residual_actor_obs": 482 + 95,
++        "residual_critic_obs": 497 + 95,
++        "encoder_obs": 95,
+     }
+     action_dim= {
+         "upper_body": 14,
+@@ -430,7 +430,7 @@ class G1ResidualAdaptiveDistillEnvCfg(G1ResidualAdaptiveEnvCfg):
+         "critic_obs": 497,
+         "residual_actor_obs": 482,
+         "residual_student_obs": 35,
+-        "residual_teacher_obs": 110,
++        "residual_teacher_obs": 95,
+     }
+ 
+     # object pose noise
 diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_distill_env.py b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_distill_env.py
-index 3ef0ebb..c5b10c2 100644
+index 0c60cf8..6288d10 100644
 --- a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_distill_env.py
 +++ b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_distill_env.py
-@@ -21,6 +21,7 @@ from isaaclab.envs.common import VecEnvStepReturn
- from isaaclab.utils.buffers import CircularBuffer
- from isaaclab.utils.math import quat_apply_inverse
- from .utils import compute_dof_pos_tracking_weight, compute_object_pos_in_plate_frame, compute_object_pose_in_camera_frame, compute_object_twist_in_plate_frame, is_object_on_plate
-+from isaaclab.managers import CommandManager
+@@ -419,7 +419,7 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
+         #     'object_pos_in_plate': object_pos_in_plate_buffer_flat,
+         #     'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
+         #     'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
+-        #     'object_com': object_com_buffer_flat,
++        #     #'object_com': object_com_buffer_flat,
+         #     'object_physics': object_physics_buffer_flat,
+         #     'object_mass': object_mass_buffer_flat,
+         #     'object_projected_gravity': object_projected_gravity_buffer_flat,
+@@ -449,7 +449,7 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
+         residual_teacher_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
+         residual_teacher_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
+         residual_teacher_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
+-        residual_teacher_noisy_obs['object_com'] = object_com_buffer_flat
++        #residual_teacher_noisy_obs['object_com'] = object_com_buffer_flat
+         residual_teacher_noisy_obs['object_physics'] = object_physics_buffer_flat
+         residual_teacher_noisy_obs['object_mass'] = object_mass_buffer_flat
+         residual_teacher_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_env.py b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_env.py
+index 6f75b1b..d8c08cc 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_env.py
+@@ -380,7 +380,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
+         #     'object_pos_in_plate': object_pos_in_plate_buffer_flat,
+         #     'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
+         #     'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
+-        #     'object_com': object_com_buffer_flat,
++        #     #'object_com': object_com_buffer_flat,
+         #     'object_physics': object_physics_buffer_flat,
+         #     'object_mass': object_mass_buffer_flat,
+         #     'object_projected_gravity': object_projected_gravity_buffer_flat,
+@@ -398,7 +398,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
+             'object_pos_in_plate': object_pos_in_plate_buffer_flat,
+             'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
+             'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
+-            'object_com': object_com_buffer_flat,
++            #'object_com': object_com_buffer_flat,
+             'object_physics': object_physics_buffer_flat,
+             'object_mass': object_mass_buffer_flat,
+             'object_projected_gravity': object_projected_gravity_buffer_flat,
+@@ -416,7 +416,7 @@ class G1ResidualAdaptiveEnv(DirectRLEnv):
+         residual_actor_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
+         residual_actor_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
+         residual_actor_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
+-        residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
++        #residual_actor_noisy_obs['object_com'] = object_com_buffer_flat
+         residual_actor_noisy_obs['object_physics'] = object_physics_buffer_flat
+         residual_actor_noisy_obs['object_mass'] = object_mass_buffer_flat
+         residual_actor_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_cfg.py
+index 2618a30..d50391d 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_cfg.py
+@@ -82,26 +82,26 @@ class EventCfg:
+         },
+     )
  
- class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
-     cfg: G1ResidualAdaptiveDistillEnvCfg
-@@ -70,7 +71,8 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
- 
- 
-         # body velocity command 
--        self.velocity_command = mdp.UniformVelocityCommand(self.cfg.base_velocity, self)
-+        self.command_manager = CommandManager(self.cfg.commands, self)
-+        print("[INFO] Command Manager: ", self.command_manager)
- 
-         # actions and previous actions
-         self.base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
-@@ -356,7 +358,7 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
-         object_pos_in_camera_buffer_flat = self.object_pos_in_camera_buffer.buffer.reshape(self.num_envs, -1)
- 
-         # get command
--        vel_command = self.velocity_command.command
-+        vel_command = self.command_manager.get_command("base_velocity")
- 
- 
-         # scale observations
-@@ -439,13 +441,13 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
-         tracking_lin_vel_xy = mdp.track_lin_vel_xy_yaw_frame_exp(
-             root_quat_w=self.robot.data.root_quat_w,
-             root_lin_vel_w=self.robot.data.root_lin_vel_w,
--            vel_command=self.velocity_command.command,
-+            vel_command=self.command_manager.get_command("base_velocity"),
-             sigma=0.25,
-             weight=1.0,
-         )
-         tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
-             root_ang_vel_b=self.robot.data.root_ang_vel_b,
--            vel_command=self.velocity_command.command,
-+            vel_command=self.command_manager.get_command("base_velocity"),
-             sigma=0.25,
-             weight=0.5,
-         )
-@@ -551,7 +553,7 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
-             period=0.8,
-             offset=[0.0, 0.5],
-             threshold=0.55,
--            command=self.velocity_command.command,
-+            command=self.command_manager.get_command("base_velocity"),
-             weight=0.5,
-         )
- 
-@@ -753,14 +755,14 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
- 
-         # apply terrain curriculum
-         if self.cfg.terrain_generator_cfg.curriculum:
--            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.velocity_command.command)
-+            avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.command_manager.get_command("base_velocity"))
-             extras["Curriculum/terrain_level"] = avg_terrain_level.item()
- 
-         # reset robot
-         self.robot.reset(env_ids)
-         super()._reset_idx(env_ids)
-         # reset command
--        self.velocity_command._resample_command(env_ids)
-+        self.command_manager.reset(env_ids)
-         # reset proprioceptive observations
-         self.base_actions[env_ids] = 0.0
-         self.prev_base_actions[env_ids] = 0.0
-@@ -894,6 +896,8 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
-             if self.sim.has_rtx_sensors() and self.cfg.rerender_on_reset:
-                 self.sim.render()
- 
-+        if self.cfg.commands:
-+            self.command_manager.compute(dt=self.step_dt)
-         # post-step: step interval event
-         if self.cfg.events:
-             if "interval" in self.event_manager.available_modes:
-@@ -915,6 +919,12 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
-         # return observations, rewards, resets and extras
-         return self.obs_buf, self.reward_buf, self.reset_terminated, self.reset_time_outs, self.extras
- 
-+    def close(self):
-+        if not self._is_closed:
-+            if self.cfg.commands:
-+                del self.command_manager
-+        super().close()
+-    # # Clear external wrenches
+-    # clear_external_wrenches = EventTerm(
+-    #     func=mdp.clear_external_wrenches,
+-    #     mode="interval",
+-    #     interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
+-    #     params={
+-    #         "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+-    #     },
+-    # )
+-
+-    # # External force disturbances - more aggressive for testing
+-    # base_external_force_torque = EventTerm(
+-    #     func=mdp.apply_external_force_torque_custom,
+-    #     mode="interval",
+-    #     interval_range_s=(10.0, 10.0),
+-    #     params={
+-    #         "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+-    #         "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
+-    #     },
+-    # )
++    # Clear external wrenches
++    clear_external_wrenches = EventTerm(
++        func=mdp.clear_external_wrenches,
++        mode="interval",
++        interval_range_s=(0.5, 0.5),  # Clear every 0.5 seconds, meaning disturbances last 0.5s
++        params={
++            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
++        },
++    )
 +
++    # External force disturbances - more aggressive for testing
++    base_external_force_torque = EventTerm(
++        func=mdp.apply_external_force_torque_custom,
++        mode="interval",
++        interval_range_s=(10.0, 10.0),
++        params={
++            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
++            "force_range": [(-60.0, 60.0), (-60.0, 60.0), (-0.0, 0.0)]
++        },
++    )
  
- @torch.jit.script
- def compute_obs(obs_tensors: List[torch.Tensor]) -> torch.Tensor:
+ 
+     set_object_com = EventTerm(
+@@ -129,8 +129,8 @@ class CommandsCfg:
+     """Command specifications for the MDP."""
+     base_velocity = mdp.UniformVelocityCommandCfg(
+         asset_name="robot",
+-        resampling_time_range=(5.0, 5.0),
+-        #resampling_time_range=(20.0, 20.0),
++        #resampling_time_range=(5.0, 5.0),
++        resampling_time_range=(20.0, 20.0),
+         rel_standing_envs=0.02,
+         rel_heading_envs=1.0,
+         heading_command=False,
+@@ -181,7 +181,7 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
+         "critic_obs": 497,
+         "residual_actor_obs": 482,
+         "residual_student_obs": 35,
+-        "residual_teacher_obs": 110,
++        "residual_teacher_obs": 95,
+     }
+     action_dim= {
+         "upper_body": 14,
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_env.py b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_env.py
+index 9f4cf32..3c94450 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/residual_adaptive/g1_adaptive_eval_env.py
+@@ -394,7 +394,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
+         #     'object_pos_in_plate': object_pos_in_plate_buffer_flat,
+         #     'object_lin_vel_plate': object_lin_vel_plate_buffer_flat,
+         #     'object_ang_vel_plate': object_ang_vel_plate_buffer_flat,
+-        #     'object_com': object_com_buffer_flat,
++        #     #'object_com': object_com_buffer_flat,
+         #     'object_physics': object_physics_buffer_flat,
+         #     'object_mass': object_mass_buffer_flat,
+         #     'object_projected_gravity': object_projected_gravity_buffer_flat,
+@@ -424,7 +424,7 @@ class G1ResidualAdaptiveEvaluateEnv(DirectRLEnv):
+         residual_teacher_noisy_obs['object_pos_in_plate'] = object_pos_in_plate_buffer_flat
+         residual_teacher_noisy_obs['object_lin_vel_plate'] = object_lin_vel_plate_buffer_flat
+         residual_teacher_noisy_obs['object_ang_vel_plate'] = object_ang_vel_plate_buffer_flat
+-        residual_teacher_noisy_obs['object_com'] = object_com_buffer_flat
++        #residual_teacher_noisy_obs['object_com'] = object_com_buffer_flat
+         residual_teacher_noisy_obs['object_physics'] = object_physics_buffer_flat
+         residual_teacher_noisy_obs['object_mass'] = object_mass_buffer_flat
+         residual_teacher_noisy_obs['object_projected_gravity'] = object_projected_gravity_buffer_flat

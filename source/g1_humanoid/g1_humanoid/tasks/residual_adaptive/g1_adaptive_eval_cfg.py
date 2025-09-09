@@ -113,15 +113,15 @@ class EventCfg:
         },
     )
 
-    scale_object_size = EventTerm(
-        func=mdp.randomize_cylinder_scale,
-        mode="prestartup",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
-            "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
-        },
-    )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
+    # scale_object_size = EventTerm(
+    #     func=mdp.randomize_cylinder_scale,
+    #     mode="prestartup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+    #         "radius_scale_range": (0.7, 1.5),    # radius: 0.021m - 0.045m
+    #         "height_scale_range": (0.6, 1.8),    # height: 0.06m - 0.18m
+    #     },
+    # )# NOTE: to use this, set replicate_physics in InteractiveSceneCfg to False
    
 
 @configclass
@@ -280,7 +280,7 @@ class G1ResidualAdaptiveEvaluateEnvCfg(DirectRLEnvCfg):
     events: EventCfg = EventCfg()
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1000, env_spacing=3, replicate_physics=False)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1000, env_spacing=3, replicate_physics=True)
 
     # reward scales
     reward_scales = {

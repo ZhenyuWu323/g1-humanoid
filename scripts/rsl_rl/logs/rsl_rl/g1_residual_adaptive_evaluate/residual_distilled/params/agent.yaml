@@ -29,7 +29,7 @@ logger: tensorboard
 neptune_project: isaaclab
 wandb_project: isaaclab
 resume: true
-load_run: final_32_encode
+load_run: 2025-09-08_05-20-23
 load_checkpoint: model_.*.pt
 residual_whole_body_policy:
   actor_hidden_dims:
@@ -85,6 +85,6 @@ ppo_algorithm:
   rnd_cfg: null
 distillation_algorithm:
   class_name: Distillation
-  num_learning_epochs: 5
-  learning_rate: 0.0001
-  gradient_length: 1
+  num_learning_epochs: 10
+  learning_rate: 0.001
+  gradient_length: 15
