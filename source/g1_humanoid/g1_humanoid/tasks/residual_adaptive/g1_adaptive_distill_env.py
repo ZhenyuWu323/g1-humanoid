@@ -801,6 +801,7 @@ class G1ResidualAdaptiveDistillEnv(DirectRLEnv):
         super()._reset_idx(env_ids)
         # reset command
         self.command_manager.reset(env_ids)
+        self.event_manager.reset(env_ids)
         # reset proprioceptive observations
         self.base_actions[env_ids] = 0.0
         self.prev_base_actions[env_ids] = 0.0
