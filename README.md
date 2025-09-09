@@ -145,3 +145,17 @@ Some examples of packages that can likely be excluded are:
 "<path-to-isaac-sim>/extscache/omni.services.*"     // Services tools
 ...
 ```
+
+
+
+### Joint Map
+
+```
+upper_body_indexes:  ([11, 12, 15, 16, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28], ['left_shoulder_pitch_joint', 'right_shoulder_pitch_joint', 'left_shoulder_roll_joint', 'right_shoulder_roll_joint', 'left_shoulder_yaw_joint', 'right_shoulder_yaw_joint', 'left_elbow_joint', 'right_elbow_joint', 'left_wrist_roll_joint', 'right_wrist_roll_joint', 'left_wrist_pitch_joint', 'right_wrist_pitch_joint', 'left_wrist_yaw_joint', 'right_wrist_yaw_joint'])
+feet_indexes:  ([13, 14, 17, 18], ['left_ankle_pitch_joint', 'right_ankle_pitch_joint', 'left_ankle_roll_joint', 'right_ankle_roll_joint'])
+waist_indexes:  ([2, 5, 8], ['waist_yaw_joint', 'waist_roll_joint', 'waist_pitch_joint'])
+knee_indexes:  ([9, 10], ['left_knee_joint', 'right_knee_joint'])
+hips_indexes:  ([0, 1, 3, 4, 6, 7, 9, 10], ['left_hip_pitch_joint', 'right_hip_pitch_joint', 'left_hip_roll_joint', 'right_hip_roll_joint', 'left_hip_yaw_joint', 'right_hip_yaw_joint', 'left_knee_joint', 'right_knee_joint'])
+lower_body_indexes:  [2, 5, 8, 0, 1, 3, 4, 6, 7, 9, 10, 13, 14, 17, 18]
+upper_body_indexes:  [11, 12, 15, 16, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+```
