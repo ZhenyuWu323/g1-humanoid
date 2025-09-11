@@ -518,3 +518,14 @@ def object_friction_penalty(
         total_reward = torch.zeros_like(plate_quat_w[:, 0])
     
     return total_reward * weight
+
+
+
+def body_contacts(threshold: float, contact_sensor: ContactSensor, body_ids: Sequence[int], weight: float) -> torch.Tensor:
+    """Penalize undesired contacts as the number of violations that are above a threshold."""
+    # extract the used quantities (to enable type-hinting)
+    # check if contact force is above threshold
+    net_contact_forces = contact_sensor.data.net_forces_w_history
+    is_contact = torch.max(torch.norm(net_contact_forces[:, :, body_ids], dim=-1), dim=1)[0] > threshold
+    # sum over contacts for each environment
+    return torch.sum(is_contact, dim=1) * weight

@@ -20,7 +20,7 @@ from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
 from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
-from isaaclab.managers import CommandManager
+from isaaclab.managers import CommandManager, ObservationManager, ActionManager
 from isaaclab.utils.string import resolve_matching_names
 
 class G1JointTestEnv(DirectRLEnv):
@@ -45,7 +45,7 @@ class G1JointTestEnv(DirectRLEnv):
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
 
-        self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
+        #self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
 
 
         # body/link indexes
@@ -64,15 +64,6 @@ class G1JointTestEnv(DirectRLEnv):
         joint_ids_map, _ = resolve_matching_names(self.robot.joint_names, self.cfg.sdk_joint_sequence, preserve_order=True)
         print("[INFO] Joint to motor index: ", joint_ids_map)
 
-        print("[INFO] upper body default joint positions: ", self.default_upper_joint_pos)
-
-        print("[INFO] lower body default joint positions: ", self.default_lower_joint_pos)
-
-        print("[INFO] whole body default joint positions: ", self.default_joint_pos)
-
-        
-
-        
 
         # noise models
         if self.cfg.obs_noise_models:
@@ -84,6 +75,15 @@ class G1JointTestEnv(DirectRLEnv):
         # body velocity command 
         self.command_manager = CommandManager(self.cfg.commands, self)
         print("[INFO] Command Manager: ", self.command_manager)
+
+        # # actions
+        # self.action_manager = ActionManager(self.cfg.actions, self)
+        # print("[INFO] Action Manager: ", self.action_manager)
+
+        # # observations
+        # self.observation_manager = ObservationManager(self.cfg.observations, self)
+        # print("[INFO] Observation Manager: ", self.observation_manager)
+
 
         # actions and previous actions
         self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
@@ -126,25 +126,20 @@ class G1JointTestEnv(DirectRLEnv):
         self.dof_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.dof_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
         self.action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self._buffers_initialized = False
+        self.vel_command_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
 
-
-    def _initialize_buffers_with_current_state(self):
-        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
-        dof_vel = self.robot.data.joint_vel
-        root_ang_vel_b = self.robot.data.root_ang_vel_b
-        root_lin_vel_b = self.robot.data.root_lin_vel_b
-        projected_gravity_b = self.robot.data.projected_gravity_b
-        
-            
-        # fill the history length
+        # initialize buffers
         for _ in range(self.obs_history_length):
-            self.root_lin_vel_buffer.append(root_lin_vel_b)
-            self.root_ang_vel_buffer.append(root_ang_vel_b)
-            self.projected_gravity_buffer.append(projected_gravity_b)
-            self.dof_pos_buffer.append(dof_pos)
-            self.dof_vel_buffer.append(dof_vel)
-            self.action_buffer.append(self.actions)
+            self.root_lin_vel_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
+            self.root_ang_vel_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
+            self.projected_gravity_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
+            self.dof_pos_buffer.append(torch.zeros((self.num_envs, 29), device=self.sim.device))
+            self.dof_vel_buffer.append(torch.zeros((self.num_envs, 29), device=self.sim.device))
+            self.action_buffer.append(torch.zeros((self.num_envs, 29), device=self.sim.device))
+            self.vel_command_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
+        #self._buffers_initialized = False
+
+
            
 
     def _setup_scene(self):
@@ -201,10 +196,11 @@ class G1JointTestEnv(DirectRLEnv):
     def _update_history_buffers(self):
         """Update history buffers for observations and actions."""
         dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
-        dof_vel = self.robot.data.joint_vel
+        dof_vel = self.robot.data.joint_vel - self.robot.data.default_joint_vel
         root_ang_vel_b = self.robot.data.root_ang_vel_b
         root_lin_vel_b = self.robot.data.root_lin_vel_b
         projected_gravity_b = self.robot.data.projected_gravity_b
+        vel_command = self.command_manager.get_command("base_velocity")
 
         # update history buffers
         self.root_lin_vel_buffer.append(root_lin_vel_b)
@@ -213,7 +209,7 @@ class G1JointTestEnv(DirectRLEnv):
         self.dof_pos_buffer.append(dof_pos)
         self.dof_vel_buffer.append(dof_vel)
         self.action_buffer.append(self.actions)
-
+        self.vel_command_buffer.append(vel_command)
 
     def _apply_observation_noise(self, observations_dict: dict) -> dict:
         noisy_observations_dict = {}
@@ -227,10 +223,6 @@ class G1JointTestEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
 
-        if not hasattr(self, '_buffers_initialized') or not self._buffers_initialized:
-            self._initialize_buffers_with_current_state()
-            self._buffers_initialized = True
-
         # update history buffers
         self._update_history_buffers()
 
@@ -241,9 +233,8 @@ class G1JointTestEnv(DirectRLEnv):
         dof_pos_buffer_flat = self.dof_pos_buffer.buffer.reshape(self.num_envs, -1)
         dof_vel_buffer_flat = self.dof_vel_buffer.buffer.reshape(self.num_envs, -1)
         action_buffer_flat = self.action_buffer.buffer.reshape(self.num_envs, -1)
+        vel_command_buffer_flat = self.vel_command_buffer.buffer.reshape(self.num_envs, -1)
 
-        # get command
-        vel_command = self.command_manager.get_command("base_velocity")
 
         # phase
         sin_phase = torch.sin(2 * np.pi * self.phase ).unsqueeze(1)
@@ -254,8 +245,8 @@ class G1JointTestEnv(DirectRLEnv):
         actor_observations_dict = {
             'root_ang_vel_b': ang_vel_buffer_flat, # 15
             'projected_gravity_b': projected_gravity_buffer_flat, # 15
-            'vel_command': vel_command, # 3
-            'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
+            'vel_command': vel_command_buffer_flat, # 3
+            #'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
             'dof_pos': dof_pos_buffer_flat, # 145
             'dof_vel': dof_vel_buffer_flat, # 145
             'actions': action_buffer_flat, # 145
@@ -265,8 +256,8 @@ class G1JointTestEnv(DirectRLEnv):
             'root_lin_vel_b': lin_vel_buffer_flat,
             'root_ang_vel_b': ang_vel_buffer_flat,
             'projected_gravity_b': projected_gravity_buffer_flat,
-            'vel_command': vel_command,
-            'ref_upper_body_dof_pos': self.default_upper_joint_pos,
+            'vel_command': vel_command_buffer_flat,
+            #'ref_upper_body_dof_pos': self.default_upper_joint_pos,
             'dof_pos': dof_pos_buffer_flat,
             'dof_vel': dof_vel_buffer_flat,
             'actions': action_buffer_flat,
@@ -297,134 +288,6 @@ class G1JointTestEnv(DirectRLEnv):
 
         # build task observation
         actor_obs = compute_obs(actor_obs_list)
-        real_robot_obs = torch.tensor([0.00000000e+00,0.00000000e+00,-8.72664561e-04,8.72664561e-04
-,8.72664561e-04,0.00000000e+00,1.30899681e-03,0.00000000e+00
-,0.00000000e+00,8.72664561e-04,4.36332281e-04,-4.36332281e-04
-,4.36332281e-04,1.74532912e-03,-8.72664561e-04,5.78239672e-02
-,-2.94654649e-02,-9.97891843e-01,5.78207187e-02,-2.94813327e-02
-,-9.97891843e-01,5.78279458e-02,-2.95037273e-02,-9.97890770e-01
-,5.77910095e-02,-2.95223724e-02,-9.97892082e-01,5.77707849e-02
-,-2.95147169e-02,-9.97893751e-01,0.00000000e+00,0.00000000e+00
-,0.00000000e+00,0.00000000e+00,0.00000000e+00,0.00000000e+00
-,0.00000000e+00,0.00000000e+00,0.00000000e+00,0.00000000e+00
-,0.00000000e+00,0.00000000e+00,0.00000000e+00,0.00000000e+00
-,0.00000000e+00,0.00000000e+00,0.00000000e+00,-2.50733763e-01
-,-1.47187620e-01,-9.10648901e-04,-2.60776728e-02,-8.53915978e-03
-,0.00000000e+00,-2.82568997e-03,-8.03513758e-05,0.00000000e+00
-,1.24878585e-01,1.44368649e-01,2.59698153e-01,-2.72820890e-01
-,6.65278137e-02,-9.44629461e-02,1.17313579e-01,-6.64669096e-01
-,3.91286239e-02,-4.69853021e-02,-7.45059252e-02,3.10870800e-02
-,2.94991702e-01,-2.79639900e-01,3.75453800e-01,-9.50828433e-01
-,5.66851974e-01,-5.52325130e-01,1.94209650e-01,-2.43642181e-01
-,-2.50733763e-01,-1.47187620e-01,-9.24040796e-04,-2.60776728e-02
-,-8.54768138e-03,0.00000000e+00,-2.82568997e-03,-1.20527060e-04
-,0.00000000e+00,1.24878585e-01,1.44377172e-01,2.59674191e-01
-,-2.72820890e-01,6.65321946e-02,-9.44587737e-02,1.17313579e-01
-,-6.64693058e-01,3.91215682e-02,-4.69780862e-02,-7.44939446e-02
-,3.11350171e-02,2.94991702e-01,-2.79639900e-01,3.75381887e-01
-,-9.50852394e-01,5.66859603e-01,-5.52332819e-01,1.94209650e-01
-,-2.43642181e-01,-2.50747144e-01,-1.47187620e-01,-9.24040796e-04
-,-2.60691512e-02,-8.54768138e-03,0.00000000e+00,-2.83908192e-03
-,-1.20527060e-04,0.00000000e+00,1.24870062e-01,1.44368649e-01
-,2.59686172e-01,-2.72820890e-01,6.65234476e-02,-9.44546610e-02
-,1.17313579e-01,-6.64669096e-01,3.91356684e-02,-4.69853245e-02
-,-7.45059252e-02,3.10870800e-02,2.95003682e-01,-2.79639900e-01
-,3.75405848e-01,-9.50840414e-01,5.66859603e-01,-5.52317500e-01
-,1.94201976e-01,-2.43634507e-01,-2.50760525e-01,-1.47214383e-01
-,-8.83865112e-04,-2.60776728e-02,-8.53915978e-03,0.00000000e+00
-,-2.83908192e-03,-9.37432706e-05,0.00000000e+00,1.24878585e-01
-,1.44360125e-01,2.59686172e-01,-2.72820890e-01,6.65234476e-02
-,-9.44629461e-02,1.17313579e-01,-6.64657116e-01,3.91356684e-02
-,-4.69853021e-02,-7.44220391e-02,3.11110485e-02,2.95003682e-01
-,-2.79639900e-01,3.75393867e-01,-9.50840414e-01,5.66859603e-01
-,-5.52332819e-01,1.94209650e-01,-2.43611500e-01,-2.50747144e-01
-,-1.47187620e-01,-8.97257007e-04,-2.60691512e-02,-8.54768138e-03
-,0.00000000e+00,-2.82568997e-03,-1.20527060e-04,0.00000000e+00
-,1.24887109e-01,1.44385695e-01,2.59686172e-01,-2.72844851e-01
-,6.65234476e-02,-9.44671184e-02,1.17313579e-01,-6.64681077e-01
-,3.91356684e-02,-4.69925180e-02,-7.44939446e-02,3.10870800e-02
-,2.95003682e-01,-2.79639900e-01,3.75417829e-01,-9.50816453e-01
-,5.66859603e-01,-5.52317500e-01,1.94209650e-01,-2.43634507e-01
-,8.57081250e-05,5.14248793e-04,5.99956955e-04,1.09083077e-04
-,-1.63624631e-04,0.00000000e+00,5.99956955e-04,1.97128719e-03
-,0.00000000e+00,-1.79987086e-03,-1.63624631e-04,4.60194249e-04
-,-2.30097125e-04,8.07123142e-05,7.80390255e-05,-5.36893262e-04
-,-9.20388498e-04,1.33323410e-04,-2.31575017e-04,-3.83495208e-04
-,-2.30097125e-04,-7.66990415e-05,0.00000000e+00,-6.13592332e-04
-,0.00000000e+00,-5.39961213e-04,0.00000000e+00,2.45436939e-04
-,-7.36310787e-04,8.57081250e-05,3.42832500e-04,-5.14248793e-04
-,1.03628926e-03,2.18166155e-04,0.00000000e+00,-3.42832500e-04
-,-2.14270339e-03,0.00000000e+00,-3.81790771e-04,1.63624631e-04
-,-3.83495208e-04,9.20388498e-04,2.51713820e-04,3.45817243e-04
-,0.00000000e+00,2.30097125e-04,-4.05902654e-04,2.30411402e-04
-,6.13592332e-04,-3.06796166e-04,7.66990415e-04,1.53398083e-04
-,-7.66990415e-05,0.00000000e+00,0.00000000e+00,-6.38136000e-04
-,4.41786513e-04,2.94524332e-04,-2.57124397e-04,5.14248793e-04
-,-7.71373219e-04,9.81747755e-04,3.27249261e-04,0.00000000e+00
-,-1.71416250e-04,-1.71416250e-04,0.00000000e+00,-1.52716308e-03
-,7.63581542e-04,1.53398083e-04,0.00000000e+00,-2.69041047e-05
-,1.57225266e-04,-3.06796166e-04,3.83495208e-04,-4.44411380e-05
-,-2.78064545e-04,-1.53398083e-04,-5.36893262e-04,7.66990415e-05
-,0.00000000e+00,-2.30097125e-04,-1.53398083e-04,0.00000000e+00
-,9.81747653e-05,-1.47262166e-04,5.39961213e-04,-5.99956955e-04
-,-1.71416250e-04,1.71416250e-04,-5.45415387e-04,3.27249261e-04
-,0.00000000e+00,-5.99956955e-04,9.42789484e-04,0.00000000e+00
-,-1.25445554e-03,-2.72707694e-04,-1.53398083e-04,-3.06796166e-04
-,-2.47759144e-05,4.22135432e-04,0.00000000e+00,-9.20388498e-04
-,-2.23524010e-04,-2.78791791e-04,0.00000000e+00,4.60194249e-04
-,4.60194249e-04,0.00000000e+00,-7.66990415e-04,-4.60194249e-04
-,-1.47262166e-04,-5.39961213e-04,2.94524332e-04,4.90873877e-04
-,-8.57081381e-04,8.57081250e-05,7.71373219e-04,5.45415387e-04
-,1.09083077e-04,0.00000000e+00,2.57124397e-04,8.57081381e-04
-,0.00000000e+00,-5.45415387e-04,1.14537240e-03,-1.53398083e-04
-,2.30097125e-04,-1.61424628e-04,-1.88591977e-04,1.53398083e-04
-,7.66990415e-05,-2.66646821e-04,-5.08475991e-04,5.36893262e-04
-,-1.53398083e-04,-2.30097125e-04,-3.06796166e-04,0.00000000e+00
-,0.00000000e+00,4.90873826e-05,-2.45436939e-04,1.96349531e-04
-,-1.07992243e-03,1.10942614e+00,-1.40530920e+00,6.34809852e-01
-,-2.88750339e+00,-2.67866731e-01,-3.81216407e-04,1.12625134e+00
-,-1.26006484e+00,1.53712559e+00,-3.79819989e+00,2.27399039e+00
-,-2.22818303e+00,8.02367866e-01,-9.64832246e-01,-6.39850460e-03
-,9.17331278e-02,1.67601779e-02,-8.58673334e-01,-4.17536378e-01
-,2.98389971e-01,-1.58839300e-01,-1.18424647e-01,1.06865391e-01
-,3.56848300e-01,4.35102522e-01,1.15972126e+00,-2.68467963e-02
-,-1.43005431e-01,-2.79927440e-02,1.10945106e+00,-1.40541470e+00
-,6.34858489e-01,-2.88735676e+00,-2.67766476e-01,-2.90051103e-04
-,1.12631297e+00,-1.26012290e+00,1.53702271e+00,-3.79827762e+00
-,2.27397799e+00,-2.22812176e+00,8.02397072e-01,-9.64770854e-01
-,-6.39907829e-03,9.17294472e-02,1.67166516e-02,-8.58802021e-01
-,-4.17451203e-01,2.98477471e-01,-1.58718690e-01,-1.18527465e-01
-,1.06767833e-01,3.56735259e-01,4.35340405e-01,1.15934503e+00
-,-2.72609293e-02,-1.43031523e-01,-2.79393084e-02,1.10946381e+00
-,-1.40540099e+00,6.34816706e-01,-2.88715458e+00,-2.67716676e-01
-,-3.62291932e-04,1.12637627e+00,-1.26014042e+00,1.53705323e+00
-,-3.79837751e+00,2.27400589e+00,-2.22809196e+00,8.02375793e-01
-,-9.64603245e-01,-6.36622868e-03,9.18224901e-02,1.67326853e-02
-,-8.58846903e-01,-4.17451262e-01,2.98556089e-01,-1.58635765e-01
-,-1.18517689e-01,1.06787331e-01,3.56687039e-01,4.35305357e-01
-,1.15913939e+00,-2.73883343e-02,-1.43096402e-01,-2.78789662e-02
-,1.10946441e+00,-1.40545273e+00,6.34795308e-01,-2.88700342e+00
-,-2.67596453e-01,-3.47867608e-04,1.12638688e+00,-1.26017344e+00
-,1.53706896e+00,-3.79844999e+00,2.27401233e+00,-2.22807908e+00
-,8.02341163e-01,-9.64531720e-01,-6.33736886e-03,9.18165743e-02
-,1.67507827e-02,-8.58989835e-01,-4.17551458e-01,2.98425019e-01
-,-1.58657119e-01,-1.18518732e-01,1.06758766e-01,3.56561184e-01
-,4.35294181e-01,1.15843213e+00,-2.76846290e-02,-1.43160194e-01
-,-2.79376544e-02,1.10938036e+00,-1.40540028e+00,6.34774566e-01
-,-2.88697052e+00,-2.67684430e-01,-3.70278955e-04,1.12643898e+00
-,-1.26028728e+00,1.53711104e+00,-3.79833555e+00,2.27404118e+00
-,-2.22807860e+00,8.02404761e-01,-9.64507878e-01,-6.38886355e-03
-,9.17696804e-02,1.67526379e-02,-8.59034121e-01,-4.17738080e-01
-,2.98423767e-01,-1.58750921e-01,-1.18494801e-01,1.06802464e-01
-,3.56473982e-01,4.35318649e-01,1.15753829e+00,-2.81538665e-02
-,-1.43164426e-01,-2.80194767e-02]).unsqueeze(0).to(self.sim.device)
-        #actor_obs[:, :15] = real_robot_obs[:, :15] # ang vel
-        # actor_obs[:, 15:30] = real_robot_obs[:, 15:30] # projected gravity
-        # actor_obs[:, 30:33] = real_robot_obs[:, 30:33] # vel command
-        # actor_obs[:, 33:47] = real_robot_obs[:, 33:47] # upper body joint pos
-        # actor_obs[:, 47:192] = real_robot_obs[:, 47:192] # dof pos
-        # actor_obs[:, 192:337] = real_robot_obs[:, 192:337] # dof vel
-        # actor_obs[:, 337:482] = real_robot_obs[:, 337:482] # action
 
         critic_obs = compute_obs(critic_obs_list)
 
@@ -622,6 +485,14 @@ class G1JointTestEnv(DirectRLEnv):
         # alive reward
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
 
+        # # undesired contacts
+        # penalty_undesired_contacts = mdp.body_contacts(
+        #     threshold=1.0,
+        #     contact_sensor=self._contact_sensor,
+        #     body_ids=[i for i in range(29) if i not in self.feet_body_indexes],
+        #     weight=-1.0,
+        # )
+
 		# locomotion reward
         locomotion_reward = (tracking_lin_vel_xy + 
                              tracking_ang_vel_z + 
@@ -685,6 +556,8 @@ class G1JointTestEnv(DirectRLEnv):
         # reset command
         self.command_manager.reset(env_ids)
         self.event_manager.reset(env_ids)
+        # self.observation_manager.reset(env_ids)
+        # self.action_manager.reset(env_ids)
         # reset actions
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
@@ -695,6 +568,7 @@ class G1JointTestEnv(DirectRLEnv):
         self.dof_pos_buffer.reset(env_ids)
         self.dof_vel_buffer.reset(env_ids)
         self.action_buffer.reset(env_ids)
+        self.vel_command_buffer.reset(env_ids)
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
         
@@ -732,6 +606,7 @@ class G1JointTestEnv(DirectRLEnv):
         Returns:
             A tuple containing the observations, rewards, resets (terminated and truncated) and extras.
         """
+        #self.action_manager.process_action(action.to(self.device))
         action = action.to(self.device)
         # add action noise
         if self.cfg.action_noise_model:
@@ -753,6 +628,7 @@ class G1JointTestEnv(DirectRLEnv):
             self._sim_step_counter += 1
             # set actions into buffers
             self._apply_action()
+            #self.action_manager.apply_action()
             # set actions into simulator
             self.scene.write_data_to_sim()
             # simulate
@@ -789,12 +665,10 @@ class G1JointTestEnv(DirectRLEnv):
                 self.sim.render()
 
         # -- update command
-        if self.cfg.commands:
-            self.command_manager.compute(dt=self.step_dt)
+        self.command_manager.compute(dt=self.step_dt)
         # post-step: step interval event
-        if self.cfg.events:
-            if "interval" in self.event_manager.available_modes:
-                self.event_manager.apply(mode="interval", dt=self.step_dt)
+        if "interval" in self.event_manager.available_modes:
+            self.event_manager.apply(mode="interval", dt=self.step_dt)
 
         # update observations
         self.obs_buf = self._get_observations()

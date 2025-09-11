@@ -16,10 +16,11 @@ from . import mdp
 from g1_humanoid.assets import G1_WITH_PLATE, G1_CFG, G1_WITH_TRAY
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.envs.common import ViewerCfg
+import isaaclab.terrains as terrain_gen
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
-import isaaclab.terrains as terrain_gen
+from ..reward_manager_group import RewardGroupManager, RewardGroupTermCfg
 
 @configclass
 class EventCfg:
@@ -44,16 +45,6 @@ class EventCfg:
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
             "mass_distribution_params": (-1.0, 3.0),
-            "operation": "add",
-        },
-    )
-
-    add_wrist_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_wrist_.*"),
-            "mass_distribution_params": (0.0, 2.0),
             "operation": "add",
         },
     )
@@ -117,7 +108,6 @@ class CommandsCfg:
             lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.2, 0.2)
         ),
     )
-
 
 @configclass
 class ObservationsCfg:
@@ -213,6 +203,111 @@ class ActionsCfg:
 
 
 @configclass
+class RewardsCfg:
+    """Reward terms for the MDP."""
+
+    # -- task
+    track_lin_vel_xy = RewardGroupTermCfg(
+        func=mdp.track_lin_vel_xy_yaw_frame_exp,
+        weight=1.0,
+        params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
+        group_name="lower_body"
+    )
+    track_ang_vel_z = RewardGroupTermCfg(
+        func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}, group_name="lower_body"
+    )
+
+    lower_body_alive = RewardGroupTermCfg(func=mdp.is_alive, weight=0.15, group_name="lower_body")
+
+    # -- base
+    penalty_lin_vel_z = RewardGroupTermCfg(func=mdp.lin_vel_z_l2, weight=-2.0, group_name="lower_body")
+    penalty_ang_vel_xy = RewardGroupTermCfg(func=mdp.ang_vel_xy_l2, weight=-0.05, group_name="lower_body")
+    penalty_flat_orientation = RewardGroupTermCfg(func=mdp.flat_orientation_l2, weight=-5.0, group_name="lower_body")
+    joint_vel = RewardGroupTermCfg(func=mdp.joint_vel_l2, weight=-0.001, group_name="lower_body")
+    joint_acc = RewardGroupTermCfg(func=mdp.joint_acc_l2, weight=-2.5e-7, group_name="lower_body")
+    action_rate = RewardGroupTermCfg(func=mdp.action_rate_l2, weight=-0.05, group_name="lower_body")
+    lower_body_dof_pos_limits = RewardGroupTermCfg(func=mdp.joint_pos_limits, weight=-5.0, group_name="lower_body")
+    upper_body_dof_pos_limits = RewardGroupTermCfg(func=mdp.joint_pos_limits, weight=-5.0, group_name="upper_body")
+
+    joint_deviation_arms = RewardGroupTermCfg(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_.*_joint",
+                    ".*_elbow_joint",
+                    ".*_wrist_.*",
+                ],
+            )
+        },
+        group_name="upper_body"
+    )
+    joint_deviation_waists = RewardGroupTermCfg(
+        func=mdp.joint_deviation_l1,
+        weight=-1,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    "waist.*",
+                ],
+            )
+        },
+    )
+    joint_deviation_legs = RewardGroupTermCfg(
+        func=mdp.joint_deviation_l1,
+        weight=-1.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_roll_joint", ".*_hip_yaw_joint"])},
+    )
+
+    # -- robot
+    flat_orientation_l2 = RewardGroupTermCfg(func=mdp.flat_orientation_l2, weight=-5.0)
+    base_height = RewardGroupTermCfg(func=mdp.base_height_l2, weight=-10, params={"target_height": 0.78})
+
+    # -- feet
+    gait = RewardGroupTermCfg(
+        func=mdp.feet_gait,
+        weight=0.5,
+        params={
+            "period": 0.8,
+            "offset": [0.0, 0.5],
+            "threshold": 0.55,
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*ankle_roll.*"),
+        },
+    )
+    feet_slide = RewardGroupTermCfg(
+        func=mdp.feet_slide,
+        weight=-0.2,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*ankle_roll.*"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*ankle_roll.*"),
+        },
+    )
+    feet_clearance = RewardGroupTermCfg(
+        func=mdp.foot_clearance_reward,
+        weight=1.0,
+        params={
+            "std": 0.05,
+            "tanh_mult": 2.0,
+            "target_height": 0.1,
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*ankle_roll.*"),
+        },
+    )
+
+    # -- other
+    undesired_contacts = RewardGroupTermCfg(
+        func=mdp.undesired_contacts,
+        weight=-1,
+        params={
+            "threshold": 1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=["(?!.*ankle.*).*"]),
+        },
+    )
+    
+@configclass
 class G1JointTestEnvCfg(DirectRLEnvCfg):
     """ G1 Decoupled Locomanipulation Environment Configuration """
 
@@ -247,11 +342,11 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
         # upper body
-        "upper_body_actor_obs": 480,
-        "upper_body_critic_obs": 480 + 15,
+        "upper_body_actor_obs": 482,
+        "upper_body_critic_obs": 497,
         # lower body
-        "lower_body_actor_obs": 480,
-        "lower_body_critic_obs": 480 + 15,
+        "lower_body_actor_obs": 482,
+        "lower_body_critic_obs": 497,
     }
     action_dim= {
         "upper_body": 14,
@@ -349,7 +444,7 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
     lower_body_names = waist_names + hips_names + feet_names
     upper_body_names = arm_names 
     feet_body_name = ".*_ankle_roll_link"
-    #plate_name = "plate"
+    plate_name = "plate"
 
     # gait phase
     gait_period = 0.8
@@ -361,12 +456,6 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
 
     # command
     commands: CommandsCfg = CommandsCfg()
-
-    # actions
-    actions: ActionsCfg = ActionsCfg()
-
-    # observations
-    observations: ObservationsCfg = ObservationsCfg()
 
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
