@@ -48,15 +48,15 @@ class EventCfg:
         },
     )
 
-    add_wrist_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_wrist_.*"),
-            "mass_distribution_params": (0.0, 2.0),
-            "operation": "add",
-        },
-    )
+    # add_wrist_mass = EventTerm(
+    #     func=mdp.randomize_rigid_body_mass,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*_wrist_.*"),
+    #         "mass_distribution_params": (0.0, 2.0),
+    #         "operation": "add",
+    #     },
+    # )
 
     # reset
     base_external_force_torque = EventTerm(
@@ -185,7 +185,8 @@ class ActionsCfg:
                      'left_wrist_yaw_joint', 
                      'right_wrist_yaw_joint'], 
         scale=0.25, 
-        use_default_offset=True
+        use_default_offset=True,
+        preserve_order=True
     )
 
     LowerBodyAction = mdp.JointPositionActionCfg(
@@ -207,7 +208,8 @@ class ActionsCfg:
             'left_ankle_roll_joint', 
             'right_ankle_roll_joint'], 
         scale=0.25, 
-        use_default_offset=True
+        use_default_offset=True,
+        preserve_order=True
     )
 
 

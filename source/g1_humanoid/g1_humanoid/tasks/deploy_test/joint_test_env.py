@@ -77,12 +77,12 @@ class G1JointTestEnv(DirectRLEnv):
         print("[INFO] Command Manager: ", self.command_manager)
 
         # # actions
-        # self.action_manager = ActionManager(self.cfg.actions, self)
-        # print("[INFO] Action Manager: ", self.action_manager)
+        self.action_manager = ActionManager(self.cfg.actions, self)
+        print("[INFO] Action Manager: ", self.action_manager)
 
         # # observations
-        # self.observation_manager = ObservationManager(self.cfg.observations, self)
-        # print("[INFO] Observation Manager: ", self.observation_manager)
+        self.observation_manager = ObservationManager(self.cfg.observations, self)
+        print("[INFO] Observation Manager: ", self.observation_manager)
 
 
         # actions and previous actions
@@ -292,7 +292,8 @@ class G1JointTestEnv(DirectRLEnv):
         critic_obs = compute_obs(critic_obs_list)
 
         observations = {"upper_body_actor_obs": actor_obs, "upper_body_critic_obs": critic_obs, "lower_body_actor_obs": actor_obs, "lower_body_critic_obs": critic_obs}
-        return observations
+        #return observations
+        return self.observation_manager.compute()
 
     def _get_rewards(self) -> torch.Tensor:
 
@@ -556,8 +557,8 @@ class G1JointTestEnv(DirectRLEnv):
         # reset command
         self.command_manager.reset(env_ids)
         self.event_manager.reset(env_ids)
-        # self.observation_manager.reset(env_ids)
-        # self.action_manager.reset(env_ids)
+        self.observation_manager.reset(env_ids)
+        self.action_manager.reset(env_ids)
         # reset actions
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
@@ -606,15 +607,15 @@ class G1JointTestEnv(DirectRLEnv):
         Returns:
             A tuple containing the observations, rewards, resets (terminated and truncated) and extras.
         """
-        #self.action_manager.process_action(action.to(self.device))
-        action = action.to(self.device)
-        # add action noise
-        if self.cfg.action_noise_model:
-            action = self._action_noise_model.apply(action)
+        self.action_manager.process_action(action.to(self.device))
+        # action = action.to(self.device)
+        # # add action noise
+        # if self.cfg.action_noise_model:
+        #     action = self._action_noise_model.apply(action)
 
-        # clip actions
-        clip_actions = self.cfg.clip_action
-        action = torch.clip(action, -clip_actions, clip_actions)
+        # # clip actions
+        # clip_actions = self.cfg.clip_action
+        # action = torch.clip(action, -clip_actions, clip_actions)
 
         # process actions
         self._pre_physics_step(action)
@@ -627,8 +628,8 @@ class G1JointTestEnv(DirectRLEnv):
         for _ in range(self.cfg.decimation):
             self._sim_step_counter += 1
             # set actions into buffers
-            self._apply_action()
-            #self.action_manager.apply_action()
+            #self._apply_action()
+            self.action_manager.apply_action()
             # set actions into simulator
             self.scene.write_data_to_sim()
             # simulate
@@ -690,6 +691,8 @@ class G1JointTestEnv(DirectRLEnv):
         if not self._is_closed:
             if self.cfg.commands:
                 del self.command_manager
+                del self.action_manager
+                del self.observation_manager
         super().close()
 
 @torch.jit.script
