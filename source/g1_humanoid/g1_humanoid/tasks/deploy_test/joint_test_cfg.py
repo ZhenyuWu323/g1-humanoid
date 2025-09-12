@@ -58,6 +58,16 @@ class EventCfg:
     #     },
     # )
 
+    add_plate_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+            "mass_distribution_params": (0.1, 1.5),
+            "operation": "abs",
+        },
+    )
+
     # reset
     base_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
@@ -318,7 +328,7 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
 
     # robot configuration
-    robot: ArticulationCfg = G1_CFG.replace(prim_path="/World/envs/env_.*/Robot")
+    robot: ArticulationCfg = G1_WITH_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True, update_period=sim.dt
     )
