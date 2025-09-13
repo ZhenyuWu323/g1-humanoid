@@ -67,8 +67,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.1, 1.0),
-            "dynamic_friction_range": (0.1, 1.0),
+            "static_friction_range": (0.1, 0.5),
+            "dynamic_friction_range": (0.1, 0.5),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -76,7 +76,7 @@ class EventCfg:
 
     add_object_mass = EventTerm(
         func=mdp.randomize_rigid_body_mass,
-        mode="reset",
+        mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
             "mass_distribution_params": (0.05, 0.5),
@@ -104,14 +104,14 @@ class EventCfg:
         },
     )
 
-    set_object_com = EventTerm(
-        func=mdp.randomize_rigid_body_com_fixed,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
-        },
-    )
+    # set_object_com = EventTerm(
+    #     func=mdp.randomize_rigid_body_com_fixed,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+    #         "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
+    #     },
+    # )
 
 
     # reset
@@ -154,7 +154,7 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(5.0, 5.0),
+        interval_range_s=(5.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
 
@@ -189,7 +189,7 @@ class ObservationsCfg:
         velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
         joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05, noise=Unoise(n_min=-1.5, n_max=1.5))
-        last_action = ObsTerm(func=mdp.last_action)
+        last_action = ObsTerm(func=mdp.base_action)
 
         def __post_init__(self):
             self.history_length = 5
@@ -197,8 +197,7 @@ class ObservationsCfg:
             self.concatenate_terms = True
 
     # observation groups
-    upper_body_actor_obs: PolicyCfg = PolicyCfg()
-    lower_body_actor_obs: PolicyCfg = PolicyCfg()
+    actor_obs: PolicyCfg = PolicyCfg()
 
     @configclass
     class CriticCfg(ObsGroup):
@@ -210,16 +209,62 @@ class ObservationsCfg:
         velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
         joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
-        last_action = ObsTerm(func=mdp.last_action)
-        plate_projected_gravity = ObsTerm(func=mdp.plate_projected_gravity)
-        plate_lin_acc_w = ObsTerm(func=mdp.plate_lin_acc_w)
-        plate_ang_acc_w = ObsTerm(func=mdp.plate_ang_acc_w)
+        last_action = ObsTerm(func=mdp.base_action)
+
         def __post_init__(self):
             self.history_length = 5
 
     # privileged observations
-    upper_body_critic_obs: CriticCfg = CriticCfg()
-    lower_body_critic_obs: CriticCfg = CriticCfg()
+    critic_obs: CriticCfg = CriticCfg()
+
+
+    @configclass
+    class ResidualActorCfg(ObsGroup):
+        """Observations for residual group."""
+
+        # observation terms (order preserved)
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, scale=0.2)
+        projected_gravity = ObsTerm(func=mdp.projected_gravity)
+        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
+        joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel)
+        last_action = ObsTerm(func=mdp.residual_action)
+        
+        #object observations
+        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        object_physics = ObsTerm(func=mdp.object_physics)
+        object_mass = ObsTerm(func=mdp.object_mass)
+        object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+        def __post_init__(self):
+            self.history_length = 5
+            #self.enable_corruption = True
+            self.concatenate_terms = True
+    
+    @configclass
+    class ResidualCriticCfg(ObsGroup):
+        """Observations for residual group."""
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, scale=0.2)
+        projected_gravity = ObsTerm(func=mdp.projected_gravity)
+        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
+        joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
+        last_action = ObsTerm(func=mdp.residual_action)
+        #object observations
+        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        object_physics = ObsTerm(func=mdp.object_physics)
+        object_mass = ObsTerm(func=mdp.object_mass)
+        object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+
+        def __post_init__(self):
+            self.history_length = 5
+            self.concatenate_terms = True
+
+    # observation groups
+    residual_actor_obs: ResidualActorCfg = ResidualActorCfg()
+    residual_critic_obs: ResidualCriticCfg = ResidualCriticCfg()
 
 
 
@@ -318,6 +363,7 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
         "upper_body": 14,
         "lower_body": 15,
     }
+    encoder_output_dim = 32
     action_space = 29
     action_scale = 0.25
     state_space = 0
@@ -419,7 +465,7 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
     commands: CommandsCfg = CommandsCfg()
 
     # actions
-    actions: ActionsCfg = ActionsCfg()
+    #actions: ActionsCfg = ActionsCfg()
 
     # observations
     observations: ObservationsCfg = ObservationsCfg()
@@ -488,7 +534,7 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
     ]
 
     # object configuration
-    plate_offset = [0.42, 0.0, 0.11256] # x, y, z offset from pelvis
+    plate_offset = [0.40, 0.0, 0.11256] # x, y, z offset from pelvis
     plate_cfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/Plate",
         spawn=sim_utils.CylinderCfg(
@@ -516,6 +562,14 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
             #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(),
+    )
+    object_contact_sensor: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Object", 
+        update_period=sim.dt, 
+        track_pose=True,
+        track_air_time=False,
+        filter_prim_paths_expr=["/World/envs/env_.*/Plate"],
+        history_length=3,
     )
    
 

@@ -55,32 +55,10 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-            "static_friction_range": (0.1, 0.5),
-            "dynamic_friction_range": (0.1, 0.5),
+            "static_friction_range": (0.7, 0.7),
+            "dynamic_friction_range": (0.7, 0.7),
             "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
-        },
-    )
-
-    object_physics_material = EventTerm(
-        func=mdp.randomize_rigid_body_material,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.1, 0.5),
-            "dynamic_friction_range": (0.1, 0.5),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
-        },
-    )
-
-    add_object_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "mass_distribution_params": (0.05, 0.5),
-            "operation": "abs",
+            "num_buckets": 1,
         },
     )
 
@@ -501,7 +479,7 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
             radius=0.03,
             height=0.10,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.2),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
             collision_props=sim_utils.CollisionPropertiesCfg(),
             activate_contact_sensors=True,
             #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),

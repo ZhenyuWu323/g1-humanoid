@@ -89,6 +89,45 @@ def object_pose_in_camera_frame(env: ManagerBasedEnv, robot_asset_cfg: SceneEnti
     return object_pos_in_camera
 
 
+def object_physics(env: ManagerBasedEnv, object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+    # extract the used quantities (to enable type-hinting)
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    return object_asset.data._root_physx_view.get_material_properties()[:, 0, [0,2]]
+
+
+def object_mass(env: ManagerBasedEnv, object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+    # extract the used quantities (to enable type-hinting)
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    return object_asset.data._root_physx_view.get_masses()
+
+
+def object_projected_gravity(env: ManagerBasedEnv, object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+    # extract the used quantities (to enable type-hinting)
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    return object_asset.data.projected_gravity_b
+
+def object_com(env: ManagerBasedEnv, object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+    # extract the used quantities (to enable type-hinting)
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    return object_asset.data.com_pos_b[:, 0, :]
+
+
+def base_action(env: ManagerBasedEnv, action_name: str | None = None) -> torch.Tensor:
+    """The last input action to the environment.
+
+    The name of the action term for which the action is required. If None, the
+    entire action tensor is returned.
+    """
+    return env.base_actions
+
+def residual_action(env: ManagerBasedEnv, action_name: str | None = None) -> torch.Tensor:
+    """The last input action to the environment.
+
+    The name of the action term for which the action is required. If None, the
+    entire action tensor is returned.
+    """
+    return env.residual_actions
+
 
 
 @torch.jit.script

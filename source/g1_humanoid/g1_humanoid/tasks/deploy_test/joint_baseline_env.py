@@ -390,7 +390,7 @@ class G1JointBaselineEnv(DirectRLEnv):
             body_rot_w=self._plate.data.body_link_quat_w,
             gravity_vec_w=self.robot.data.GRAVITY_VEC_W,
             body_idx=0,
-            weight=-5.0,
+            weight=-5.0 * self.activate_acc_reward,
         )
 
         # plate linear acceleration l2
@@ -544,13 +544,13 @@ class G1JointBaselineEnv(DirectRLEnv):
             extras["Curriculum/terrain_level"] = avg_terrain_level.item()
 
         # apply acceleration reward curriculum
-        acc_reward = mdp.acceleration_reward(
-            env=self,
-            env_ids=env_ids,
-            asset_cfg=SceneEntityCfg("robot"),
-            dist_threshold=4,
-        )
-        self.activate_acc_reward[env_ids] = acc_reward
+        # acc_reward = mdp.acceleration_reward(
+        #     env=self,
+        #     env_ids=env_ids,
+        #     asset_cfg=SceneEntityCfg("robot"),
+        #     dist_threshold=4,
+        # )
+        # self.activate_acc_reward[env_ids] = acc_reward
         
         # reset robot
         self.robot.reset(env_ids)
