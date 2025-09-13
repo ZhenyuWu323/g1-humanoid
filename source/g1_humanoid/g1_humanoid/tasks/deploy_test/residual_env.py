@@ -14,7 +14,7 @@ from isaaclab.utils.math import quat_rotate,quat_apply
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .joint_baseline_cfg import G1JointBaselineEnvCfg
+from .residual_cfg import G1ResidualEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
@@ -23,10 +23,10 @@ from isaaclab.utils.math import quat_apply_inverse
 from isaaclab.managers import CommandManager, ObservationManager, ActionManager
 from isaaclab.utils.string import resolve_matching_names
 
-class G1JointBaselineEnv(DirectRLEnv):
-    cfg: G1JointBaselineEnvCfg
+class G1ResidualEnv(DirectRLEnv):
+    cfg: G1ResidualEnvCfg
 
-    def __init__(self, cfg: G1JointBaselineEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1ResidualEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         ##########################################################################################
@@ -46,7 +46,8 @@ class G1JointBaselineEnv(DirectRLEnv):
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
         self.pelvis_indexes = self.robot.find_bodies(self.cfg.pelvis_names)[0]
 
-        #self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
+        # camera body index
+        self.camera_body_index = self.robot.data.body_names.index(self.cfg.camera_name)
 
 
         # body/link indexes
@@ -86,8 +87,10 @@ class G1JointBaselineEnv(DirectRLEnv):
 
 
         # actions and previous actions
-        self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
-        self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.residual_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_residual_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
         # gait phase
         self.phase = torch.zeros(self.num_envs, device=self.device)
@@ -101,11 +104,8 @@ class G1JointBaselineEnv(DirectRLEnv):
         self.plate_offset = torch.tensor(self.cfg.plate_offset, device=self.device).unsqueeze(0).expand(self.num_envs, -1)
 
         # object/plate relative position
-        self.object_plate_rel_pos = torch.zeros(self.num_envs, 3, device=self.device)
+        self.object_plate_rel_pos = torch.zeros(self.num_envs, 7, device=self.device)
 
-        # linear/angular acceleration reward
-        self.activate_acc_reward = torch.zeros(self.num_envs, device=self.device)
-        
 
         # logging
         self._episode_sums = {
@@ -115,15 +115,14 @@ class G1JointBaselineEnv(DirectRLEnv):
                 "tracking_ang_vel_z",
                 "gait_phase_reward",
                 "feet_clearance_reward",
-                "tracking_upper_body_dof_pos",
-                "penalty_plate_flat_orientation",
-                "penalty_plate_lin_acc",
-                "penalty_plate_ang_acc",
-                "tracking_zero_plate_lin_acc",
-                "tracking_zero_plate_ang_acc",
-                "penalty_object_pos_deviation",
-                "object_on_plate_reward",
+                "penalty_object_pose_deviation",
                 "penalty_object_flat_orientation",
+                "object_upright_bonus",
+                "tracking_upper_body_dof_pos",
+                "penalty_object_lin_vel",
+                "penalty_object_ang_vel",
+                "penalty_object_friction",
+                "object_on_plate_reward",
             ]
         }
 

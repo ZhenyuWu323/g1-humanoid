@@ -54,6 +54,10 @@ class G1JointTestRunnerCfg(RslRlOnPolicyRunnerCfg):
         max_grad_norm=1.0,
     )
 
+@configclass
+class G1JointBaselineRunnerCfg(G1JointTestRunnerCfg):
+    experiment_name = "g1_joint_baseline"
+
 
 
 

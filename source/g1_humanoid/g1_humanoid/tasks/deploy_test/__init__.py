@@ -32,3 +32,12 @@ gym.register(
     },
 )
 
+gym.register(
+    id="G1-Joint-Baseline",
+    entry_point=f"{__name__}.joint_baseline_env:G1JointBaselineEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.joint_baseline_cfg:G1JointBaselineEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1JointBaselineRunnerCfg",
+    },
+)

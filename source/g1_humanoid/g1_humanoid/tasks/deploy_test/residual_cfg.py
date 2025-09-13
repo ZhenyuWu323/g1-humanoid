@@ -55,10 +55,10 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-            "static_friction_range": (0.1, 0.5),
-            "dynamic_friction_range": (0.1, 0.5),
+            "static_friction_range": (0.7, 0.7),
+            "dynamic_friction_range": (0.7, 0.7),
             "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
+            "num_buckets": 1,
         },
     )
 
@@ -67,8 +67,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.1, 0.5),
-            "dynamic_friction_range": (0.1, 0.5),
+            "static_friction_range": (0.1, 1.0),
+            "dynamic_friction_range": (0.1, 1.0),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -101,6 +101,15 @@ class EventCfg:
             "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
             "mass_distribution_params": (0.1, 1.0),
             "operation": "abs",
+        },
+    )
+
+    set_object_com = EventTerm(
+        func=mdp.randomize_rigid_body_com_fixed,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
         },
     )
 
@@ -265,8 +274,8 @@ class ActionsCfg:
 
 
 @configclass
-class G1JointBaselineEnvCfg(DirectRLEnvCfg):
-    """ G1 Decoupled Locomanipulation Environment Configuration """
+class G1ResidualEnvCfg(DirectRLEnvCfg):
+    """ G1 Residual Locomanipulation Environment Configuration """
 
 
     # simulation configuration
@@ -298,13 +307,13 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     # MDP configuration
     # NOTE: Remember to update these if any updates are made to env
     observation_space = {
-        # upper body
-        "upper_body_actor_obs": 480,
-        "upper_body_critic_obs": 480 + 15 + 45,
-        # lower body
-        "lower_body_actor_obs": 480,
-        "lower_body_critic_obs": 480 + 15 + 45,
+        "actor_obs": 480,
+        "critic_obs": 480 + 15,
+        "residual_actor_obs": 480 + 95,
+        "residual_critic_obs": 480 + 15 + 95,
+        "encoder_obs": 95,
     }
+    
     action_dim= {
         "upper_body": 14,
         "lower_body": 15,
@@ -396,7 +405,7 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     pelvis_names = "pelvis"
     hand_names = "^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"
     not_hand_names = "^(?!.*_(hand|palm|base|thumb|index|middle|ring|little)).*$"
-    #plate_name = "plate"
+    camera_name = "d435_link"
 
     # gait phase
     gait_period = 0.8
@@ -508,4 +517,5 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(),
     )
+   
 
