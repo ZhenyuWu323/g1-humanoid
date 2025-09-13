@@ -180,6 +180,9 @@ class ObservationsCfg:
         joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
         last_action = ObsTerm(func=mdp.last_action)
+        plate_projected_gravity = ObsTerm(func=mdp.plate_projected_gravity)
+        plate_lin_acc_w = ObsTerm(func=mdp.plate_lin_acc_w)
+        plate_ang_acc_w = ObsTerm(func=mdp.plate_ang_acc_w)
         def __post_init__(self):
             self.history_length = 5
 
@@ -240,7 +243,7 @@ class ActionsCfg:
 
 
 @configclass
-class G1JointTestEnvCfg(DirectRLEnvCfg):
+class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     """ G1 Decoupled Locomanipulation Environment Configuration """
 
 
@@ -275,10 +278,10 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
     observation_space = {
         # upper body
         "upper_body_actor_obs": 480,
-        "upper_body_critic_obs": 480 + 15,
+        "upper_body_critic_obs": 480 + 15 + 45,
         # lower body
         "lower_body_actor_obs": 480,
-        "lower_body_critic_obs": 480 + 15,
+        "lower_body_critic_obs": 480 + 15 + 45,
     }
     action_dim= {
         "upper_body": 14,
@@ -289,15 +292,7 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
     state_space = 0
     obs_history_length = 5
 
-    # obs noise
-    obs_noise_models: dict[str, NoiseModelCfg] = {
-        "root_lin_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.1, n_max=0.1)),
-        "root_ang_vel_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.2, n_max=0.2)),
-        "projected_gravity_b": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.05, n_max=0.05)),
-        "dof_pos": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-0.01, n_max=0.01)),
-        "dof_vel": NoiseModelCfg(noise_cfg=UniformNoiseCfg(n_min=-1.5, n_max=1.5)),
-    }
-
+    
 
     # terrain configuration
     terrain_generator_cfg = terrain_gen.TerrainGeneratorCfg(
@@ -401,35 +396,6 @@ class G1JointTestEnvCfg(DirectRLEnvCfg):
     # scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=8192, env_spacing=2.5, replicate_physics=True)
 
-    # reward scales
-    reward_scales = {
-        "track_line_vel_xy":1.0,
-        "track_ang_vel_z":0.5,
-        "alive": 0.15,
-        "penalty_lin_vel_z":-2.0,
-        "penalty_ang_vel_xy":-0.05,
-        "penalty_lower_body_dof_vel":-0.001,
-        "penalty_lower_body_dof_acc": -2.5e-7,
-        "penalty_lower_body_action_rate": -0.05,
-        "penalty_lower_body_dof_pos_limits": -5.0,
-        "penalty_dof_pos_waist": -1.0,
-        "penalty_dof_pos_hips": -1.0,
-        "penalty_flat_orientation": -5.0,
-        "penalty_base_height": -10.0,
-        "gait_phase_reward": 0.5,
-        "feet_slide": -0.2,
-        "feet_clearance": 1.0,
-
-
-        # upper body
-        "tracking_upper_body_dof_pos": 0.5,
-        "penalty_upper_body_dof_torques": -1e-5,
-        "penalty_upper_body_dof_acc": -2.5e-7,
-        "penalty_upper_body_dof_pos_limits": -5.0,
-        "penalty_upper_body_dof_action_rate": -0.05,
-        "penalty_upper_body_dof_vel": -1e-3,
-        #"penalty_upper_body_termination": -100.0,
-    }
 
     # observation scales
     obs_scales = {

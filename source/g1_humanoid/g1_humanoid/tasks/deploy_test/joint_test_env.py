@@ -10,7 +10,7 @@ import numpy as np
 import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
-from isaaclab.utils.math import quat_rotate
+from isaaclab.utils.math import quat_rotate,quat_apply
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
@@ -44,6 +44,7 @@ class G1JointTestEnv(DirectRLEnv):
         self.knee_indexes = self.robot.find_joints(self.cfg.hips_names[-1])[0]
         self.hips_indexes = self.robot.find_joints(self.cfg.hips_names)[0]
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
+        self.pelvis_indexes = self.robot.find_bodies(self.cfg.pelvis_names)[0]
 
         #self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
 
@@ -63,6 +64,11 @@ class G1JointTestEnv(DirectRLEnv):
         # sdk joint sequence
         joint_ids_map, _ = resolve_matching_names(self.robot.joint_names, self.cfg.sdk_joint_sequence, preserve_order=True)
         print("[INFO] Joint to motor index: ", joint_ids_map)
+
+        # defulat pos
+        print("[INFO] Whole body default pos: ", self.robot.data.default_joint_pos)
+        print("[INFO] Lower body default pos: ", self.default_lower_joint_pos)
+        print("[INFO] Upper body default pos: ", self.default_upper_joint_pos)
 
 
         # noise models
@@ -96,7 +102,9 @@ class G1JointTestEnv(DirectRLEnv):
 
         # history
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
-        self._init_history_buffers()
+
+        # plate offset
+        self.plate_offset = torch.tensor(self.cfg.plate_offset, device=self.device).unsqueeze(0).expand(self.num_envs, -1)
 
         # observation noise models
         if self.cfg.obs_noise_models:
@@ -116,28 +124,6 @@ class G1JointTestEnv(DirectRLEnv):
             ]
         }
 
-    def _init_history_buffers(self):
-        """Initialize history buffers for observations and actions."""
-        
-        # proprioceptive observations
-        self.root_lin_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.root_ang_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.projected_gravity_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.dof_pos_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.dof_vel_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.action_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-        self.vel_command_buffer = CircularBuffer(max_len=self.obs_history_length, batch_size=self.num_envs, device=self.sim.device)
-
-        # initialize buffers
-        for _ in range(self.obs_history_length):
-            self.root_lin_vel_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
-            self.root_ang_vel_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
-            self.projected_gravity_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
-            self.dof_pos_buffer.append(torch.zeros((self.num_envs, 29), device=self.sim.device))
-            self.dof_vel_buffer.append(torch.zeros((self.num_envs, 29), device=self.sim.device))
-            self.action_buffer.append(torch.zeros((self.num_envs, 29), device=self.sim.device))
-            self.vel_command_buffer.append(torch.zeros((self.num_envs, 3), device=self.sim.device))
-        #self._buffers_initialized = False
 
 
            
@@ -159,6 +145,10 @@ class G1JointTestEnv(DirectRLEnv):
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+
+        # plate
+        self._plate = RigidObject(self.cfg.plate_cfg)
+        self.scene.rigid_objects["plate"] = self._plate
 
         
         # clone and replicate
@@ -193,106 +183,8 @@ class G1JointTestEnv(DirectRLEnv):
         self.leg_phases[:, 1] = (self.phase + self.cfg.phase_offset) % 1.0 # right leg
 
 
-    def _update_history_buffers(self):
-        """Update history buffers for observations and actions."""
-        dof_pos = self.robot.data.joint_pos - self.robot.data.default_joint_pos
-        dof_vel = self.robot.data.joint_vel - self.robot.data.default_joint_vel
-        root_ang_vel_b = self.robot.data.root_ang_vel_b
-        root_lin_vel_b = self.robot.data.root_lin_vel_b
-        projected_gravity_b = self.robot.data.projected_gravity_b
-        vel_command = self.command_manager.get_command("base_velocity")
-
-        # update history buffers
-        self.root_lin_vel_buffer.append(root_lin_vel_b)
-        self.root_ang_vel_buffer.append(root_ang_vel_b)
-        self.projected_gravity_buffer.append(projected_gravity_b)
-        self.dof_pos_buffer.append(dof_pos)
-        self.dof_vel_buffer.append(dof_vel)
-        self.action_buffer.append(self.actions)
-        self.vel_command_buffer.append(vel_command)
-
-    def _apply_observation_noise(self, observations_dict: dict) -> dict:
-        noisy_observations_dict = {}
-        for obs_name, obs_value in observations_dict.items():
-            if obs_name in self.cfg.obs_noise_models:
-                noisy_observations_dict[obs_name] = self.obs_noise_models[obs_name].apply(obs_value)
-            else:
-                noisy_observations_dict[obs_name] = obs_value
-        return noisy_observations_dict
-        
-
     def _get_observations(self) -> dict:
 
-        # update history buffers
-        self._update_history_buffers()
-
-        # get history observations
-        lin_vel_buffer_flat = self.root_lin_vel_buffer.buffer.reshape(self.num_envs, -1)
-        ang_vel_buffer_flat = self.root_ang_vel_buffer.buffer.reshape(self.num_envs, -1)
-        projected_gravity_buffer_flat = self.projected_gravity_buffer.buffer.reshape(self.num_envs, -1)
-        dof_pos_buffer_flat = self.dof_pos_buffer.buffer.reshape(self.num_envs, -1)
-        dof_vel_buffer_flat = self.dof_vel_buffer.buffer.reshape(self.num_envs, -1)
-        action_buffer_flat = self.action_buffer.buffer.reshape(self.num_envs, -1)
-        vel_command_buffer_flat = self.vel_command_buffer.buffer.reshape(self.num_envs, -1)
-
-
-        # phase
-        sin_phase = torch.sin(2 * np.pi * self.phase ).unsqueeze(1)
-        cos_phase = torch.cos(2 * np.pi * self.phase ).unsqueeze(1)
-
-
-        # scale observations
-        actor_observations_dict = {
-            'root_ang_vel_b': ang_vel_buffer_flat, # 15
-            'projected_gravity_b': projected_gravity_buffer_flat, # 15
-            'vel_command': vel_command_buffer_flat, # 3
-            #'ref_upper_body_dof_pos': self.default_upper_joint_pos, # 14
-            'dof_pos': dof_pos_buffer_flat, # 145
-            'dof_vel': dof_vel_buffer_flat, # 145
-            'actions': action_buffer_flat, # 145
-            
-        }
-        critic_observations_dict = {
-            'root_lin_vel_b': lin_vel_buffer_flat,
-            'root_ang_vel_b': ang_vel_buffer_flat,
-            'projected_gravity_b': projected_gravity_buffer_flat,
-            'vel_command': vel_command_buffer_flat,
-            #'ref_upper_body_dof_pos': self.default_upper_joint_pos,
-            'dof_pos': dof_pos_buffer_flat,
-            'dof_vel': dof_vel_buffer_flat,
-            'actions': action_buffer_flat,
-            
-        }
-        # scale observations
-        actor_scaled_obs = {}
-        critic_scaled_obs = {}
-        for obs_name, obs_value in actor_observations_dict.items():
-            if hasattr(self.cfg.obs_scales, obs_name):
-                scale = getattr(self.cfg.obs_scales, obs_name)
-                actor_scaled_obs[obs_name] = obs_value * scale
-            else:
-                actor_scaled_obs[obs_name] = obs_value
-        for obs_name, obs_value in critic_observations_dict.items():
-            if hasattr(self.cfg.obs_scales, obs_name):
-                scale = getattr(self.cfg.obs_scales, obs_name)
-                critic_scaled_obs[obs_name] = obs_value * scale
-            else:
-                critic_scaled_obs[obs_name] = obs_value
-
-        # apply observation noise
-        actor_noisy_obs = self._apply_observation_noise(actor_scaled_obs)
-
-        # compute observations
-        actor_obs_list = list(actor_noisy_obs.values())
-        critic_obs_list = list(critic_scaled_obs.values())
-
-        # build task observation
-        actor_obs = compute_obs(actor_obs_list)
-
-        critic_obs = compute_obs(critic_obs_list)
-
-        observations = {"upper_body_actor_obs": actor_obs, "upper_body_critic_obs": critic_obs, "lower_body_actor_obs": actor_obs, "lower_body_critic_obs": critic_obs}
-        #return observations
         return self.observation_manager.compute()
 
     def _get_rewards(self) -> torch.Tensor:
@@ -540,6 +432,18 @@ class G1JointTestEnv(DirectRLEnv):
         # fall
         died = self.robot.data.body_pos_w[:, self.ref_body_index, 2] < self.cfg.termination_height
         return died, time_out
+    
+    def _reset_plate(self, env_ids: torch.Tensor):
+        # reset object
+        pelvis_pos_w = self.robot.data.body_pos_w[env_ids, self.pelvis_indexes, :].clone()
+        pelvis_quat_w = self.robot.data.body_quat_w[env_ids, self.pelvis_indexes, :].clone()
+        plate_offset = self.plate_offset[env_ids]
+        offset_world = quat_apply(pelvis_quat_w, plate_offset)
+        plate_pos_w = pelvis_pos_w + offset_world
+        plate_quat_w = self._plate.data.default_root_state[env_ids, 3:7].clone()
+        self._plate.write_root_pose_to_sim(torch.cat([plate_pos_w, plate_quat_w], dim=-1), env_ids=env_ids)
+        plate_vel = torch.zeros(env_ids.shape[0], 6, device=self.device)
+        self._plate.write_root_velocity_to_sim(plate_vel, env_ids=env_ids)
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
         extras = dict()
@@ -563,15 +467,10 @@ class G1JointTestEnv(DirectRLEnv):
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
-        self.root_ang_vel_buffer.reset(env_ids)
-        self.root_lin_vel_buffer.reset(env_ids)
-        self.projected_gravity_buffer.reset(env_ids)
-        self.dof_pos_buffer.reset(env_ids)
-        self.dof_vel_buffer.reset(env_ids)
-        self.action_buffer.reset(env_ids)
-        self.vel_command_buffer.reset(env_ids)
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
+        # reset plate
+        self._reset_plate(env_ids)
         
 
         # reset logging
