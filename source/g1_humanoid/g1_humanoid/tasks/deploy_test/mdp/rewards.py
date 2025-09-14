@@ -424,6 +424,13 @@ def cup_upright_bonus_exp(body_rot_w: torch.Tensor, gravity_vec_w: torch.Tensor,
     
     return torch.exp(-tilt_magnitude / sigma) * weight
 
+def cup_upright_bonus_exp_new(projected_gravity_b: torch.Tensor, weight: float, sigma: float):
+    """Reward Cup Upright Bonus Exponential"""
+    
+    tilt_magnitude = torch.norm(projected_gravity_b[:, :2], dim=1)
+    
+    return torch.exp(-tilt_magnitude / sigma) * weight
+
 
 def body_ang_vel_l2(body_ang_vel_w: torch.Tensor, body_idx: int, weight: float) -> torch.Tensor:
     """Penalize body angular velocity using L2 squared kernel."""
@@ -436,6 +443,11 @@ def penalty_residual_action(residual_actions: torch.Tensor, action_dim: dict, we
     lower = residual_actions[:, action_dim["upper_body"]:]
     cost = lambda_delta_upper * (upper**2).sum(dim=1) + lambda_delta_lower * (lower**2).sum(dim=1)
     return cost * weight
+
+
+def residual_action_l2(residual_actions: torch.Tensor, weight: float) -> torch.Tensor:
+    """Penalize residual action."""
+    return torch.sum(torch.square(residual_actions), dim=1) * weight
 
 
 def body_vel_l2(body_vel: torch.Tensor, body_idx: int, weight: torch.Tensor) -> torch.Tensor:

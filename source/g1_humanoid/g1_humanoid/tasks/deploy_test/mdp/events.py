@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 import isaaclab.utils.math as math_utils
 from isaaclab.assets import RigidObject, Articulation
@@ -7,7 +8,7 @@ from isaaclab.envs import DirectRLEnv
 from pxr import Gf, Sdf, UsdGeom, Vt
 import omni
 import isaaclab.sim as sim_utils
-
+from isaaclab.utils.math import quat_apply
 _all_forces = torch.tensor([])
 
 def randomize_cylinder_scale(
@@ -378,3 +379,42 @@ def randomize_rigid_body_com_fixed(
 
     # Set the new coms
     asset.root_physx_view.set_coms(coms, env_ids)
+
+
+
+def reset_plate_state(
+    env: DirectRLEnv,
+    env_ids: torch.Tensor,
+    robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="pelvis"),
+    plate_asset_cfg: SceneEntityCfg = SceneEntityCfg("plate"),
+    object_asset_cfg: Optional[SceneEntityCfg] = None,
+    plate_offset: list[float] = [0.42, 0.0, 0.12],
+    object_z_up: float = 0.1,
+):
+    """Reset the state of the plate."""
+    # extract the used quantities (to enable type-hinting)
+    plate_asset: RigidObject = env.scene[plate_asset_cfg.name]
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+
+    reference_frame_states = robot_asset.data.body_state_w[env_ids, robot_asset_cfg.body_ids, :].clone()
+
+    # reset plate
+    plate_offset_tensor = torch.tensor(
+        plate_offset, device=env.device
+    ).unsqueeze(0).expand(len(env_ids), -1)
+    offset_world = quat_apply(reference_frame_states[:, 3:7], plate_offset_tensor)
+    plate_pos_world = reference_frame_states[:, :3] + offset_world
+    plate_asset.write_root_link_pose_to_sim(torch.cat([plate_pos_world, plate_asset.data.default_root_state[env_ids, 3:7]], dim=-1), env_ids=env_ids)
+    plate_asset.write_root_com_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)
+
+    # reset object
+    if object_asset_cfg is not None:
+        object_asset: RigidObject = env.scene[object_asset_cfg.name]
+        if isinstance(object_asset.cfg.spawn, sim_utils.CylinderCfg):
+            object_z_up = object_asset.cfg.spawn.height / 2
+        object_pos_world = plate_pos_world.clone()
+        object_pos_world[:, 2] += object_z_up
+        object_asset.write_root_link_pose_to_sim(torch.cat([object_pos_world, object_asset.data.default_root_state[env_ids, 3:7]], dim=-1), env_ids=env_ids)
+        object_asset.write_root_com_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)
+
+

@@ -72,15 +72,15 @@ class EventCfg:
         },
     )
 
-    add_plate_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-            "mass_distribution_params": (0.1, 1.0),
-            "operation": "abs",
-        },
-    )
+    # add_plate_mass = EventTerm(
+    #     func=mdp.randomize_rigid_body_mass,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
+    #         "mass_distribution_params": (0.1, 1.0),
+    #         "operation": "abs",
+    #     },
+    # )
 
 
     # reset
@@ -116,6 +116,18 @@ class EventCfg:
         params={
             "position_range": (1.0, 1.0),
             "velocity_range": (-1.0, 1.0),
+        },
+    )
+
+    reset_plate_object_state = EventTerm(
+        func=mdp.reset_plate_state,
+        mode="reset",
+        params={
+            "robot_asset_cfg": SceneEntityCfg("robot", body_names="pelvis"),
+            "plate_asset_cfg": SceneEntityCfg("plate"),
+            "object_asset_cfg": SceneEntityCfg("object"),
+            "plate_offset": [0.42, 0.0, 0.12],
+            "object_z_up": 0.1,
         },
     )
 
@@ -180,9 +192,11 @@ class ObservationsCfg:
         joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
         last_action = ObsTerm(func=mdp.last_action)
+        plate_pose_robot_frame = ObsTerm(func=mdp.plate_pose_robot_frame)
+        plate_twist_robot_frame = ObsTerm(func=mdp.plate_twist_robot_frame)
         plate_projected_gravity = ObsTerm(func=mdp.plate_projected_gravity)
-        plate_lin_acc_w = ObsTerm(func=mdp.plate_lin_acc_w)
-        plate_ang_acc_w = ObsTerm(func=mdp.plate_ang_acc_w)
+        # plate_lin_acc_w = ObsTerm(func=mdp.plate_lin_acc_w)
+        # plate_ang_acc_w = ObsTerm(func=mdp.plate_ang_acc_w)
         def __post_init__(self):
             self.history_length = 5
 
@@ -278,10 +292,10 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     observation_space = {
         # upper body
         "upper_body_actor_obs": 480,
-        "upper_body_critic_obs": 480 + 15 + 45,
+        "upper_body_critic_obs": 480 + 15 + 80,
         # lower body
         "lower_body_actor_obs": 480,
-        "lower_body_critic_obs": 480 + 15 + 45,
+        "lower_body_critic_obs": 480 + 15 + 80,
     }
     action_dim= {
         "upper_body": 14,
@@ -457,19 +471,25 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     ]
 
     # object configuration
-    plate_offset = [0.42, 0.0, 0.11256] # x, y, z offset from pelvis
+    plate_offset = [0.42, 0.0, 0.12] # x, y, z offset from pelvis
     plate_cfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/Plate",
         spawn=sim_utils.CylinderCfg(
-            radius=0.18,
-            height=0.005,
+            radius=0.19,
+            height=0.01,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
+            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),
             activate_contact_sensors=True,
             #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(),
+    )
+    plate_contact_sensor: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Plate", 
+        update_period=sim.dt, 
+        track_air_time=True,
+        history_length=3,
     )
 
     # object configuration
@@ -479,7 +499,7 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
             radius=0.03,
             height=0.10,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.05),
             collision_props=sim_utils.CollisionPropertiesCfg(),
             activate_contact_sensors=True,
             #visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),

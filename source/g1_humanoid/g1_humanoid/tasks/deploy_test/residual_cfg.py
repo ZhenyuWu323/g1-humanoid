@@ -231,11 +231,19 @@ class ObservationsCfg:
         last_action = ObsTerm(func=mdp.residual_action)
         
         #object observations
-        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
-        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
-        object_physics = ObsTerm(func=mdp.object_physics)
-        object_mass = ObsTerm(func=mdp.object_mass)
+        #object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        # object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        # object_physics = ObsTerm(func=mdp.object_physics)
+        # object_mass = ObsTerm(func=mdp.object_mass)
+        # object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+        object_position_w = ObsTerm(func=mdp.object_position_w)
+        object_lin_vel_w = ObsTerm(func=mdp.object_lin_vel_w)
+        object_ang_vel_w = ObsTerm(func=mdp.object_ang_vel_w)
         object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+        plate_position_w = ObsTerm(func=mdp.plate_position_w)
+        plate_lin_vel_w = ObsTerm(func=mdp.plate_lin_vel_w)
+        plate_ang_vel_w = ObsTerm(func=mdp.plate_ang_vel_w)
+        plate_projected_gravity = ObsTerm(func=mdp.plate_projected_gravity)
         def __post_init__(self):
             self.history_length = 5
             #self.enable_corruption = True
@@ -252,11 +260,19 @@ class ObservationsCfg:
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
         last_action = ObsTerm(func=mdp.residual_action)
         #object observations
-        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
-        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
-        object_physics = ObsTerm(func=mdp.object_physics)
-        object_mass = ObsTerm(func=mdp.object_mass)
+        #object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        # object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        # object_physics = ObsTerm(func=mdp.object_physics)
+        # object_mass = ObsTerm(func=mdp.object_mass)
+        # object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+        object_position_w = ObsTerm(func=mdp.object_position_w)
+        object_lin_vel_w = ObsTerm(func=mdp.object_lin_vel_w)
+        object_ang_vel_w = ObsTerm(func=mdp.object_ang_vel_w)
         object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+        plate_position_w = ObsTerm(func=mdp.plate_position_w)
+        plate_lin_vel_w = ObsTerm(func=mdp.plate_lin_vel_w)
+        plate_ang_vel_w = ObsTerm(func=mdp.plate_ang_vel_w)
+        plate_projected_gravity = ObsTerm(func=mdp.plate_projected_gravity)
 
         def __post_init__(self):
             self.history_length = 5
@@ -354,9 +370,9 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
     observation_space = {
         "actor_obs": 480,
         "critic_obs": 480 + 15,
-        "residual_actor_obs": 480 + 95,
-        "residual_critic_obs": 480 + 15 + 95,
-        "encoder_obs": 95,
+        "residual_actor_obs": 480 + 120,
+        "residual_critic_obs": 480 + 15 + 120,
+        "encoder_obs": 120,
     }
     
     action_dim= {
