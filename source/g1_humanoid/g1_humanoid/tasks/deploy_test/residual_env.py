@@ -48,6 +48,7 @@ class G1ResidualEnv(DirectRLEnv):
         self.pelvis_indexes = self.robot.find_bodies(self.cfg.pelvis_names)[0]
 
         # camera body index
+        self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
         self.camera_body_index = self.robot.data.body_names.index(self.cfg.camera_name)
 
 
@@ -105,7 +106,7 @@ class G1ResidualEnv(DirectRLEnv):
         self.plate_offset = torch.tensor(self.cfg.plate_offset, device=self.device).unsqueeze(0).expand(self.num_envs, -1)
 
         # object/plate relative position
-        self.object_plate_rel_pos = torch.zeros(self.num_envs, 3, device=self.device)
+        self.object_plate_rel_pos = torch.zeros(self.num_envs, 7, device=self.device)
 
 
         # logging
@@ -118,17 +119,12 @@ class G1ResidualEnv(DirectRLEnv):
                 "feet_clearance_reward",
                 "penalty_object_pose_deviation",
                 "penalty_object_flat_orientation",
-                "penalty_plate_flat_orientation",
                 "object_upright_bonus",
                 "tracking_upper_body_dof_pos",
                 "penalty_object_lin_vel",
                 "penalty_object_ang_vel",
-                "penalty_object_friction",
-                "plate_on_hand_reward",
-                "object_on_plate_reward",
-                "alive_reward",
-                "penalty_residual_magnitude_lower",
-                "penalty_residual_magnitude_upper",
+                "penalty_upper_body_dof_torques",
+                "penalty_plate_force_xy",
             ]
         }
 
@@ -154,9 +150,9 @@ class G1ResidualEnv(DirectRLEnv):
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
-        # plate
-        self._plate = RigidObject(self.cfg.plate_cfg)
-        self.scene.rigid_objects["plate"] = self._plate
+        # # plate
+        # self._plate = RigidObject(self.cfg.plate_cfg)
+        # self.scene.rigid_objects["plate"] = self._plate
 
         # object
         self._object = RigidObject(self.cfg.obj_cfg)
@@ -204,7 +200,12 @@ class G1ResidualEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
 
-        return self.observation_manager.compute()
+        obs_dict = self.observation_manager.compute()
+        action_dim = self.cfg.action_dim["upper_body"] + self.cfg.action_dim["lower_body"]
+        shared_actor_obs = obs_dict['actor_obs'][:, :-action_dim * self.obs_history_length]
+        residual_actor_obs = torch.cat([shared_actor_obs, obs_dict['residual_actor_obs']], dim=1)
+        obs_dict['residual_actor_obs'] = residual_actor_obs
+        return obs_dict
 
     def _get_rewards(self) -> torch.Tensor:
 
@@ -217,13 +218,13 @@ class G1ResidualEnv(DirectRLEnv):
             root_lin_vel_w=self.robot.data.root_lin_vel_w,
             vel_command=self.command_manager.get_command("base_velocity"),
             sigma=0.25,
-            weight=2.5,
+            weight=1.0,
         )
         tracking_ang_vel_z = mdp.track_ang_vel_z_base_exp(
             root_ang_vel_b=self.robot.data.root_ang_vel_b,
             vel_command=self.command_manager.get_command("base_velocity"),
             sigma=0.25,
-            weight=1.0,
+            weight=0.5,
         )
 
 
@@ -350,7 +351,7 @@ class G1ResidualEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=1.0,
+            weight=compute_dof_pos_tracking_weight(self._object.data.projected_gravity_b),
             sigma=0.1,
         )
 
@@ -358,10 +359,11 @@ class G1ResidualEnv(DirectRLEnv):
         Upper Body Penalty Terms
         """
         # upper body torques
-        penalty_upper_body_dof_torques = mdp.joint_torque_l2(
-            joint_torque=self.robot.data.applied_torque,
+        penalty_upper_body_dof_torques = mdp.joint_effort_l2(
+            joint_effort=self.robot.data.applied_torque,
             joint_idx=self.upper_body_indexes,
-            weight=0.0,
+            weight=-0.005,
+            clip=[-5.0, 0.0]
         )
 
         # upper body accelerations
@@ -397,42 +399,22 @@ class G1ResidualEnv(DirectRLEnv):
         """
         Upper Body Object Rewards
         """
-        penalty_residual_magnitude_lower = mdp.residual_action_l2(  # Reuse or define as: -weight * torch.norm(residual_actions[:, upper_dim:], dim=-1)
-            residual_actions=self.residual_actions[:, self.cfg.action_dim["upper_body"]:],
-            weight=-0.1,  # Tune: -0.05 to -0.2; higher = stronger regularization
-        )
-        penalty_residual_magnitude_upper = mdp.residual_action_l2(
-            residual_actions=self.residual_actions[:, :self.cfg.action_dim["upper_body"]],
-            weight=-0.05,  # Softer for upper body (more flexibility for balancing)
-        )
+        object_pose_in_plate = mdp.object_pose_in_plate_frame(env=self, 
+                                                              robot_asset_cfg=SceneEntityCfg("robot", body_names="plate"), 
+                                                              object_asset_cfg=SceneEntityCfg("object"))
 
-
-        object_pose_in_plate = compute_object_pos_in_plate_frame(
-            object_quat_w=self._object.data.body_quat_w[:, 0, :],
-            object_pos_w=self._object.data.body_pos_w[:, 0, :],
-            plate_quat_w=self._plate.data.body_quat_w[:, 0, :],
-            plate_pos_w=self._plate.data.body_pos_w[:, 0, :],
-        )
-
-        # penalty object position deviation
-        penalty_object_pose_deviation = mdp.object_pos_deviation(
-            object_pos_w=self._object.data.root_pos_w,
-            plate_pos_w=self._plate.data.root_pos_w,
-            default_rel_pos_w=self.object_plate_rel_pos,
-            weight=-0.001,
+       # penalty object position deviation
+        penalty_object_pose_deviation = mdp.compute_pose_deviation_penalty(
+            current_pose=object_pose_in_plate,
+            target_pose=self.object_plate_rel_pos,
+            pos_weight=-0.1,
         )
         
         
         # object flat orientation
         penalty_object_flat_orientation = mdp.flat_orientation_l2(
             projected_gravity_b=self._object.data.projected_gravity_b,
-            weight=-1.0,
-        )
-
-        # object flat orientation
-        penalty_plate_flat_orientation = mdp.flat_orientation_l2(
-            projected_gravity_b=self._plate.data.projected_gravity_b,
-            weight=-5.0,
+            weight=-0.5,
         )
 
         
@@ -443,32 +425,35 @@ class G1ResidualEnv(DirectRLEnv):
             sigma=0.1,
         )
 
+        # object linear/angular velocity l2
+        object_twist_in_plate_frame = mdp.object_twist_in_plate_frame(
+            env=self,
+            robot_asset_cfg=SceneEntityCfg("robot", body_names="plate"),
+            object_asset_cfg=SceneEntityCfg("object"),
+        )
+        penalty_object_lin_vel = mdp.body_vel_l2(
+            body_vel=object_twist_in_plate_frame[:, :3],
+            body_idx=0,
+            weight=-0.1, #-0.1
+        )
+        penalty_object_ang_vel = mdp.body_vel_l2(
+            body_vel=object_twist_in_plate_frame[:, 3:6],
+            body_idx=0,
+            weight=-0.001, #-0.1
+        )
+
+        # plate force xy l1
+        penalty_plate_force_xy = mdp.plate_force_xy_l1(
+            plate_wrench=self.robot.root_physx_view.get_link_incoming_joint_force()[:, self.plate_body_index, :],
+            weight=-0.1,
+        )
+
         # cosine curve to warm up for the object reward function, weight starts as 0
         # step cosine curve , 2000 time steps
         # projected gravity z component
 
 
-        plate_on_hand = self._plate.data.body_pos_w[:, 0, 2] > 0.2 
-        plate_off_hand = ~plate_on_hand                             
-        plate_on_hand_reward = mdp.alive_reward(terminated=plate_off_hand, weight=0.15)
-
-        object_on_plate = is_object_on_plate(object_pose_in_plate) & plate_on_hand  
-        object_off_plate = ~object_on_plate                                         
-        object_on_plate_reward = mdp.alive_reward(terminated=object_off_plate, weight=0.15)
-
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
-
-        # apply gate
-        forward_speed = torch.norm(self.robot.data.root_lin_vel_w[:, :2], dim=-1)  # XY speed in world frame
-        motion_gate = torch.tanh(forward_speed / 0.3)  # 0-1 sigmoid-like; 0 if stopped, 1 if fast
-        object_upright_bonus *= motion_gate
-        plate_on_hand_reward *= motion_gate
-        object_on_plate_reward *= motion_gate
-        penalty_object_pose_deviation *= (1.0 - 0.5 * motion_gate) * object_on_plate
-        penalty_plate_flat_orientation *= (1.0 - 0.5 * motion_gate)
-        penalty_object_flat_orientation *= (1.0 - 0.5 * motion_gate)
-
-        
 
 		# locomotion reward
         residual_lower_body_reward = (tracking_lin_vel_xy + 
@@ -498,12 +483,9 @@ class G1ResidualEnv(DirectRLEnv):
             penalty_object_pose_deviation +
             penalty_object_flat_orientation +
             object_upright_bonus +
-            #penalty_object_friction +
-            penalty_plate_flat_orientation +
-            plate_on_hand_reward +
-            object_on_plate_reward +
-            penalty_residual_magnitude_lower +
-            penalty_residual_magnitude_upper
+            penalty_object_lin_vel +
+            penalty_object_ang_vel +
+            penalty_plate_force_xy
         )
 
         residual_whole_body_reward = residual_upper_body_reward + residual_lower_body_reward + alive_reward
@@ -516,13 +498,10 @@ class G1ResidualEnv(DirectRLEnv):
         self._episode_sums["penalty_object_flat_orientation"] += penalty_object_flat_orientation
         self._episode_sums["object_upright_bonus"] += object_upright_bonus
         self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
-        #self._episode_sums["penalty_object_friction"] += penalty_object_friction
-        self._episode_sums["plate_on_hand_reward"] += plate_on_hand_reward
-        self._episode_sums["object_on_plate_reward"] += object_on_plate_reward
-        self._episode_sums["penalty_plate_flat_orientation"] += penalty_plate_flat_orientation
-        self._episode_sums["alive_reward"] += alive_reward
-        self._episode_sums["penalty_residual_magnitude_lower"] += penalty_residual_magnitude_lower
-        self._episode_sums["penalty_residual_magnitude_upper"] += penalty_residual_magnitude_upper
+        self._episode_sums["penalty_object_lin_vel"] += penalty_object_lin_vel
+        self._episode_sums["penalty_object_ang_vel"] += penalty_object_ang_vel
+        self._episode_sums["penalty_upper_body_dof_torques"] += penalty_upper_body_dof_torques
+        self._episode_sums["penalty_plate_force_xy"] += penalty_plate_force_xy
 
         # reward 
         residual_whole_body_reward = residual_whole_body_reward * self.step_dt
@@ -539,35 +518,7 @@ class G1ResidualEnv(DirectRLEnv):
         died = self.robot.data.body_pos_w[:, self.ref_body_index, 2] < self.cfg.termination_height
         return died, time_out
     
-    def _reset_plate_object(self, env_ids: torch.Tensor):
-        # reset plate
-        pelvis_pos_w = self.robot.data.body_pos_w[env_ids, self.pelvis_indexes, :].clone()
-        pelvis_quat_w = self.robot.data.body_quat_w[env_ids, self.pelvis_indexes, :].clone()
-        plate_offset = self.plate_offset[env_ids]
-        offset_world = quat_apply(pelvis_quat_w, plate_offset)
-        plate_pos_w = pelvis_pos_w + offset_world
-        plate_quat_w = self._plate.data.default_root_state[env_ids, 3:7].clone()
-        self._plate.write_root_pose_to_sim(torch.cat([plate_pos_w, plate_quat_w], dim=-1), env_ids=env_ids)
-        plate_vel = torch.zeros(env_ids.shape[0], 6, device=self.device)
-        self._plate.write_root_velocity_to_sim(plate_vel, env_ids=env_ids)
 
-        # reset object
-        object_pos_w = plate_pos_w.clone()
-        object_pos_w[:, 2] += 0.1
-        object_quat_w = self._object.data.default_root_state[env_ids, 3:7].clone()
-        self._object.write_root_pose_to_sim(torch.cat([object_pos_w, object_quat_w], dim=-1), env_ids=env_ids)
-        object_vel = torch.zeros(env_ids.shape[0], 6, device=self.device)
-        self._object.write_root_velocity_to_sim(object_vel, env_ids=env_ids)
-
-        # self.object_plate_rel_pos[env_ids] = compute_object_pos_in_plate_frame(
-        #     object_quat_w=object_quat_w,
-        #     object_pos_w=object_pos_w,
-        #     plate_quat_w=plate_quat_w,
-        #     plate_pos_w=plate_pos_w
-        # )
-        self.object_plate_rel_pos[env_ids] = self._object.data.root_pos_w[env_ids, :] - self._plate.data.root_pos_w[env_ids, :]
-
-        
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
         extras = dict()
@@ -583,6 +534,10 @@ class G1ResidualEnv(DirectRLEnv):
         # reset robot
         self.robot.reset(env_ids)
         super()._reset_idx(env_ids)
+        # read off the object pose in the plate frame
+        self.object_plate_rel_pos[env_ids] = mdp.object_pose_in_plate_frame(env=self, 
+                                                                           robot_asset_cfg=SceneEntityCfg("robot", body_names="plate"), 
+                                                                           object_asset_cfg=SceneEntityCfg("object"))[env_ids, :]
         # reset command
         self.command_manager.reset(env_ids)
         self.event_manager.reset(env_ids)
@@ -595,8 +550,6 @@ class G1ResidualEnv(DirectRLEnv):
         self.episode_length_buf[env_ids] = 0
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
-        # reset plate
-        self._reset_plate_object(env_ids)
 
         # reset logging
         for key in self._episode_sums.keys():
@@ -669,7 +622,7 @@ class G1ResidualEnv(DirectRLEnv):
 
         # post-step:
         # -- update gait phase
-        self._post_physics_step()
+        #self._post_physics_step()
 
         # -- update env counters (used for curriculum generation)
         self.episode_length_buf += 1  # step in current episode (per env)

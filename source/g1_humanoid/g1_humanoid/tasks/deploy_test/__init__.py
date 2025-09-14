@@ -51,3 +51,14 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualAdaptivePPORunnerCfg",
     },
 )
+
+
+gym.register(
+    id="G1-Residual-Test",
+    entry_point=f"{__name__}.residual_test_env:G1ResidualTestEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.residual_test_cfg:G1ResidualTestEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1ResidualAdaptivePPORunnerCfg",
+    },
+)

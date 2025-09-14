@@ -14,7 +14,7 @@ from isaaclab.utils.math import quat_rotate,quat_apply
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .joint_test_cfg import G1JointTestEnvCfg
+from .residual_test_cfg import G1ResidualTestEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
@@ -22,11 +22,12 @@ from isaaclab.utils.buffers import CircularBuffer
 from isaaclab.utils.math import quat_apply_inverse
 from isaaclab.managers import CommandManager, ObservationManager, ActionManager
 from isaaclab.utils.string import resolve_matching_names
+from .utils import compute_dof_pos_tracking_weight, compute_object_pos_in_plate_frame, is_object_on_plate
 
-class G1JointTestEnv(DirectRLEnv):
-    cfg: G1JointTestEnvCfg
+class G1ResidualTestEnv(DirectRLEnv):
+    cfg: G1ResidualTestEnvCfg
 
-    def __init__(self, cfg: G1JointTestEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: G1ResidualTestEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         ##########################################################################################
@@ -46,7 +47,9 @@ class G1JointTestEnv(DirectRLEnv):
         self.lower_body_indexes = self.waist_indexes + self.hips_indexes + self.feet_indexes # lower body
         self.pelvis_indexes = self.robot.find_bodies(self.cfg.pelvis_names)[0]
 
-        self.plate_body_index = self.robot.data.body_names.index('plate')
+        # camera body index
+        #self.plate_body_index = self.robot.data.body_names.index(self.cfg.plate_name)
+        #self.camera_body_index = self.robot.data.body_names.index(self.cfg.camera_name)
 
 
         # body/link indexes
@@ -66,16 +69,10 @@ class G1JointTestEnv(DirectRLEnv):
         print("[INFO] Joint to motor index: ", joint_ids_map)
 
         # defulat pos
-        print("[INFO] Whole body default pos: ", self.robot.data.default_joint_pos)
-        print("[INFO] Lower body default pos: ", self.default_lower_joint_pos)
-        print("[INFO] Upper body default pos: ", self.default_upper_joint_pos)
+        # print("[INFO] Whole body default pos: ", self.robot.data.default_joint_pos)
+        # print("[INFO] Lower body default pos: ", self.default_lower_joint_pos)
+        # print("[INFO] Upper body default pos: ", self.default_upper_joint_pos)
 
-
-        # noise models
-        if self.cfg.obs_noise_models:
-            self.obs_noise_models = {}
-            for key, value in self.cfg.obs_noise_models.items():
-                self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
 
 
         # body velocity command 
@@ -83,17 +80,19 @@ class G1JointTestEnv(DirectRLEnv):
         print("[INFO] Command Manager: ", self.command_manager)
 
         # # actions
-        self.action_manager = ActionManager(self.cfg.actions, self)
-        print("[INFO] Action Manager: ", self.action_manager)
+        # self.action_manager = ActionManager(self.cfg.actions, self)
+        # print("[INFO] Action Manager: ", self.action_manager)
+
+        # actions and previous actions
+        self.base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_base_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.residual_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
+        self.prev_residual_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
         # # observations
         self.observation_manager = ObservationManager(self.cfg.observations, self)
         print("[INFO] Observation Manager: ", self.observation_manager)
 
-
-        # actions and previous actions
-        self.actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
-        self.prev_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.sim.device)
 
         # gait phase
         self.phase = torch.zeros(self.num_envs, device=self.device)
@@ -103,14 +102,12 @@ class G1JointTestEnv(DirectRLEnv):
         # history
         self.obs_history_length = getattr(self.cfg, 'obs_history_length', 5)  # t-4:t (5 steps)
 
-        # # plate offset
-        # self.plate_offset = torch.tensor(self.cfg.plate_offset, device=self.device).unsqueeze(0).expand(self.num_envs, -1)
+        # plate offset
+        self.plate_offset = torch.tensor(self.cfg.plate_offset, device=self.device).unsqueeze(0).expand(self.num_envs, -1)
 
-        # observation noise models
-        if self.cfg.obs_noise_models:
-            self.obs_noise_models = {}
-            for key, value in self.cfg.obs_noise_models.items():
-                self.obs_noise_models[key] = value.class_type(value, self.num_envs, self.sim.device)
+        # object/plate relative position
+        self.object_plate_rel_pos = torch.zeros(self.num_envs, 7, device=self.device)
+
 
         # logging
         self._episode_sums = {
@@ -120,9 +117,14 @@ class G1JointTestEnv(DirectRLEnv):
                 "tracking_ang_vel_z",
                 "gait_phase_reward",
                 "feet_clearance_reward",
+                "penalty_object_pose_deviation",
+                "penalty_object_flat_orientation",
+                "object_upright_bonus",
                 "tracking_upper_body_dof_pos",
+                "penalty_object_lin_vel",
+                "penalty_object_ang_vel",
+                "penalty_upper_body_dof_torques",
                 "penalty_plate_force_xy",
-                "penalty_joint_effort",
             ]
         }
 
@@ -148,9 +150,17 @@ class G1JointTestEnv(DirectRLEnv):
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
-        # # plate
-        # self._plate = RigidObject(self.cfg.plate_cfg)
-        # self.scene.rigid_objects["plate"] = self._plate
+        # plate
+        self._plate = RigidObject(self.cfg.plate_cfg)
+        self.scene.rigid_objects["plate"] = self._plate
+
+        # object
+        self._object = RigidObject(self.cfg.obj_cfg)
+        self.scene.rigid_objects["object"] = self._object
+
+        # object contact sensor
+        self._object_contact_sensor = ContactSensor(self.cfg.object_contact_sensor)
+        self.scene.sensors["object_contact_sensor"] = self._object_contact_sensor
 
         
         # clone and replicate
@@ -158,14 +168,17 @@ class G1JointTestEnv(DirectRLEnv):
         self.cfg.sky_light_cfg.func("/World/Light", self.cfg.sky_light_cfg)
 
 
-    def _pre_physics_step(self, actions: torch.Tensor):
+    def _pre_physics_step(self, base_action: torch.Tensor, residual_action: torch.Tensor):
         # update previous actions
-        self.prev_actions = self.actions.clone()
-        self.actions = actions.clone()
+        self.prev_base_actions = self.base_actions.clone()
+        self.prev_residual_actions = self.residual_actions.clone()
+        self.base_actions = base_action.clone()
+        self.residual_actions = residual_action.clone()
 
     def _apply_action(self):
-        upper_actions = self.actions[:, :self.cfg.action_dim["upper_body"]]
-        lower_actions = self.actions[:, self.cfg.action_dim["upper_body"]:]
+        actions = self.base_actions + self.residual_actions
+        upper_actions = actions[:, :self.cfg.action_dim["upper_body"]]
+        lower_actions = actions[:, self.cfg.action_dim["upper_body"]:]
 
         upper_body_target = self.default_upper_joint_pos + self.action_scale * upper_actions
         lower_body_target = self.default_lower_joint_pos + self.action_scale * lower_actions
@@ -187,7 +200,12 @@ class G1JointTestEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
 
-        return self.observation_manager.compute()
+        obs_dict = self.observation_manager.compute()
+        action_dim = self.cfg.action_dim["upper_body"] + self.cfg.action_dim["lower_body"]
+        shared_actor_obs = obs_dict['actor_obs'][:, :-action_dim * self.obs_history_length]
+        residual_actor_obs = torch.cat([shared_actor_obs, obs_dict['residual_actor_obs']], dim=1)
+        obs_dict['residual_actor_obs'] = residual_actor_obs
+        return obs_dict
 
     def _get_rewards(self) -> torch.Tensor:
 
@@ -276,8 +294,8 @@ class G1JointTestEnv(DirectRLEnv):
 
         # action rate
         penalty_lower_body_action_rate = mdp.action_rate_l2(
-            action=self.actions[:, self.cfg.action_dim["upper_body"]:],
-            prev_action=self.prev_actions[:, self.cfg.action_dim["upper_body"]:],
+            action=self.residual_actions[:, self.cfg.action_dim["upper_body"]:],
+            prev_action=self.prev_residual_actions[:, self.cfg.action_dim["upper_body"]:],
             weight=-0.05,
         )
 
@@ -333,7 +351,7 @@ class G1JointTestEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=1.0,
+            weight=compute_dof_pos_tracking_weight(self._object.data.projected_gravity_b),
             sigma=0.1,
         )
 
@@ -341,10 +359,11 @@ class G1JointTestEnv(DirectRLEnv):
         Upper Body Penalty Terms
         """
         # upper body torques
-        penalty_upper_body_dof_torques = mdp.joint_torque_l2(
-            joint_torque=self.robot.data.applied_torque,
+        penalty_upper_body_dof_torques = mdp.joint_effort_l2(
+            joint_effort=self.robot.data.applied_torque,
             joint_idx=self.upper_body_indexes,
-            weight=0.0,
+            weight=-0.005,
+            clip=[-5.0, 0.0]
         )
 
         # upper body accelerations
@@ -364,8 +383,8 @@ class G1JointTestEnv(DirectRLEnv):
 
         # upper body action rate
         penalty_upper_body_action_rate = mdp.action_rate_l2(
-            action=self.actions[:, :self.cfg.action_dim["upper_body"]],
-            prev_action=self.prev_actions[:, :self.cfg.action_dim["upper_body"]],
+            action=self.residual_actions[:, :self.cfg.action_dim["upper_body"]],
+            prev_action=self.prev_residual_actions[:, :self.cfg.action_dim["upper_body"]],
             weight=-0.05,
         )
 
@@ -376,31 +395,15 @@ class G1JointTestEnv(DirectRLEnv):
             weight=-0.001,
         )
 
-        # joint effort
-        penalty_joint_effort = mdp.joint_effort_l2(
-            joint_effort=self.robot.data.applied_torque,
-            joint_idx=self.upper_body_indexes,
-            weight=-0.01,
-        )
-        penalty_joint_effort = torch.clip(penalty_joint_effort, -5.0, 0.0)
-
-        plate_force = self.robot.root_physx_view.get_link_incoming_joint_force()[:, self.plate_body_index, :]
-        penalty_plate_force_xy = torch.sum(torch.abs(plate_force[:, :2]), dim=1) * -0.1
-
             
-        # alive reward
+        """
+        Upper Body Object Rewards
+        """
+
         alive_reward = mdp.alive_reward(terminated=died, weight=0.15)
 
-        # # undesired contacts
-        # penalty_undesired_contacts = mdp.body_contacts(
-        #     threshold=1.0,
-        #     contact_sensor=self._contact_sensor,
-        #     body_ids=[i for i in range(29) if i not in self.feet_body_indexes],
-        #     weight=-1.0,
-        # )
-
 		# locomotion reward
-        locomotion_reward = (tracking_lin_vel_xy + 
+        residual_lower_body_reward = (tracking_lin_vel_xy + 
                              tracking_ang_vel_z + 
                              penalty_lin_vel_z + 
                              penalty_ang_vel_xy + 
@@ -414,34 +417,29 @@ class G1JointTestEnv(DirectRLEnv):
                              penalty_feet_slide + 
                              penalty_base_height +
                              feet_gait_reward +
-                             feet_clearance_reward +
-                             alive_reward)
+                             feet_clearance_reward)
         
-		# upper body reward
-        upper_body_reward = (
+        # upper body reward
+        residual_upper_body_reward = (
             tracking_upper_body_dof_pos + 
             penalty_upper_body_dof_torques + 
             penalty_upper_body_dof_acc + 
             penalty_upper_body_dof_pos_limits + 
             penalty_upper_body_action_rate + 
-            penalty_upper_body_dof_vel + 
-            alive_reward + 
-            penalty_plate_force_xy + 
-            penalty_joint_effort
+            penalty_upper_body_dof_vel
         )
+
+        residual_whole_body_reward = residual_upper_body_reward + residual_lower_body_reward + alive_reward
+
         
-        self._episode_sums["tracking_lin_vel_xy"] += tracking_lin_vel_xy
-        self._episode_sums["tracking_ang_vel_z"] += tracking_ang_vel_z
-        self._episode_sums["gait_phase_reward"] += feet_gait_reward
-        self._episode_sums["feet_clearance_reward"] += feet_clearance_reward
-        self._episode_sums["tracking_upper_body_dof_pos"] += tracking_upper_body_dof_pos
-        self._episode_sums["penalty_plate_force_xy"] += penalty_plate_force_xy
-        self._episode_sums["penalty_joint_effort"] += penalty_joint_effort
 
         # reward 
-        lower_body_reward = locomotion_reward * self.step_dt
-        upper_body_reward = upper_body_reward * self.step_dt
-        return {'upper_body': upper_body_reward, 'lower_body': lower_body_reward}
+        residual_whole_body_reward = residual_whole_body_reward * self.step_dt
+        lower_body_reward = torch.zeros(self.num_envs, device=self.device)
+        upper_body_reward = torch.zeros(self.num_envs, device=self.device)
+        return {'upper_body': upper_body_reward, 
+                'lower_body': lower_body_reward, 
+                'residual_whole_body': residual_whole_body_reward}
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         # time out
@@ -450,17 +448,7 @@ class G1JointTestEnv(DirectRLEnv):
         died = self.robot.data.body_pos_w[:, self.ref_body_index, 2] < self.cfg.termination_height
         return died, time_out
     
-    # def _reset_plate(self, env_ids: torch.Tensor):
-    #     # reset object
-    #     pelvis_pos_w = self.robot.data.body_pos_w[env_ids, self.pelvis_indexes, :].clone()
-    #     pelvis_quat_w = self.robot.data.body_quat_w[env_ids, self.pelvis_indexes, :].clone()
-    #     plate_offset = self.plate_offset[env_ids]
-    #     offset_world = quat_apply(pelvis_quat_w, plate_offset)
-    #     plate_pos_w = pelvis_pos_w + offset_world
-    #     plate_quat_w = self._plate.data.default_root_state[env_ids, 3:7].clone()
-    #     self._plate.write_root_pose_to_sim(torch.cat([plate_pos_w, plate_quat_w], dim=-1), env_ids=env_ids)
-    #     plate_vel = torch.zeros(env_ids.shape[0], 6, device=self.device)
-    #     self._plate.write_root_velocity_to_sim(plate_vel, env_ids=env_ids)
+
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
         extras = dict()
@@ -472,23 +460,23 @@ class G1JointTestEnv(DirectRLEnv):
             avg_terrain_level = mdp.terrain_levels(env=self, env_ids=env_ids, vel_command=self.command_manager.get_command("base_velocity"))
             extras["Curriculum/terrain_level"] = avg_terrain_level.item()
 
+        
         # reset robot
         self.robot.reset(env_ids)
         super()._reset_idx(env_ids)
+        
         # reset command
         self.command_manager.reset(env_ids)
         self.event_manager.reset(env_ids)
         self.observation_manager.reset(env_ids)
-        self.action_manager.reset(env_ids)
         # reset actions
-        self.actions[env_ids] = 0.0
-        self.prev_actions[env_ids] = 0.0
+        self.base_actions[env_ids] = 0.0
+        self.prev_base_actions[env_ids] = 0.0
+        self.residual_actions[env_ids] = 0.0
+        self.prev_residual_actions[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
         self.phase[env_ids] = 0.0
         self.leg_phases[env_ids] = 0.0
-        # reset plate
-        #self._reset_plate(env_ids)
-        
 
         # reset logging
         for key in self._episode_sums.keys():
@@ -523,18 +511,20 @@ class G1JointTestEnv(DirectRLEnv):
         Returns:
             A tuple containing the observations, rewards, resets (terminated and truncated) and extras.
         """
-        self.action_manager.process_action(action.to(self.device))
-        # action = action.to(self.device)
-        # # add action noise
-        # if self.cfg.action_noise_model:
-        #     action = self._action_noise_model.apply(action)
+        base_action = action['base_action'].to(self.device)
+        residual_action = action['residual_action'].to(self.device)
+        # add action noise
+        if self.cfg.action_noise_model:
+            base_action = self._action_noise_model.apply(base_action)
+            residual_action = self._action_noise_model.apply(residual_action)
 
-        # # clip actions
-        # clip_actions = self.cfg.clip_action
-        # action = torch.clip(action, -clip_actions, clip_actions)
+        # clip actions
+        clip_actions = self.cfg.clip_action
+        base_action = torch.clip(base_action, -clip_actions, clip_actions)
+        residual_action = torch.clip(residual_action, -clip_actions, clip_actions)
 
         # process actions
-        self._pre_physics_step(action)
+        self._pre_physics_step(base_action, residual_action)
 
         # check if we need to do rendering within the physics loop
         # note: checked here once to avoid multiple checks within the loop
@@ -544,8 +534,7 @@ class G1JointTestEnv(DirectRLEnv):
         for _ in range(self.cfg.decimation):
             self._sim_step_counter += 1
             # set actions into buffers
-            #self._apply_action()
-            self.action_manager.apply_action()
+            self._apply_action()
             # set actions into simulator
             self.scene.write_data_to_sim()
             # simulate
@@ -607,7 +596,6 @@ class G1JointTestEnv(DirectRLEnv):
         if not self._is_closed:
             if self.cfg.commands:
                 del self.command_manager
-                del self.action_manager
                 del self.observation_manager
         super().close()
 

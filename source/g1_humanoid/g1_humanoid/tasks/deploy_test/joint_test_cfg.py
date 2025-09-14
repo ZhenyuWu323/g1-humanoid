@@ -38,29 +38,29 @@ class EventCfg:
         },
     )
     
-    hand_material = EventTerm(
-        func=mdp.randomize_rigid_body_material,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"),
-            "static_friction_range": (2.5, 2.5),
-            "dynamic_friction_range": (2.5, 2.5),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 1,
-        },
-    )
+    # hand_material = EventTerm(
+    #     func=mdp.randomize_rigid_body_material,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names="^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"),
+    #         "static_friction_range": (2.5, 2.5),
+    #         "dynamic_friction_range": (2.5, 2.5),
+    #         "restitution_range": (0.0, 0.0),
+    #         "num_buckets": 1,
+    #     },
+    # )
 
-    plate_material = EventTerm(
-        func=mdp.randomize_rigid_body_material,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-            "static_friction_range": (0.7, 0.7),
-            "dynamic_friction_range": (0.7, 0.7),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 1,
-        },
-    )
+    # plate_material = EventTerm(
+    #     func=mdp.randomize_rigid_body_material,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
+    #         "static_friction_range": (0.7, 0.7),
+    #         "dynamic_friction_range": (0.7, 0.7),
+    #         "restitution_range": (0.0, 0.0),
+    #         "num_buckets": 1,
+    #     },
+    # )
 
     add_base_mass = EventTerm(
         func=mdp.randomize_rigid_body_mass,
@@ -72,15 +72,15 @@ class EventCfg:
         },
     )
 
-    add_plate_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-            "mass_distribution_params": (0.1, 2.0),
-            "operation": "abs",
-        },
-    )
+    # add_plate_mass = EventTerm(
+    #     func=mdp.randomize_rigid_body_mass,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
+    #         "mass_distribution_params": (0.1, 2.0),
+    #         "operation": "abs",
+    #     },
+    # )
 
 
     # reset

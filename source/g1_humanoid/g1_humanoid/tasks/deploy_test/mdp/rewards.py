@@ -541,3 +541,17 @@ def body_contacts(threshold: float, contact_sensor: ContactSensor, body_ids: Seq
     is_contact = torch.max(torch.norm(net_contact_forces[:, :, body_ids], dim=-1), dim=1)[0] > threshold
     # sum over contacts for each environment
     return torch.sum(is_contact, dim=1) * weight
+
+
+
+def joint_effort_l2(joint_effort: torch.Tensor, joint_idx: Sequence[int], weight: float, clip: tuple[float, float] = None) -> torch.Tensor:
+    """Penalize joint effort using L2 squared kernel."""
+    effort = torch.sum(torch.square(joint_effort[:, joint_idx]), dim=1) * weight
+    if clip is not None:
+        effort = torch.clip(effort, clip[0], clip[1])
+    return effort
+
+
+def plate_force_xy_l1(plate_wrench: torch.Tensor, weight: float) -> torch.Tensor:
+    """Penalize plate force in xy plane using L1 kernel."""
+    return torch.sum(torch.abs(plate_wrench[:, :2]), dim=1) * weight

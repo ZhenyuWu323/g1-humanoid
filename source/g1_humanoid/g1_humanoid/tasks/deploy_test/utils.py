@@ -9,10 +9,9 @@ from isaaclab.sensors import ContactSensor
 
 
 @torch.jit.script
-def compute_dof_pos_tracking_weight(object_quat, gravity_vec):
+def compute_dof_pos_tracking_weight(object_projected_gravity):
 
-    object_up = quat_apply_inverse(object_quat, gravity_vec)
-    tilt_angle = torch.acos(torch.clamp(object_up[:, 2], -1, 1))
+    tilt_angle = torch.acos(torch.clamp(object_projected_gravity[:, 2], -1, 1))
     
     
     tilt_threshold = 0.15  

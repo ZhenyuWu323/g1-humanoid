@@ -13,7 +13,7 @@ from isaaclab.utils import configclass
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from . import mdp
-from g1_humanoid.assets import G1_WITH_HAND, G1_CFG, G1_WITH_TRAY
+from g1_humanoid.assets import G1_WITH_HAND, G1_CFG, G1_WITH_TRAY, G1_WITH_HAND_NO_PLATE
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -30,7 +30,7 @@ class EventCfg:
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="^(?!.*_(hand|palm|base|thumb|index|middle|ring|little)).*$"),
             "static_friction_range": (0.3, 1.0),
             "dynamic_friction_range": (0.3, 1.0),
             "restitution_range": (0.0, 0.0),
@@ -38,49 +38,27 @@ class EventCfg:
         },
     )
     
-    # hand_material = EventTerm(
-    #     func=mdp.randomize_rigid_body_material,
-    #     mode="startup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names="^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"),
-    #         "static_friction_range": (2.5, 2.5),
-    #         "dynamic_friction_range": (2.5, 2.5),
-    #         "restitution_range": (0.0, 0.0),
-    #         "num_buckets": 1,
-    #     },
-    # )
-
-    # plate_material = EventTerm(
-    #     func=mdp.randomize_rigid_body_material,
-    #     mode="startup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-    #         "static_friction_range": (0.7, 0.7),
-    #         "dynamic_friction_range": (0.7, 0.7),
-    #         "restitution_range": (0.0, 0.0),
-    #         "num_buckets": 1,
-    #     },
-    # )
-
-    object_physics_material = EventTerm(
+    hand_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "static_friction_range": (0.3, 1.0),
-            "dynamic_friction_range": (0.3, 1.0),
+            "asset_cfg": SceneEntityCfg("robot", body_names="^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"),
+            "static_friction_range": (2.5, 2.5),
+            "dynamic_friction_range": (2.5, 2.5),
             "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
+            "num_buckets": 1,
         },
     )
 
-    add_object_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
+    plate_material = EventTerm(
+        func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "mass_distribution_params": (0.05, 0.15),
-            "operation": "abs",
+            "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
+            "static_friction_range": (0.7, 0.7),
+            "dynamic_friction_range": (0.7, 0.7),
+            "restitution_range": (0.0, 0.0),
+            "num_buckets": 1,
         },
     )
 
@@ -93,26 +71,6 @@ class EventCfg:
             "operation": "add",
         },
     )
-
-    add_plate_mass = EventTerm(
-        func=mdp.randomize_rigid_body_mass,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
-            "mass_distribution_params": (0.3, 1.5),
-            "operation": "abs",
-        },
-    )
-
-    set_object_com = EventTerm(
-        func=mdp.randomize_rigid_body_com_fixed,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
-            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
-        },
-    )
-
 
     # reset
     base_external_force_torque = EventTerm(
@@ -150,12 +108,15 @@ class EventCfg:
         },
     )
 
-    reset_object = EventTerm(
-        func=mdp.reset_object_state,
+    reset_plate_object_state = EventTerm(
+        func=mdp.reset_plate_state,
         mode="reset",
         params={
-            "robot_asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+            "robot_asset_cfg": SceneEntityCfg("robot", body_names="pelvis"),
+            "plate_asset_cfg": SceneEntityCfg("plate"),
             "object_asset_cfg": SceneEntityCfg("object"),
+            "plate_offset": [0.42, 0.0, 0.12],
+            "object_z_up": 0.1,
         },
     )
 
@@ -163,7 +124,7 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(5.0, 15.0),
+        interval_range_s=(5.0, 5.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
 
@@ -235,8 +196,8 @@ class ObservationsCfg:
         last_action = ObsTerm(func=mdp.residual_action)
         
         #object observations
-        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
-        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame_test)
+        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame_test)
         object_physics = ObsTerm(func=mdp.object_physics)
         object_mass = ObsTerm(func=mdp.object_mass)
         object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
@@ -256,8 +217,8 @@ class ObservationsCfg:
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
         last_action = ObsTerm(func=mdp.residual_action)
         #object observations
-        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
-        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame_test)
+        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame_test)
         object_physics = ObsTerm(func=mdp.object_physics)
         object_mass = ObsTerm(func=mdp.object_mass)
         object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
@@ -324,7 +285,7 @@ class ActionsCfg:
 
 
 @configclass
-class G1ResidualEnvCfg(DirectRLEnvCfg):
+class G1ResidualTestEnvCfg(DirectRLEnvCfg):
     """ G1 Residual Locomanipulation Environment Configuration """
 
 
@@ -420,7 +381,7 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",)
 
     # robot configuration
-    robot: ArticulationCfg = G1_WITH_HAND.replace(prim_path="/World/envs/env_.*/Robot")
+    robot: ArticulationCfg = G1_WITH_HAND_NO_PLATE.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, track_air_time=True, update_period=sim.dt
     )
@@ -580,7 +541,7 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
         update_period=sim.dt, 
         track_pose=True,
         track_air_time=False,
-        filter_prim_paths_expr=["/World/envs/env_.*/Robot/plate"],
+        filter_prim_paths_expr=["/World/envs/env_.*/Plate"],
         history_length=3,
     )
 

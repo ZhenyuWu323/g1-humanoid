@@ -418,3 +418,25 @@ def reset_plate_state(
         object_asset.write_root_com_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)
 
 
+def reset_object_state(
+    env: DirectRLEnv,
+    env_ids: torch.Tensor,
+    robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate"),
+    object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    object_z_up: float = 0.1,
+):
+    """Reset the state of the object."""
+    # extract the used quantities (to enable type-hinting)
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    plate_body_index = robot_asset_cfg.body_ids
+
+    reference_frame_states = robot_asset.data.body_state_w[env_ids, plate_body_index, :].clone()
+
+    # reset object
+    object_pos_world = reference_frame_states[:, :3].clone()
+    if isinstance(object_asset.cfg.spawn, sim_utils.CylinderCfg):
+            object_z_up = object_asset.cfg.spawn.height / 2
+    object_pos_world[:, 2] += object_z_up
+    object_asset.write_root_link_pose_to_sim(torch.cat([object_pos_world, object_asset.data.default_root_state[env_ids, 3:7]], dim=-1), env_ids=env_ids)
+    object_asset.write_root_com_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)

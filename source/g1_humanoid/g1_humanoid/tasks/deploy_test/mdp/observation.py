@@ -38,56 +38,6 @@ def plate_ang_acc_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntit
     return asset.data.body_ang_acc_w
 
 
-def object_pose_in_plate_frame(env: ManagerBasedEnv, plate_asset_cfg: SceneEntityCfg = SceneEntityCfg("plate"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
-
-    # extract the used quantities (to enable type-hinting)
-    plate_asset: RigidObject = env.scene[plate_asset_cfg.name]
-    object_asset: RigidObject = env.scene[object_asset_cfg.name]
-
-    # compute the object pose in the plate frame
-    object_pos_in_plate = compute_object_pos_in_plate_frame(
-        object_quat_w=object_asset.data.body_quat_w[:, 0, :],
-        object_pos_w=object_asset.data.body_pos_w[:, 0, :],
-        plate_quat_w=plate_asset.data.body_quat_w[:, 0, :],
-        plate_pos_w=plate_asset.data.body_pos_w[:, 0, :],
-    )
-    return object_pos_in_plate
-
-
-def object_twist_in_plate_frame(env: ManagerBasedEnv, plate_asset_cfg: SceneEntityCfg = SceneEntityCfg("plate"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
-
-    # extract the used quantities (to enable type-hinting)
-    plate_asset: RigidObject = env.scene[plate_asset_cfg.name]
-    object_asset: RigidObject = env.scene[object_asset_cfg.name]
-
-    object_lin_vel_plate, object_ang_vel_plate = compute_object_twist_in_plate_frame(
-        object_lin_vel_w=object_asset.data.body_lin_vel_w[:, 0, :],
-        object_ang_vel_w=object_asset.data.body_ang_vel_w[:, 0, :],
-        plate_lin_vel_w=plate_asset.data.body_lin_vel_w[:, 0, :],
-        plate_ang_vel_w=plate_asset.data.body_ang_vel_w[:, 0, :],
-        plate_quat_w=plate_asset.data.body_link_quat_w[:, 0, :],
-        plate_pos_w=plate_asset.data.body_pos_w[:, 0, :],
-        object_pos_w=object_asset.data.body_pos_w[:, 0, :],
-    )
-    return torch.cat([object_lin_vel_plate, object_ang_vel_plate], dim=-1)
-
-
-def object_pose_in_camera_frame(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="d435_link"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
-
-    # extract the used quantities (to enable type-hinting)
-    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
-    object_asset: RigidObject = env.scene[object_asset_cfg.name]
-    camera_body_index = robot_asset.data.body_names.index(robot_asset_cfg.body_names)
-
-    # compute the object pose in the camera frame
-    object_pos_in_camera = compute_object_pose_in_camera_frame(
-        object_quat_w=object_asset.data.body_link_quat_w[:, 0, :],
-        object_pos_w=object_asset.data.body_pos_w[:, 0, :],
-        camera_quat_w=robot_asset.data.body_link_quat_w[:, camera_body_index, :],
-        camera_pos_w=robot_asset.data.body_pos_w[:, camera_body_index, :],
-    )
-    return object_pos_in_camera
-
 
 def object_physics(env: ManagerBasedEnv, object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
     # extract the used quantities (to enable type-hinting)
@@ -194,72 +144,83 @@ def plate_twist_robot_frame(env: ManagerBasedEnv, plate_asset_cfg: SceneEntityCf
     return torch.cat([lin_vel_in_robot_frame, ang_vel_in_robot_frame], dim=-1)
 
 
+def object_pose_in_plate_frame(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
 
-@torch.jit.script
-def compute_dof_pos_tracking_weight(object_quat, gravity_vec):
+    # extract the used quantities (to enable type-hinting)
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    plate_body_index = env.plate_body_index
 
-    object_up = quat_apply_inverse(object_quat, gravity_vec)
-    tilt_angle = torch.acos(torch.clamp(object_up[:, 2], -1, 1))
-    
-    
-    tilt_threshold = 0.15  
-    weight_multiplier = torch.where(
-        tilt_angle > tilt_threshold,
-        torch.exp(-(tilt_angle - tilt_threshold) * 10),  
-        torch.ones_like(tilt_angle)
-    )
-    
-    return 0.5 * torch.clamp(weight_multiplier, 0.02, 1.0)  
+    # compute the object pose in the plate frame
+    plate_quat_w = robot_asset.data.body_quat_w[:, plate_body_index, :]
+    plate_pos_w = robot_asset.data.body_pos_w[:, plate_body_index, :]
+    pos_in_plate_frame = quat_apply_inverse(plate_quat_w, object_asset.data.root_pos_w - plate_pos_w)
+    quat_in_plate_frame = quat_mul(quat_inv(plate_quat_w), object_asset.data.root_quat_w)
+
+    return torch.cat([pos_in_plate_frame, quat_in_plate_frame], dim=-1)
 
 
-@torch.jit.script
-def compute_object_pose_in_camera_frame(object_quat_w, object_pos_w, camera_quat_w, camera_pos_w):
-    object_pos_camera, object_quat_camera = subtract_frame_transforms(
-        t01=camera_pos_w,      # camera pose in world
-        q01=camera_quat_w,     # camera orientation in world  
-        t02=object_pos_w,      # object pose in world
-        q02=object_quat_w      # object orientation in world
-    )
-    object_pose_camera = torch.cat([object_pos_camera, object_quat_camera], dim=-1) # (N, 7)
-    
-    return object_pose_camera # x, y, z, qw, qx, qy, qz
+def object_twist_in_plate_frame(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
 
-@torch.jit.script
-def compute_object_pos_in_plate_frame(object_quat_w, object_pos_w, plate_quat_w, plate_pos_w):
-    object_pos_plate, object_quat_plate = subtract_frame_transforms(
-        t01=plate_pos_w,      # plate pose in world
-        q01=plate_quat_w,     # plate orientation in world  
-        t02=object_pos_w,      # object pose in world
-        q02=object_quat_w      # object orientation in world
-    )
-    object_pose_plate = torch.cat([object_pos_plate, object_quat_plate], dim=-1) # (N, 7)
-    return object_pose_plate # x, y, z, qw, qx, qy, qz
+    # extract the used quantities (to enable type-hinting)
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    plate_body_index = env.plate_body_index
 
 
-@torch.jit.script
-def compute_object_twist_in_plate_frame(
-    object_lin_vel_w: torch.Tensor,   # (N,3)
-    object_ang_vel_w: torch.Tensor,   # (N,3)
-    plate_lin_vel_w: torch.Tensor,    # (N,3)
-    plate_ang_vel_w: torch.Tensor,    # (N,3)
-    plate_quat_w: torch.Tensor,       # (N,4) (w,x,y,z)
-    plate_pos_w: torch.Tensor,        # (N,3)
-    object_pos_w: torch.Tensor,       # (N,3)
-) -> tuple[torch.Tensor, torch.Tensor]:
-    # relative velocity in world frame
-    r_op_w = object_pos_w - plate_pos_w
-    rel_ang_w = object_ang_vel_w - plate_ang_vel_w
-    rel_lin_w = object_lin_vel_w - plate_lin_vel_w - torch.cross(plate_ang_vel_w, r_op_w, dim=-1)
-    # transform to plate frame
-    rel_ang_p = quat_apply_inverse(plate_quat_w, rel_ang_w)
-    rel_lin_p = quat_apply_inverse(plate_quat_w, rel_lin_w)
-    return rel_lin_p, rel_ang_p
+    plate_quat_w = robot_asset.data.body_quat_w[:, plate_body_index, :]
+    plate_lin_vel_w = robot_asset.data.body_lin_vel_w[:, plate_body_index, :]
+    plate_ang_vel_w = robot_asset.data.body_ang_vel_w[:, plate_body_index, :]
+    lin_vel_in_plate_frame =  quat_apply_inverse(plate_quat_w, object_asset.data.root_lin_vel_w - plate_lin_vel_w)
+    ang_vel_in_plate_frame = quat_apply_inverse(plate_quat_w, object_asset.data.root_ang_vel_w - plate_ang_vel_w)
+    return torch.cat([lin_vel_in_plate_frame, ang_vel_in_plate_frame], dim=-1)
 
 
-@torch.jit.script
-def is_object_on_plate(object_pos_in_plate):
-    # check position
-    z_condition = torch.abs(object_pos_in_plate[:, 2]) < 0.1  # 10cm
-    xy_condition = torch.norm(object_pos_in_plate[:, :2], dim=1) < 0.3
 
-    return z_condition & xy_condition 
+def object_pose_in_camera_frame(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="d435_link"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+
+    # extract the used quantities (to enable type-hinting)
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+    camera_body_index = env.camera_body_index
+
+    # compute the object pose in the camera frame
+    camera_quat_w = robot_asset.data.body_quat_w[:, camera_body_index, :]
+    camera_pos_w = robot_asset.data.body_pos_w[:, camera_body_index, :]
+    pos_in_camera_frame = quat_apply_inverse(camera_quat_w, object_asset.data.root_pos_w - camera_pos_w)
+    quat_in_camera_frame = quat_mul(quat_inv(camera_quat_w), object_asset.data.root_quat_w)
+
+    return torch.cat([pos_in_camera_frame, quat_in_camera_frame], dim=-1)
+
+
+
+
+
+def object_pose_in_plate_frame_test(env: ManagerBasedEnv, plate_asset_cfg: SceneEntityCfg = SceneEntityCfg("plate"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+
+    # extract the used quantities (to enable type-hinting)
+    plate_asset: RigidObject = env.scene[plate_asset_cfg.name]
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+
+    # compute the object pose in the plate frame
+    plate_quat_w = plate_asset.data.root_quat_w
+    plate_pos_w = plate_asset.data.root_pos_w
+    pos_in_plate_frame = quat_apply_inverse(plate_quat_w, object_asset.data.root_pos_w - plate_pos_w)
+    quat_in_plate_frame = quat_mul(quat_inv(plate_quat_w), object_asset.data.root_quat_w)
+
+    return torch.cat([pos_in_plate_frame, quat_in_plate_frame], dim=-1)
+
+
+def object_twist_in_plate_frame_test(env: ManagerBasedEnv, plate_asset_cfg: SceneEntityCfg = SceneEntityCfg("plate"), object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object")) -> torch.Tensor:
+
+    # extract the used quantities (to enable type-hinting)
+    plate_asset: RigidObject = env.scene[plate_asset_cfg.name]
+    object_asset: RigidObject = env.scene[object_asset_cfg.name]
+
+
+    plate_quat_w = plate_asset.data.root_quat_w
+    plate_lin_vel_w = plate_asset.data.root_lin_vel_w
+    plate_ang_vel_w = plate_asset.data.root_ang_vel_w
+    lin_vel_in_plate_frame =  quat_apply_inverse(plate_quat_w, object_asset.data.root_lin_vel_w - plate_lin_vel_w)
+    ang_vel_in_plate_frame = quat_apply_inverse(plate_quat_w, object_asset.data.root_ang_vel_w - plate_ang_vel_w)
+    return torch.cat([lin_vel_in_plate_frame, ang_vel_in_plate_frame], dim=-1)
