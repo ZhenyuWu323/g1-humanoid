@@ -362,7 +362,7 @@ class G1ResidualEnv(DirectRLEnv):
         penalty_upper_body_dof_torques = mdp.joint_effort_l2(
             joint_effort=self.robot.data.applied_torque,
             joint_idx=self.upper_body_indexes,
-            weight=-0.005,
+            weight=-0.001, #0.005 too much
             clip=[-5.0, 0.0]
         )
 
@@ -445,8 +445,15 @@ class G1ResidualEnv(DirectRLEnv):
         # plate force xy l1
         penalty_plate_force_xy = mdp.plate_force_xy_l1(
             plate_wrench=self.robot.root_physx_view.get_link_incoming_joint_force()[:, self.plate_body_index, :],
-            weight=-0.1,
+            weight=-0.0, # 0.1 not sure if it will help or not
         )
+
+        # # print("[INFO] ISAACLAB API: ", self.robot.data.body_incoming_joint_wrench_b[:, self.plate_body_index, :])
+        # # print("[INFO] PhysX API: ", self.robot.root_physx_view.get_link_incoming_joint_force()[:, self.plate_body_index, :])
+        # res = self.robot.root_physx_view.shared_metatype.joint_indices
+        # print("[INFO] Fixed joint prim: ", len(res))
+        # arti_view = SingleArticulation("/World/envs/env_0/Robot")
+        # print("[INFO] right fixed joint prim: ", arti_view.get_measured_joint_forces()[39, :])
 
         # cosine curve to warm up for the object reward function, weight starts as 0
         # step cosine curve , 2000 time steps
