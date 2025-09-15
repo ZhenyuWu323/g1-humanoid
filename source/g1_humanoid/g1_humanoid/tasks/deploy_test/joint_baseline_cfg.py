@@ -30,35 +30,33 @@ class EventCfg:
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="^(?!.*_(hand|palm|base|thumb|index|middle|ring|little)).*$"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
             "static_friction_range": (0.3, 1.0),
             "dynamic_friction_range": (0.3, 1.0),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
     )
-    
-    hand_material = EventTerm(
+
+    object_physics_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"),
-            "static_friction_range": (2.5, 2.5),
-            "dynamic_friction_range": (2.5, 2.5),
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "static_friction_range": (0.3, 1.0),
+            "dynamic_friction_range": (0.3, 1.0),
             "restitution_range": (0.0, 0.0),
-            "num_buckets": 1,
+            "num_buckets": 64,
         },
     )
 
-    plate_material = EventTerm(
-        func=mdp.randomize_rigid_body_material,
+    add_object_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-            "static_friction_range": (0.7, 0.7),
-            "dynamic_friction_range": (0.7, 0.7),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 1,
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "mass_distribution_params": (0.05, 0.15),
+            "operation": "abs",
         },
     )
 
@@ -72,15 +70,24 @@ class EventCfg:
         },
     )
 
-    # add_plate_mass = EventTerm(
-    #     func=mdp.randomize_rigid_body_mass,
-    #     mode="startup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("plate", body_names=".*"),
-    #         "mass_distribution_params": (0.1, 1.0),
-    #         "operation": "abs",
-    #     },
-    # )
+    add_plate_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+            "mass_distribution_params": (0.3, 1.5),
+            "operation": "abs",
+        },
+    )
+
+    set_object_com = EventTerm(
+        func=mdp.randomize_rigid_body_com_fixed,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("object", body_names=".*"),
+            "com_range": {"x": (-0.01, 0.01), "y": (-0.01, 0.01), "z": (-0.02, 0.02)},
+        },
+    )
 
 
     # reset
@@ -119,15 +126,12 @@ class EventCfg:
         },
     )
 
-    reset_plate_object_state = EventTerm(
-        func=mdp.reset_plate_state,
+    reset_object = EventTerm(
+        func=mdp.reset_object_state,
         mode="reset",
         params={
-            "robot_asset_cfg": SceneEntityCfg("robot", body_names="pelvis"),
-            "plate_asset_cfg": SceneEntityCfg("plate"),
+            "robot_asset_cfg": SceneEntityCfg("robot", body_names="plate"),
             "object_asset_cfg": SceneEntityCfg("object"),
-            "plate_offset": [0.42, 0.0, 0.12],
-            "object_z_up": 0.1,
         },
     )
 
@@ -135,7 +139,7 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(5.0, 5.0),
+        interval_range_s=(5.0, 15.0),
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
 
@@ -192,11 +196,11 @@ class ObservationsCfg:
         joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
         last_action = ObsTerm(func=mdp.last_action)
-        plate_pose_robot_frame = ObsTerm(func=mdp.plate_pose_robot_frame)
-        plate_twist_robot_frame = ObsTerm(func=mdp.plate_twist_robot_frame)
+        #plate_pose_robot_frame = ObsTerm(func=mdp.plate_pose_robot_frame)
+        #plate_twist_robot_frame = ObsTerm(func=mdp.plate_twist_robot_frame)
         plate_projected_gravity = ObsTerm(func=mdp.plate_projected_gravity)
-        # plate_lin_acc_w = ObsTerm(func=mdp.plate_lin_acc_w)
-        # plate_ang_acc_w = ObsTerm(func=mdp.plate_ang_acc_w)
+        plate_lin_acc_w = ObsTerm(func=mdp.plate_lin_acc_w)
+        plate_ang_acc_w = ObsTerm(func=mdp.plate_ang_acc_w)
         def __post_init__(self):
             self.history_length = 5
 
@@ -292,10 +296,10 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     observation_space = {
         # upper body
         "upper_body_actor_obs": 480,
-        "upper_body_critic_obs": 480 + 15 + 80,
+        "upper_body_critic_obs": 480 + 15 + 45,
         # lower body
         "lower_body_actor_obs": 480,
-        "lower_body_critic_obs": 480 + 15 + 80,
+        "lower_body_critic_obs": 480 + 15 + 45,
     }
     action_dim= {
         "upper_body": 14,
@@ -388,7 +392,7 @@ class G1JointBaselineEnvCfg(DirectRLEnvCfg):
     pelvis_names = "pelvis"
     hand_names = "^(left|right)_(hand|palm|base|thumb|index|middle|ring|little).*$"
     not_hand_names = "^(?!.*_(hand|palm|base|thumb|index|middle|ring|little)).*$"
-    #plate_name = "plate"
+    plate_name = "plate"
 
     # gait phase
     gait_period = 0.8

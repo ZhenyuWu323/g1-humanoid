@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 import torch
 import isaaclab.utils.math as math_utils
@@ -424,6 +425,7 @@ def reset_object_state(
     robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate"),
     object_asset_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     object_z_up: float = 0.1,
+    random_position_radius: float = 0.12
 ):
     """Reset the state of the object."""
     # extract the used quantities (to enable type-hinting)
@@ -432,11 +434,23 @@ def reset_object_state(
     plate_body_index = robot_asset_cfg.body_ids
 
     reference_frame_states = robot_asset.data.body_state_w[env_ids, plate_body_index, :].clone()
+    num_envs = len(env_ids)
+    device = env.device
+
+    random_radius = torch.sqrt(torch.rand(num_envs, device=device)) * random_position_radius
+    random_angle = torch.rand(num_envs, device=device) * 2 * math.pi
+    
+    # Convert to cartesian coordinates in plate frame
+    random_x = random_radius * torch.cos(random_angle)
+    random_y = random_radius * torch.sin(random_angle)
+    
 
     # reset object
     object_pos_world = reference_frame_states[:, :3].clone()
     if isinstance(object_asset.cfg.spawn, sim_utils.CylinderCfg):
             object_z_up = object_asset.cfg.spawn.height / 2
-    object_pos_world[:, 2] += object_z_up
+    object_pos_world[:, 0] += random_x  # x offset
+    object_pos_world[:, 1] += random_y  # y offset
+    object_pos_world[:, 2] += object_z_up # z offset
     object_asset.write_root_link_pose_to_sim(torch.cat([object_pos_world, object_asset.data.default_root_state[env_ids, 3:7]], dim=-1), env_ids=env_ids)
     object_asset.write_root_com_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)

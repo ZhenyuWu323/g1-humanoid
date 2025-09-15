@@ -14,7 +14,7 @@ from isaaclab.utils.math import quat_rotate,quat_apply
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.utils.noise import GaussianNoiseCfg, NoiseModelCfg, UniformNoiseCfg
 from isaaclab.utils.noise.noise_model import uniform_noise
-from .residual_cfg import G1ResidualEnvCfg
+from .residual_cfg import G1ResidualDistillEnvCfg, G1ResidualEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from . import mdp
 from isaaclab.envs.common import VecEnvStepReturn
@@ -351,7 +351,8 @@ class G1ResidualEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            weight=compute_dof_pos_tracking_weight(self._object.data.projected_gravity_b),
+            #weight=compute_dof_pos_tracking_weight(self._object.data.projected_gravity_b),
+            weight = 0.5,
             sigma=0.1,
         )
 
@@ -684,3 +685,22 @@ def compute_obs(obs_tensors: List[torch.Tensor]) -> torch.Tensor:
     
     return torch.cat(obs_tensors, dim=-1)
 
+
+
+
+
+class G1ResidualDistillEnv(G1ResidualEnv):
+    cfg: G1ResidualDistillEnvCfg
+
+    def __init__(self, cfg: G1ResidualDistillEnvCfg, render_mode: str | None = None, **kwargs):
+        super().__init__(cfg, render_mode, **kwargs)
+
+    def _get_observations(self) -> dict:
+        obs_dict = self.observation_manager.compute()
+        action_dim = self.cfg.action_dim["upper_body"] + self.cfg.action_dim["lower_body"]
+        shared_actor_obs = obs_dict['actor_obs'][:, :-action_dim * self.obs_history_length]
+        residual_teacher_obs = torch.cat([shared_actor_obs, obs_dict['residual_teacher_obs']], dim=1)
+        residual_student_obs = torch.cat([shared_actor_obs, obs_dict['residual_student_obs']], dim=1)
+        obs_dict['residual_teacher_obs'] = residual_teacher_obs
+        obs_dict['residual_student_obs'] = residual_student_obs
+        return obs_dict

@@ -19,6 +19,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+from isaaclab.utils.noise import AdditiveGaussianNoiseCfg as Gnoise
 import isaaclab.terrains as terrain_gen
 
 @configclass
@@ -235,8 +236,10 @@ class ObservationsCfg:
         last_action = ObsTerm(func=mdp.residual_action)
         
         #object observations
-        object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
-        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame)
+        #object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        object_position_in_plate = ObsTerm(func=mdp.object_position_in_plate_frame, noise=Unoise(n_min=-0.01, n_max=0.01))
+        object_orientation_in_plate = ObsTerm(func=mdp.object_orientation_in_plate_frame, noise=mdp.UniformNoiseQuatCfg(min=-0.005, max=0.005))
+        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame, noise=Unoise(n_min=-0.2, n_max=0.2))
         object_physics = ObsTerm(func=mdp.object_physics)
         object_mass = ObsTerm(func=mdp.object_mass)
         object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
@@ -584,3 +587,109 @@ class G1ResidualEnvCfg(DirectRLEnvCfg):
         history_length=3,
     )
 
+
+@configclass
+class DistillObservationsCfg:
+    """Observation specifications for the MDP."""
+
+    @configclass
+    class PolicyCfg(ObsGroup):
+        """Observations for policy group."""
+
+        # observation terms (order preserved)
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, scale=0.2, noise=Unoise(n_min=-0.2, n_max=0.2))
+        projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.05, n_max=0.05))
+        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05, noise=Unoise(n_min=-1.5, n_max=1.5))
+        last_action = ObsTerm(func=mdp.base_action)
+
+        def __post_init__(self):
+            self.history_length = 5
+            self.enable_corruption = True
+            self.concatenate_terms = True
+
+    # observation groups
+    actor_obs: PolicyCfg = PolicyCfg()
+
+    @configclass
+    class CriticCfg(ObsGroup):
+        """Observations for critic group."""
+
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, scale=0.2)
+        projected_gravity = ObsTerm(func=mdp.projected_gravity)
+        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
+        joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel, scale=0.05)
+        last_action = ObsTerm(func=mdp.base_action)
+
+        def __post_init__(self):
+            self.history_length = 5
+
+    # privileged observations
+    critic_obs: CriticCfg = CriticCfg()
+
+
+    @configclass
+    class ResidualTeacherCfg(ObsGroup):
+        """Observations for residual group."""
+
+        # observation terms (order preserved)
+        last_action = ObsTerm(func=mdp.residual_action)
+        
+        #object observations
+        #object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        object_position_in_plate = ObsTerm(func=mdp.object_position_in_plate_frame, noise=Unoise(n_min=-0.01, n_max=0.01))
+        object_orientation_in_plate = ObsTerm(func=mdp.object_orientation_in_plate_frame, noise=mdp.UniformNoiseQuatCfg(min=-0.005, max=0.005))
+        object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame, noise=Unoise(n_min=-0.2, n_max=0.2))
+        object_physics = ObsTerm(func=mdp.object_physics)
+        object_mass = ObsTerm(func=mdp.object_mass)
+        object_projected_gravity = ObsTerm(func=mdp.object_projected_gravity)
+        def __post_init__(self):
+            self.history_length = 5
+            self.enable_corruption = True
+            self.concatenate_terms = True
+
+    @configclass
+    class ResidualStudentCfg(ObsGroup):
+        """Observations for residual group."""
+
+        # observation terms (order preserved)
+        last_action = ObsTerm(func=mdp.residual_action)
+
+        # object observations
+        object_position_in_camera = ObsTerm(func=mdp.object_position_in_camera_frame, noise=Gnoise(mean=0.0, std=0.02,operation="add"))
+        object_orientation_in_camera = ObsTerm(func=mdp.object_orientation_in_camera_frame, noise=mdp.GaussianNoiseQuatCfg(mean=0.0, std=0.0873))
+        def __post_init__(self):
+            self.history_length = 5
+            self.enable_corruption = True
+            self.concatenate_terms = True
+        
+
+    
+
+    # observation groups
+    residual_teacher_obs: ResidualTeacherCfg = ResidualTeacherCfg()
+    residual_student_obs: ResidualStudentCfg = ResidualStudentCfg()
+
+
+
+
+
+
+
+@configclass
+class G1ResidualDistillEnvCfg(G1ResidualEnvCfg):
+    """ G1 Residual Locomanipulation Distill Environment Configuration """
+
+    # observation
+    observations: DistillObservationsCfg = DistillObservationsCfg()
+
+    observation_space = {
+        "actor_obs": 480,
+        "critic_obs": 480 + 15,
+        "residual_actor_obs": 480,
+        "residual_student_obs": 35,
+        "residual_teacher_obs": 95,
+    }
