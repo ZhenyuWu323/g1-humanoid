@@ -135,7 +135,7 @@ class G1ResidualAdaptiveDistillRunnerCfg(G1ResidualAdaptivePPORunnerCfg):
 
     distillation_algorithm = RslRlDistillationAlgorithmCfg(
         num_learning_epochs=5, #5 is better
-        learning_rate=1e-4,
+        learning_rate=5e-4,
         gradient_length=1,
     )
 
