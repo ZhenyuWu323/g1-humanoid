@@ -157,6 +157,7 @@ class EventCfg:
         params={
             "robot_asset_cfg": SceneEntityCfg("robot", body_names="plate"),
             "object_asset_cfg": SceneEntityCfg("object"),
+            "random_position_radius": 0.00,
         },
     )
 
@@ -237,6 +238,7 @@ class ObservationsCfg:
         
         #object observations
         #object_pos_in_plate = ObsTerm(func=mdp.object_pose_in_plate_frame)
+        #NOTE: Adding noise doesnot work, need to train without noise then fine-tune with noise
         object_position_in_plate = ObsTerm(func=mdp.object_position_in_plate_frame, noise=Unoise(n_min=-0.01, n_max=0.01))
         object_orientation_in_plate = ObsTerm(func=mdp.object_orientation_in_plate_frame, noise=mdp.UniformNoiseQuatCfg(min=-0.005, max=0.005))
         object_twist_in_plate = ObsTerm(func=mdp.object_twist_in_plate_frame, noise=Unoise(n_min=-0.2, n_max=0.2))

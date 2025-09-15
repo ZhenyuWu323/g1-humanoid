@@ -351,8 +351,7 @@ class G1ResidualEnv(DirectRLEnv):
             joint_pos=self.robot.data.joint_pos,
             joint_idx=self.upper_body_indexes,
             joint_pos_command=self.default_upper_joint_pos,
-            #weight=compute_dof_pos_tracking_weight(self._object.data.projected_gravity_b),
-            weight = 0.5,
+            weight=compute_dof_pos_tracking_weight(self._object.data.projected_gravity_b),
             sigma=0.1,
         )
 
