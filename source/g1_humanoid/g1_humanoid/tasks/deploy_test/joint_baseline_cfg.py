@@ -132,6 +132,7 @@ class EventCfg:
         params={
             "robot_asset_cfg": SceneEntityCfg("robot", body_names="plate"),
             "object_asset_cfg": SceneEntityCfg("object"),
+            "random_position_radius": 0.00,
         },
     )
 

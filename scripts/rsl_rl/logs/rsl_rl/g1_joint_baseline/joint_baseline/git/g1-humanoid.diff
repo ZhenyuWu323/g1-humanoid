@@ -1,0 +1,106 @@
+--- git status ---
+On branch zhenyu
+Your branch is up to date with 'origin/zhenyu'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_cfg.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_env.py
+	modified:   source/g1_humanoid/g1_humanoid/tasks/deploy_test/mdp/observation.py
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_cfg.py b/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_cfg.py
+index 4f6439c..a7bf502 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_cfg.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_cfg.py
+@@ -132,6 +132,7 @@ class EventCfg:
+         params={
+             "robot_asset_cfg": SceneEntityCfg("robot", body_names="plate"),
+             "object_asset_cfg": SceneEntityCfg("object"),
++            "random_position_radius": 0.00,
+         },
+     )
+ 
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_env.py b/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_env.py
+index 20c330b..ad8ffe3 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_env.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/deploy_test/joint_baseline_env.py
+@@ -150,13 +150,13 @@ class G1JointBaselineEnv(DirectRLEnv):
+         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
+         self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+ 
+-        # plate
+-        self._plate = RigidObject(self.cfg.plate_cfg)
+-        self.scene.rigid_objects["plate"] = self._plate
++        # # plate
++        # self._plate = RigidObject(self.cfg.plate_cfg)
++        # self.scene.rigid_objects["plate"] = self._plate
+ 
+-        # plate contact sensor
+-        self._plate_contact_sensor = ContactSensor(self.cfg.plate_contact_sensor)
+-        self.scene.sensors["plate_contact_sensor"] = self._plate_contact_sensor
++        # # plate contact sensor
++        # self._plate_contact_sensor = ContactSensor(self.cfg.plate_contact_sensor)
++        # self.scene.sensors["plate_contact_sensor"] = self._plate_contact_sensor
+ 
+         # object
+         self._object = RigidObject(self.cfg.obj_cfg)
+@@ -354,7 +354,7 @@ class G1JointBaselineEnv(DirectRLEnv):
+         penalty_upper_body_dof_torques = mdp.joint_effort_l2(
+             joint_effort=self.robot.data.applied_torque,
+             joint_idx=self.upper_body_indexes,
+-            weight=-0.005, #0.005 too much
++            weight=-0.001, #0.005 too much
+             clip=[-5.0, 0.0]
+         )
+ 
+diff --git a/source/g1_humanoid/g1_humanoid/tasks/deploy_test/mdp/observation.py b/source/g1_humanoid/g1_humanoid/tasks/deploy_test/mdp/observation.py
+index 8c6bd13..8d252f5 100644
+--- a/source/g1_humanoid/g1_humanoid/tasks/deploy_test/mdp/observation.py
++++ b/source/g1_humanoid/g1_humanoid/tasks/deploy_test/mdp/observation.py
+@@ -18,24 +18,32 @@ if TYPE_CHECKING:
+ 
+ 
+ 
+-def plate_projected_gravity(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("plate")) -> torch.Tensor:
++def plate_projected_gravity(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate")) -> torch.Tensor:
+     """Projected gravity on the plate."""
+     # extract the used quantities (to enable type-hinting)
+-    asset: RigidObject = env.scene[asset_cfg.name]
+-    return asset.data.projected_gravity_b
++    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
++    plate_body_index = env.plate_body_index
++
++    plate_rot_w = robot_asset.data.body_quat_w[:, plate_body_index, :]
++    gravity_vec_w = robot_asset.data.GRAVITY_VEC_W
++    
++    plate_orientation = quat_apply_inverse(plate_rot_w, gravity_vec_w)
++    return plate_orientation
+ 
+-def plate_lin_acc_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("plate")) -> torch.Tensor:
++def plate_lin_acc_w(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate")) -> torch.Tensor:
+     """Linear acceleration of the plate in the world frame."""
+     # extract the used quantities (to enable type-hinting)
+-    asset: RigidObject = env.scene[asset_cfg.name]
+-    return asset.data.body_lin_acc_w
++    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
++    plate_body_index = env.plate_body_index
++    return robot_asset.data.body_lin_acc_w[:, plate_body_index, :]
+ 
+ 
+-def plate_ang_acc_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("plate")) -> torch.Tensor:
++def plate_ang_acc_w(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate")) -> torch.Tensor:
+     """Angular acceleration of the plate in the world frame."""
+     # extract the used quantities (to enable type-hinting)
+-    asset: RigidObject = env.scene[asset_cfg.name]
+-    return asset.data.body_ang_acc_w
++    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
++    plate_body_index = env.plate_body_index
++    return robot_asset.data.body_ang_acc_w[:, plate_body_index, :]
+ 
+ 
+ 

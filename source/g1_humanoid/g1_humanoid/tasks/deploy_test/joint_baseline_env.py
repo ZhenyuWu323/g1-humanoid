@@ -150,13 +150,13 @@ class G1JointBaselineEnv(DirectRLEnv):
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self.scene._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
-        # plate
-        self._plate = RigidObject(self.cfg.plate_cfg)
-        self.scene.rigid_objects["plate"] = self._plate
+        # # plate
+        # self._plate = RigidObject(self.cfg.plate_cfg)
+        # self.scene.rigid_objects["plate"] = self._plate
 
-        # plate contact sensor
-        self._plate_contact_sensor = ContactSensor(self.cfg.plate_contact_sensor)
-        self.scene.sensors["plate_contact_sensor"] = self._plate_contact_sensor
+        # # plate contact sensor
+        # self._plate_contact_sensor = ContactSensor(self.cfg.plate_contact_sensor)
+        # self.scene.sensors["plate_contact_sensor"] = self._plate_contact_sensor
 
         # object
         self._object = RigidObject(self.cfg.obj_cfg)
@@ -354,7 +354,7 @@ class G1JointBaselineEnv(DirectRLEnv):
         penalty_upper_body_dof_torques = mdp.joint_effort_l2(
             joint_effort=self.robot.data.applied_torque,
             joint_idx=self.upper_body_indexes,
-            weight=-0.005, #0.005 too much
+            weight=-0.001, #0.005 too much
             clip=[-5.0, 0.0]
         )
 

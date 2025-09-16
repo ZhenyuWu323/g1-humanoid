@@ -42,3 +42,8 @@ scripts/rsl_rl/logs/rsl_rl/g1_residual_adaptive_evaluate/*
 scripts/rsl_rl/logs/rsl_rl/g1_residual_stu/*
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_stu/residual_checkpoint
 !scripts/rsl_rl/logs/rsl_rl/g1_residual_stu/residual_checkpoint/**
+
+!scripts/rsl_rl/logs/rsl_rl/g1_joint_baseline
+scripts/rsl_rl/logs/rsl_rl/g1_joint_baseline/*
+!scripts/rsl_rl/logs/rsl_rl/g1_joint_baseline/joint_baseline
+!scripts/rsl_rl/logs/rsl_rl/g1_joint_baseline/joint_baseline/**

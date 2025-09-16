@@ -18,24 +18,32 @@ if TYPE_CHECKING:
 
 
 
-def plate_projected_gravity(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("plate")) -> torch.Tensor:
+def plate_projected_gravity(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate")) -> torch.Tensor:
     """Projected gravity on the plate."""
     # extract the used quantities (to enable type-hinting)
-    asset: RigidObject = env.scene[asset_cfg.name]
-    return asset.data.projected_gravity_b
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    plate_body_index = env.plate_body_index
 
-def plate_lin_acc_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("plate")) -> torch.Tensor:
+    plate_rot_w = robot_asset.data.body_quat_w[:, plate_body_index, :]
+    gravity_vec_w = robot_asset.data.GRAVITY_VEC_W
+    
+    plate_orientation = quat_apply_inverse(plate_rot_w, gravity_vec_w)
+    return plate_orientation
+
+def plate_lin_acc_w(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate")) -> torch.Tensor:
     """Linear acceleration of the plate in the world frame."""
     # extract the used quantities (to enable type-hinting)
-    asset: RigidObject = env.scene[asset_cfg.name]
-    return asset.data.body_lin_acc_w
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    plate_body_index = env.plate_body_index
+    return robot_asset.data.body_lin_acc_w[:, plate_body_index, :]
 
 
-def plate_ang_acc_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("plate")) -> torch.Tensor:
+def plate_ang_acc_w(env: ManagerBasedEnv, robot_asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names="plate")) -> torch.Tensor:
     """Angular acceleration of the plate in the world frame."""
     # extract the used quantities (to enable type-hinting)
-    asset: RigidObject = env.scene[asset_cfg.name]
-    return asset.data.body_ang_acc_w
+    robot_asset: Articulation = env.scene[robot_asset_cfg.name]
+    plate_body_index = env.plate_body_index
+    return robot_asset.data.body_ang_acc_w[:, plate_body_index, :]
 
 
 
